@@ -4,6 +4,8 @@ import pandas as pd
 from datetime import datetime, timedelta, date
 import os
 
+st.set_page_config(page_title="ECM Boat Scheduler", layout="centered")
+
 # ---------- GLOBAL STATE ----------
 if "show_form" not in st.session_state:
     st.session_state.show_form = True
@@ -120,7 +122,7 @@ def schedule_customer(data):
     return "❌ No valid time block available"
 
 # ---------- STREAMLIT LAYOUT ----------
-st.set_page_config(page_title="ECM Boat Scheduler", layout="centered")
+
 st.title("🛥️ ECM Boat Hauling Scheduler")
 st.markdown("#### Schedule a boat for pickup using live tide windows:")
 
