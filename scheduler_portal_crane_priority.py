@@ -65,10 +65,10 @@ def has_conflict(blocks, start, end):
 def valid_day(d):
     return d.weekday() < 5 or (d.weekday() == 5 and d.month in [5, 9])
 
-def try_schedule(d, data, tide_time, duration, requires_crane):
+def try_e(d, data, tide_time, duration, requires_crane):
     truck = data["Truck"]
     ramp = data["Destination"]
-    crane_locked_ramp = st.session_state.crane_schedule.get(d)
+    crane_locked_ramp = st.session_state.crane_e.get(d)
 
     if requires_crane and crane_locked_ramp and crane_locked_ramp != ramp:
         return None  # crane is at a different ramp already
@@ -95,9 +95,9 @@ def try_schedule(d, data, tide_time, duration, requires_crane):
         st.session_state.truck_bookings[truck].setdefault(d, []).append((cursor, end_time))
         if requires_crane:
             st.session_state.truck_bookings[17].setdefault(d, []).append((cursor, end_time))
-            st.session_state.crane_schedule[d] = ramp
+            st.session_state.crane_e[d] = ramp
 
-        st.session_state.schedule_log.append({
+        st.session_state.e_log.append({
             "Customer": data["Customer Name"],
             "Date": d.strftime('%B %d, %Y'),
             "Start": cursor.strftime('%-I:%M %p'),
@@ -181,3 +181,40 @@ with st.container():
         if st.button("📋 Schedule Another"):
             st.session_state.last_result = ""
             st.session_state.show_form = True
+
+    from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+import os
+
+def add_to_calendar(summary, description, start_dt, end_dt):
+    SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+    creds = None
+
+    # Load token or authenticate
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    else:
+        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+        creds = flow.run_local_server(port=0)
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+
+    service = build('calendar', 'v3', credentials=creds)
+
+    event = {
+        'summary': summary,
+        'description': description,
+        'start': {
+            'dateTime': start_dt.isoformat(),
+            'timeZone': 'America/New_York',
+        },
+        'end': {
+            'dateTime': end_dt.isoformat(),
+            'timeZone': 'America/New_York',
+        },
+    }
+
+    event = service.events().insert(calendarId='primary', body=event).execute()
+    return f"📅 Google Calendar event created: {event.get('htmlLink')}"
+    
