@@ -108,6 +108,15 @@ def try_e(d, data, tide_time, duration, requires_crane):
             "High Tide": tide_time.strftime('%-I:%M %p')
         })
 
+        calendar_msg = add_to_calendar(
+            summary=f"Hauling: {data['Customer Name']} → {data['Destination']}",
+            description=f"Truck {data['Truck']}, Crane: {'Yes' if requires_crane else 'No'}",
+            start_dt=cursor,
+            end_dt=end_time
+        )
+        st.info(calendar_msg)
+
+        
         return f"✅ Scheduled for {d.strftime('%B %d, %Y')} from {cursor.strftime('%-I:%M %p')} to {end_time.strftime('%-I:%M %p')}\nHigh Tide: {tide_time.strftime('%-I:%M %p')}, Truck: {truck}, Crane: {'Yes' if requires_crane else 'No'}"
 
         cursor += timedelta(minutes=15)
