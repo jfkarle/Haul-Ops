@@ -150,9 +150,9 @@ def build_week_calendar(start_date):
     trucks = ["S20", "S21", "S23", "S17"]
     # If proposed slots exist, show the date of the first proposed slot
     if st.session_state.proposed_slots:
-    day = st.session_state.proposed_slots[0][0]
+        day = st.session_state.proposed_slots[0][0]
     else:
-    day = start_date
+        day = start_date
 
 
     # MultiIndex columns: (Day, Truck)
