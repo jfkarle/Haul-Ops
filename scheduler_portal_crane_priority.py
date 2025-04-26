@@ -3,9 +3,23 @@ import pandas as pd
 from datetime import datetime, timedelta, time
 import os
 
+# --- PAGE CONFIG ---
 st.set_page_config(page_title="ECM Scheduler: Crane Priority", layout="wide")
 
-# --- FIRST: initialize critical session variables ---
+# --- DARK BACKGROUND ---
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #1e1e1e;
+        color: white;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# --- SESSION STATE INIT ---
 if "current_day" not in st.session_state:
     st.session_state.current_day = datetime.today().date()
 if "view_mode" not in st.session_state:
@@ -16,42 +30,56 @@ if "truck_bookings" not in st.session_state:
     st.session_state.truck_bookings = {20: {}, 21: {}, 23: {}, 17: {}}
 if "proposed_slots" not in st.session_state:
     st.session_state.proposed_slots = []
+if "pending_customer" not in st.session_state:
+    st.session_state.pending_customer = None
 
-# --- THEN inject your CSS, buttons, and page content ---
-st.markdown(
-    \"\"\"<style>
-    .main {
-        background-color: #1e1e1e;
-        color: white;
-    }
-    </style>\"\"\",
-    unsafe_allow_html=True
-)# Controls for calendar navigation
+# --- NAVIGATION CONTROLS ---
 col1, col2, col3 = st.columns([1,2,1])
 with col1:
     if st.button("⬅️ Previous"):
         if st.session_state.view_mode == "Day":
             st.session_state.current_day -= timedelta(days=1)
         elif st.session_state.view_mode == "Week":
-            st.session_state.current_day -= timedelta(days=7)
+            st.session_state.current_day -= timedelta(weeks=1)
         elif st.session_state.view_mode == "Month":
             st.session_state.current_day -= timedelta(days=30)
 with col2:
-    st.session_state.view_mode = st.selectbox("Select View", ["Day", "Week", "Month"], index=["Day", "Week", "Month"].index(st.session_state.view_mode))
+    st.session_state.view_mode = st.selectbox("Select View Mode", ["Day", "Week", "Month"], index=["Day", "Week", "Month"].index(st.session_state.view_mode))
 with col3:
     if st.button("Next ➡️"):
         if st.session_state.view_mode == "Day":
             st.session_state.current_day += timedelta(days=1)
         elif st.session_state.view_mode == "Week":
-            st.session_state.current_day += timedelta(days=7)
+            st.session_state.current_day += timedelta(weeks=1)
         elif st.session_state.view_mode == "Month":
             st.session_state.current_day += timedelta(days=30)
 
-# Build dynamic calendar
+# --- FIND 3 AVAILABLE SLOTS ---
+def find_available_slots(truck_num, requested_date):
+    slots = []
+    timeslots = [time(8,0), time(9,30), time(11,0), time(12,30), time(14,0)]
+    for days_ahead in range(30):  # look up to 30 days out
+        day = requested_date + timedelta(days=days_ahead)
+        bookings = st.session_state.truck_bookings.get(truck_num, {}).get(day, [])
+        for slot in timeslots:
+            slot_start = datetime.combine(day, slot)
+            slot_end = slot_start + timedelta(hours=1, minutes=30)
+            overlaps = False
+            for start, end in bookings:
+                if start < slot_end and end > slot_start:
+                    overlaps = True
+                    break
+            if not overlaps:
+                slots.append((day, slot))
+                if len(slots) == 3:
+                    return slots
+    return slots
 
+# --- BUILD CALENDAR ---
 def build_calendar(start_date, view_mode):
     timeslots = [time(8,0), time(9,30), time(11,0), time(12,30), time(14,0)]
     trucks = ["S20", "S21", "S23", "S17"]
+    days = []
 
     if view_mode == "Day":
         days = [start_date]
@@ -60,26 +88,18 @@ def build_calendar(start_date, view_mode):
     elif view_mode == "Month":
         days = [start_date + timedelta(days=i) for i in range(30)]
 
-    # MultiIndex columns: (Day, Truck)
     columns = pd.MultiIndex.from_tuples(
         [(d.strftime('%a %b %d'), truck) for d in days for truck in trucks],
         names=["Day", "Truck"]
     )
 
-    index = [t.strftime('%-I:%M %p') for t in timeslots]
-    calendar = pd.DataFrame('', index=index, columns=columns)
+    calendar = pd.DataFrame(index=[t.strftime('%-I:%M %p') for t in timeslots], columns=columns)
 
-    truck_map = {20: "S20", 21: "S21", 23: "S23", 17: "S17"}
-
-    # Scheduled lookup
     scheduled_lookup = {}
-    for record in st.session_state.schedule_log:
-        d = datetime.strptime(record["Date"], '%B %d, %Y').date()
-        start_time = datetime.strptime(record["Start"], '%I:%M %p').time()
-        truck = f"S{record['Truck']}"
-        scheduled_lookup[(d, start_time, truck)] = f"{record['Customer']} @ {record['Ramp']}"
+    for entry in st.session_state.schedule_log:
+        scheduled_lookup[(entry['Date'], entry['Start Time'], entry['Truck'])] = f"{entry['Customer']} @ {entry['Ramp']}"
 
-    for truck_num, truck_label in truck_map.items():
+    for truck_num, truck_label in zip([20, 21, 23, 17], trucks):
         for d in days:
             bookings = st.session_state.truck_bookings.get(truck_num, {}).get(d, [])
             for start, end in bookings:
@@ -89,28 +109,67 @@ def build_calendar(start_date, view_mode):
                         label = scheduled_lookup.get((d, slot_time, truck_label), "Scheduled")
                         calendar.at[slot_time.strftime('%-I:%M %p'), (d.strftime('%a %b %d'), truck_label)] = label
 
-    # Proposed available slots
     if st.session_state.proposed_slots:
         for d, t in st.session_state.proposed_slots:
-            if d in days:
-                for truck_label in trucks:
-                    col = (d.strftime('%a %b %d'), truck_label)
-                    row = t.strftime('%-I:%M %p')
-                    if col in calendar.columns and (calendar.at[row, col] == '' or calendar.at[row, col] == 'None'):
+            for truck in trucks:
+                col = (d.strftime('%a %b %d'), truck)
+                row = t.strftime('%-I:%M %p')
+                if col in calendar.columns and row in calendar.index:
+                    if pd.isna(calendar.at[row, col]) or calendar.at[row, col] == '':
                         calendar.at[row, col] = "🟢"
-                        break
 
-    return calendar.style.set_properties(
-        **{
-            'max-width': '150px',
-            'white-space': 'wrap',
-            'overflow-wrap': 'break-word',
-            'text-align': 'center'
+    return calendar
+
+# --- CUSTOMER FORM ---
+st.markdown("### 📋 Schedule New Delivery")
+with st.form("customer_form"):
+    customer = st.text_input("Customer Name")
+    ramp = st.text_input("Destination Ramp")
+    truck = st.selectbox("Select Truck", [20, 21, 23])
+    requested_date = st.date_input("Requested Delivery Date", value=datetime.today())
+    submit = st.form_submit_button("Find Available Slots")
+
+if submit and customer and ramp:
+    available_slots = find_available_slots(truck, requested_date)
+    if available_slots:
+        st.session_state.proposed_slots = available_slots
+        st.session_state.pending_customer = {
+            "Customer": customer,
+            "Ramp": ramp,
+            "Truck": truck
         }
-    )
+    else:
+        st.error("No available slots found!")
 
+# --- SLOT SELECTION ---
+if st.session_state.proposed_slots and st.session_state.pending_customer:
+    selected = st.radio("Select a slot to confirm:", [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots])
+    if st.button("✅ Confirm Selection"):
+        idx = [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots].index(selected)
+        selected_slot = st.session_state.proposed_slots[idx]
+        day, slot = selected_slot
+        slot_start = datetime.combine(day, slot)
+        slot_end = slot_start + timedelta(hours=1, minutes=30)
+
+        if truck not in st.session_state.truck_bookings:
+            st.session_state.truck_bookings[truck] = {}
+        if day not in st.session_state.truck_bookings[truck]:
+            st.session_state.truck_bookings[truck][day] = []
+        st.session_state.truck_bookings[truck][day].append((slot_start, slot_end))
+
+        st.session_state.schedule_log.append({
+            "Customer": st.session_state.pending_customer["Customer"],
+            "Ramp": st.session_state.pending_customer["Ramp"],
+            "Truck": f"S{truck}",
+            "Date": day,
+            "Start Time": slot,
+        })
+
+        st.session_state.proposed_slots = []
+        st.session_state.pending_customer = None
+        st.success("Scheduled successfully!")
+
+# --- DISPLAY CALENDAR ---
 st.markdown("### 📅 Current Schedule Overview")
 cal = build_calendar(st.session_state.current_day, st.session_state.view_mode)
 st.dataframe(cal)
-
-don't forget to stick it to the man, brother! 🚀
