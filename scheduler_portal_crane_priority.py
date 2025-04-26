@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime, timedelta, date, time
 import os
 
-st.set_page_config(page_title="ECM Scheduler: Crane Priority", layout="centered")
+st.set_page_config(page_title="ECM Scheduler: Crane Priority", layout="wide")
 
 ramp_options = [
     "Sandwich Basin", "Plymouth Harbor", "Cordage Park (Ply)", "Duxbury Harbor",
