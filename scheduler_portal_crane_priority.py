@@ -102,20 +102,20 @@ def find_available_slots(data, max_slots=3):
         while cursor + duration <= tide_window_end:
             truck_day = st.session_state.truck_bookings[truck].get(d, [])
             if has_conflict(truck_day, cursor, cursor + duration):
-                cursor += timedelta(minutes=15)
+                cursor += timedelta(hours=1.5)
                 continue
 
             if requires_crane:
                 crane_day = st.session_state.truck_bookings[17].get(d, [])
                 if has_conflict(crane_day, cursor, cursor + duration):
-                    cursor += timedelta(minutes=15)
+                    cursor += timedelta(hours=1.5)
                     continue
 
             found_slots.append((d, cursor))
             if len(found_slots) >= max_slots:
                 return found_slots
 
-            cursor += timedelta(minutes=15)
+            cursor += timedelta(hours=1.5)
     return found_slots
 
 def schedule_specific_slot(data, selected_slot):
