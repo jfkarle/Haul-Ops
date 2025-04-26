@@ -162,6 +162,14 @@ def build_week_calendar(start_date):
     # Fill booked trucks
     truck_map = {20: "S20", 21: "S21", 23: "S23", 17: "S17"}
 
+    # Build a lookup for scheduled slots
+    scheduled_lookup = {}
+    for record in st.session_state.schedule_log:
+        d = datetime.strptime(record["Date"], '%B %d, %Y').date()
+        start_time = datetime.strptime(record["Start"], '%I:%M %p').time()
+        truck = f"S{record['Truck']}"
+        scheduled_lookup[(d, start_time, truck)] = f"{record['Customer']} @ {record['Ramp']}"
+
     for truck_num, truck_label in truck_map.items():
         for d in days:
             bookings = st.session_state.truck_bookings.get(truck_num, {}).get(d, [])
@@ -169,7 +177,8 @@ def build_week_calendar(start_date):
                 for slot_time in timeslots:
                     slot_dt = datetime.combine(d, slot_time)
                     if start <= slot_dt < end:
-                        calendar.at[slot_time.strftime('%-I:%M %p'), (d.strftime('%a %b %d'), truck_label)] = "Scheduled"
+                        label = scheduled_lookup.get((d, slot_time.time(), truck_label), "Scheduled")
+                        calendar.at[slot_time.strftime('%-I:%M %p'), (d.strftime('%a %b %d'), truck_label)] = label
 
     # Fill available slots for proposed slots with green dot
     if st.session_state.proposed_slots:
