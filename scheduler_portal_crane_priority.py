@@ -148,11 +148,11 @@ def schedule_specific_slot(data, selected_slot):
 def build_week_calendar(start_date):
     timeslots = [time(8,0), time(9,30), time(11,0), time(12,30), time(14,0)]
     trucks = ["S20", "S21", "S23", "S17"]
-    days = [start_date + timedelta(days=i) for i in range(7)]
+    day = start_date  # single day only
 
     # MultiIndex columns: (Day, Truck)
     columns = pd.MultiIndex.from_tuples(
-        [(d.strftime('%a %b %d'), truck) for d in days for truck in trucks],
+        [(day.strftime('%a %b %d'), truck) for truck in trucks],
         names=["Day", "Truck"]
     )
 
@@ -171,26 +171,33 @@ def build_week_calendar(start_date):
         scheduled_lookup[(d, start_time, truck)] = f"{record['Customer']} @ {record['Ramp']}"
 
     for truck_num, truck_label in truck_map.items():
-        for d in days:
-            bookings = st.session_state.truck_bookings.get(truck_num, {}).get(d, [])
-            for start, end in bookings:
-                for slot_time in timeslots:
-                    slot_dt = datetime.combine(d, slot_time)
-                    if start <= slot_dt < end:
-                        label = scheduled_lookup.get((d, slot_time, truck_label), "Scheduled")
-                        calendar.at[slot_time.strftime('%-I:%M %p'), (d.strftime('%a %b %d'), truck_label)] = label
+        bookings = st.session_state.truck_bookings.get(truck_num, {}).get(day, [])
+        for start, end in bookings:
+            for slot_time in timeslots:
+                slot_dt = datetime.combine(day, slot_time)
+                if start <= slot_dt < end:
+                    label = scheduled_lookup.get((day, slot_time, truck_label), "Scheduled")
+                    calendar.at[slot_time.strftime('%-I:%M %p'), (day.strftime('%a %b %d'), truck_label)] = label
 
     # Fill available slots for proposed slots with green dot
     if st.session_state.proposed_slots:
         for d, t in st.session_state.proposed_slots:
-            for truck_label in trucks:
-                col = (d.strftime('%a %b %d'), truck_label)
-                row = t.strftime('%-I:%M %p')
-                if col in calendar.columns and (calendar.at[row, col] == '' or calendar.at[row, col] == 'None'):
-                    calendar.at[row, col] = "🟢"
-                    break  # Only fill one truck slot per proposed slot
+            if d == day:
+                for truck_label in trucks:
+                    col = (day.strftime('%a %b %d'), truck_label)
+                    row = t.strftime('%-I:%M %p')
+                    if col in calendar.columns and (calendar.at[row, col] == '' or calendar.at[row, col] == 'None'):
+                        calendar.at[row, col] = "🟢"
+                        break  # Only fill one truck slot per proposed slot
 
-    return calendar
+    return calendar.style.set_properties(
+        **{
+            'max-width': '150px',
+            'white-space': 'wrap',
+            'overflow-wrap': 'break-word',
+            'text-align': 'center'
+        }
+    )
 
 
 # Streamlit UI Layout
