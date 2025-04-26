@@ -177,7 +177,7 @@ def build_week_calendar(start_date):
                 for slot_time in timeslots:
                     slot_dt = datetime.combine(d, slot_time)
                     if start <= slot_dt < end:
-                        label = scheduled_lookup.get((d, slot_time.time(), truck_label), "Scheduled")
+                        label = scheduled_lookup.get((d, slot_time, truck_label), "Scheduled")
                         calendar.at[slot_time.strftime('%-I:%M %p'), (d.strftime('%a %b %d'), truck_label)] = label
 
     # Fill available slots for proposed slots with green dot
