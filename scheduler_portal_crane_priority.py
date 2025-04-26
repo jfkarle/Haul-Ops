@@ -221,7 +221,9 @@ with st.container():
     else:
         if st.session_state.pending_data:
             requested_date_display = st.session_state.pending_data["Requested Date"].strftime('%B %d, %Y')
-            st.markdown(f"**You requested:** {requested_date_display}")
+            st.markdown("---")  # horizontal rule separator
+            st.markdown(f"### 📅 You requested: {requested_date_display}")
+
 
             selected = st.radio("Select a slot to confirm:", [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots])
 
