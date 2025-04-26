@@ -1,4 +1,4 @@
-# ECM Scheduler Full Rebuild: Manual Slot Picker + Calendar + Snap to Standard Times
+# ECM Scheduler Full Rebuild: Manual Slot Picker + Calendar + Snap to Standard Times + Show Requested Date
 
 import streamlit as st
 import pandas as pd
@@ -219,7 +219,11 @@ with st.container():
                 else:
                     st.error("No available slots found.")
     else:
+        requested_date_display = st.session_state.pending_data["Requested Date"].strftime('%B %d, %Y')
+        st.markdown(f"**You requested:** {requested_date_display}")
+
         selected = st.radio("Select a slot to confirm:", [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots])
+
         if st.button("✅ Confirm Selection"):
             idx = [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots].index(selected)
             selected_slot = st.session_state.proposed_slots[idx]
