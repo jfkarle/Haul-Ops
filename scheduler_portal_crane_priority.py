@@ -218,12 +218,12 @@ with st.container():
                     st.session_state.show_form = False
                 else:
                     st.error("No available slots found.")
-     else:
-      if st.session_state.pending_data:
-          requested_date_display = st.session_state.pending_data["Requested Date"].strftime('%B %d, %Y')
-          st.markdown(f"**You requested:** {requested_date_display}")
+    else:
+        if st.session_state.pending_data:
+            requested_date_display = st.session_state.pending_data["Requested Date"].strftime('%B %d, %Y')
+            st.markdown(f"**You requested:** {requested_date_display}")
 
-        selected = st.radio("Select a slot to confirm:", [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots])
+            selected = st.radio("Select a slot to confirm:", [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots])
 
         if st.button("✅ Confirm Selection"):
             idx = [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots].index(selected)
