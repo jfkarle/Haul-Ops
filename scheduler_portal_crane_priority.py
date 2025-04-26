@@ -148,7 +148,12 @@ def schedule_specific_slot(data, selected_slot):
 def build_week_calendar(start_date):
     timeslots = [time(8,0), time(9,30), time(11,0), time(12,30), time(14,0)]
     trucks = ["S20", "S21", "S23", "S17"]
-    day = start_date  # single day only
+    # If proposed slots exist, show the date of the first proposed slot
+    if st.session_state.proposed_slots:
+    day = st.session_state.proposed_slots[0][0]
+    else:
+    day = start_date
+
 
     # MultiIndex columns: (Day, Truck)
     columns = pd.MultiIndex.from_tuples(
