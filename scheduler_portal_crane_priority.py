@@ -1,4 +1,4 @@
-# ECM Scheduler Patch: Manual Slot Selection Mode + Calendar View
+# ECM Scheduler Patch: Manual Slot Selection Mode + Calendar View with Available Markers
 
 import streamlit as st
 import pandas as pd
@@ -158,6 +158,14 @@ def build_week_calendar(start_date):
                         prev = calendar.at[slot_time.strftime('%-I:%M %p'), d.strftime('%a %b %d')]
                         label = f"T{truck}"
                         calendar.at[slot_time.strftime('%-I:%M %p'), d.strftime('%a %b %d')] = (str(prev) + ' / ' if pd.notna(prev) else '') + label
+
+    if st.session_state.proposed_slots:
+        for d, t in st.session_state.proposed_slots:
+            col = d.strftime('%a %b %d')
+            row = t.strftime('%-I:%M %p')
+            if col in calendar.columns and row in calendar.index:
+                if pd.isna(calendar.at[row, col]) or calendar.at[row, col] == '':
+                    calendar.at[row, col] = 'Available'
 
     return calendar
 
