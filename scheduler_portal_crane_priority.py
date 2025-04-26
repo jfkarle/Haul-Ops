@@ -143,33 +143,46 @@ def schedule_specific_slot(data, selected_slot):
         "High Tide": get_high_tide(data["Destination"], d)
     })
 
+# 🛠️ Fully rebuilt calendar function to split days into S20, S21, S23, S17 subcolumns
+
 def build_week_calendar(start_date):
     timeslots = [time(8,0), time(9,30), time(11,0), time(12,30), time(14,0)]
+    trucks = ["S20", "S21", "S23", "S17"]
     days = [start_date + timedelta(days=i) for i in range(7)]
 
-    calendar = pd.DataFrame(index=[t.strftime('%-I:%M %p') for t in timeslots],
-                             columns=[d.strftime('%a %b %d') for d in days])
+    # MultiIndex columns: (Day, Truck)
+    columns = pd.MultiIndex.from_tuples(
+        [(d.strftime('%a %b %d'), truck) for d in days for truck in trucks],
+        names=["Day", "Truck"]
+    )
 
-    for truck in [20, 21, 23, 17]:
+    index = [t.strftime('%-I:%M %p') for t in timeslots]
+    calendar = pd.DataFrame('', index=index, columns=columns)
+
+    # Fill booked trucks
+    truck_map = {20: "S20", 21: "S21", 23: "S23", 17: "S17"}
+
+    for truck_num, truck_label in truck_map.items():
         for d in days:
-            bookings = st.session_state.truck_bookings[truck].get(d, [])
+            bookings = st.session_state.truck_bookings.get(truck_num, {}).get(d, [])
             for start, end in bookings:
                 for slot_time in timeslots:
                     slot_dt = datetime.combine(d, slot_time)
                     if start <= slot_dt < end:
-                        prev = calendar.at[slot_time.strftime('%-I:%M %p'), d.strftime('%a %b %d')]
-                        label = f"T{truck}"
-                        calendar.at[slot_time.strftime('%-I:%M %p'), d.strftime('%a %b %d')] = (str(prev) + ' / ' if pd.notna(prev) else '') + label
+                        calendar.at[slot_time.strftime('%-I:%M %p'), (d.strftime('%a %b %d'), truck_label)] = "Scheduled"
 
+    # Fill available slots for proposed slots
     if st.session_state.proposed_slots:
         for d, t in st.session_state.proposed_slots:
-            col = d.strftime('%a %b %d')
-            row = t.strftime('%-I:%M %p')
-            if col in calendar.columns and row in calendar.index:
-                if pd.isna(calendar.at[row, col]) or calendar.at[row, col] == '':
-                    calendar.at[row, col] = 'Available'
+            for truck_label in trucks:
+                col = (d.strftime('%a %b %d'), truck_label)
+                row = t.strftime('%-I:%M %p')
+                if col in calendar.columns and (calendar.at[row, col] == '' or calendar.at[row, col] == 'None'):
+                    calendar.at[row, col] = "Available"
+                    break  # Only fill one truck slot per proposed slot
 
     return calendar
+
 
 # Streamlit UI Layout
 st.title("🛥️ ECM Scheduler (Crane Priority)")
