@@ -157,7 +157,8 @@ def build_week_calendar(start_date):
                     if start <= slot_dt < end:
                         prev = calendar.at[slot_time.strftime('%-I:%M %p'), d.strftime('%a %b %d')]
                         label = f"T{truck}"
-                        calendar.at[slot_time.strftime('%-I:%M %p'), d.strftime('%a %b %d')] = (prev + ' / ' if prev else '') + label
+                        calendar.at[slot_time.strftime('%-I:%M %p'), d.strftime('%a %b %d')] = (str(prev) + ' / ' if pd.notna(prev) else '') + label
+
     return calendar
 
 st.title("🛥️ ECM Scheduler (Crane Priority)")
