@@ -1,5 +1,4 @@
-
-# ECM Scheduler Patch: Enforce Crane at One Ramp per Day + Prioritize Same-Ramp Sailboats
+# ECM Scheduler Patch: Manual Slot Selection Mode
 
 import streamlit as st
 import pandas as pd
@@ -26,6 +25,10 @@ if "truck_bookings" not in st.session_state:
     st.session_state.truck_bookings = {20: {}, 21: {}, 23: {}, 17: {}}
 if "crane_schedule" not in st.session_state:
     st.session_state.crane_schedule = {}
+if "proposed_slots" not in st.session_state:
+    st.session_state.proposed_slots = []
+if "pending_data" not in st.session_state:
+    st.session_state.pending_data = None
 
 tide_data = {}
 for file in os.listdir():
@@ -65,58 +68,11 @@ def has_conflict(blocks, start, end):
 def valid_day(d):
     return d.weekday() < 5 or (d.weekday() == 5 and d.month in [5, 9])
 
-def try_schedule(d, data, tide_time, duration, requires_crane):
-    truck = data["Truck"]
-    ramp = data["Destination"]
-    crane_locked_ramp = st.session_state.crane_schedule.get(d)
-
-    if requires_crane and crane_locked_ramp and crane_locked_ramp != ramp:
-        return None  # crane is at a different ramp already
-
-    tide_window_start = max(datetime.combine(d, datetime.strptime("08:00 AM", "%I:%M %p").time()),
-                            datetime.combine(d, (datetime.combine(d, tide_time) - timedelta(hours=3)).time()))
-    tide_window_end = min(datetime.combine(d, datetime.strptime("2:30 PM", "%I:%M %p").time()),
-                          datetime.combine(d, (datetime.combine(d, tide_time) + timedelta(hours=3)).time()))
-
-    cursor = tide_window_start
-    while cursor + duration <= tide_window_end:
-        truck_day = st.session_state.truck_bookings[truck].get(d, [])
-        if has_conflict(truck_day, cursor, cursor + duration):
-            cursor += timedelta(minutes=15)
-            continue
-
-        if requires_crane:
-            crane_day = st.session_state.truck_bookings[17].get(d, [])
-            if has_conflict(crane_day, cursor, cursor + duration):
-                cursor += timedelta(minutes=15)
-                continue
-
-        end_time = cursor + duration
-        st.session_state.truck_bookings[truck].setdefault(d, []).append((cursor, end_time))
-        if requires_crane:
-            st.session_state.truck_bookings[17].setdefault(d, []).append((cursor, end_time))
-            st.session_state.crane_schedule[d] = ramp
-
-        st.session_state.schedule_log.append({
-            "Customer": data["Customer Name"],
-            "Date": d.strftime('%B %d, %Y'),
-            "Start": cursor.strftime('%-I:%M %p'),
-            "End": end_time.strftime('%-I:%M %p'),
-            "Truck": truck,
-            "Crane": "Yes" if requires_crane else "No",
-            "Ramp": ramp,
-            "High Tide": tide_time.strftime('%-I:%M %p')
-        })
-
-        return f"✅ Scheduled for {d.strftime('%B %d, %Y')} from {cursor.strftime('%-I:%M %p')} to {end_time.strftime('%-I:%M %p')}\nHigh Tide: {tide_time.strftime('%-I:%M %p')}, Truck: {truck}, Crane: {'Yes' if requires_crane else 'No'}"
-
-        cursor += timedelta(minutes=15)
-    return None
-
-def schedule_customer(data):
+def find_available_slots(data, max_slots=3):
     orig = pd.to_datetime(data["Requested Date"]).date()
     duration = timedelta(hours=1.5 if data["Boat Type"].lower() == "powerboat" else 3)
     requires_crane = data["Boat Type"].lower() == "sailboat"
+    found_slots = []
 
     for i in range(0, 31):
         d = orig + timedelta(days=i)
@@ -130,11 +86,62 @@ def schedule_customer(data):
         except:
             continue
 
-        result = try_schedule(d, data, tide_time, duration, requires_crane)
-        if result:
-            return result
+        truck = data["Truck"]
+        ramp = data["Destination"]
+        crane_locked_ramp = st.session_state.crane_schedule.get(d)
 
-    return "❌ No valid time block found in next 30 days."
+        if requires_crane and crane_locked_ramp and crane_locked_ramp != ramp:
+            continue
+
+        tide_window_start = max(datetime.combine(d, datetime.strptime("08:00 AM", "%I:%M %p").time()),
+                                datetime.combine(d, (datetime.combine(d, tide_time) - timedelta(hours=3)).time()))
+        tide_window_end = min(datetime.combine(d, datetime.strptime("2:30 PM", "%I:%M %p").time()),
+                              datetime.combine(d, (datetime.combine(d, tide_time) + timedelta(hours=3)).time()))
+
+        cursor = tide_window_start
+        while cursor + duration <= tide_window_end:
+            truck_day = st.session_state.truck_bookings[truck].get(d, [])
+            if has_conflict(truck_day, cursor, cursor + duration):
+                cursor += timedelta(minutes=15)
+                continue
+
+            if requires_crane:
+                crane_day = st.session_state.truck_bookings[17].get(d, [])
+                if has_conflict(crane_day, cursor, cursor + duration):
+                    cursor += timedelta(minutes=15)
+                    continue
+
+            found_slots.append((d, cursor))
+            if len(found_slots) >= max_slots:
+                return found_slots
+
+            cursor += timedelta(minutes=15)
+    return found_slots
+
+def schedule_specific_slot(data, selected_slot):
+    d, cursor = selected_slot
+    duration = timedelta(hours=1.5 if data["Boat Type"].lower() == "powerboat" else 3)
+    requires_crane = data["Boat Type"].lower() == "sailboat"
+    truck = data["Truck"]
+
+    end_time = cursor + duration
+    st.session_state.truck_bookings[truck].setdefault(d, []).append((cursor, end_time))
+    if requires_crane:
+        st.session_state.truck_bookings[17].setdefault(d, []).append((cursor, end_time))
+        st.session_state.crane_schedule[d] = data["Destination"]
+
+    st.session_state.schedule_log.append({
+        "Customer": data["Customer Name"],
+        "Date": d.strftime('%B %d, %Y'),
+        "Start": cursor.strftime('%-I:%M %p'),
+        "End": end_time.strftime('%-I:%M %p'),
+        "Truck": truck,
+        "Crane": "Yes" if requires_crane else "No",
+        "Ramp": data["Destination"],
+        "High Tide": get_high_tide(data["Destination"], d)
+    })
+
+st.title("🛥️ ECM Scheduler (Crane Priority)")
 
 if st.sidebar.checkbox("📋 View Scheduled Boats"):
     if st.session_state.schedule_log:
@@ -142,7 +149,6 @@ if st.sidebar.checkbox("📋 View Scheduled Boats"):
     else:
         st.sidebar.info("No scheduled boats yet.")
 
-st.title("🛥️ ECM Scheduler (Crane Priority)")
 with st.container():
     if st.session_state.show_form:
         with st.form("schedule_form"):
@@ -160,7 +166,7 @@ with st.container():
             origin = st.text_input("Origin Address")
             dest = st.selectbox("Destination Ramp", ramp_options)
 
-            submitted = st.form_submit_button("📦 Schedule Now")
+            submitted = st.form_submit_button("📦 Find Available Slots")
 
             if submitted:
                 data = {
@@ -174,11 +180,20 @@ with st.container():
                     "Destination": dest,
                     "Requested Date": req_date
                 }
-                st.session_state.last_result = schedule_customer(data)
-                st.session_state.show_form = False
+                slots = find_available_slots(data)
+                if slots:
+                    st.session_state.proposed_slots = slots
+                    st.session_state.pending_data = data
+                    st.session_state.show_form = False
+                else:
+                    st.error("No available slots found.")
     else:
-        st.success(st.session_state.last_result)
-        if st.button("📋 Schedule Another"):
-            st.session_state.last_result = ""
+        selected = st.radio("Select a slot to confirm:", [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots])
+        if st.button("✅ Confirm Selection"):
+            idx = [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots].index(selected)
+            selected_slot = st.session_state.proposed_slots[idx]
+            schedule_specific_slot(st.session_state.pending_data, selected_slot)
+            st.success("Scheduled successfully!")
+            st.session_state.proposed_slots = []
+            st.session_state.pending_data = None
             st.session_state.show_form = True
-
