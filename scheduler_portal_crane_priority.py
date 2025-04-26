@@ -1,8 +1,8 @@
-# ECM Scheduler Patch: Manual Slot Selection Mode
+# ECM Scheduler Patch: Manual Slot Selection Mode + Calendar View
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 import os
 
 st.set_page_config(page_title="ECM Scheduler: Crane Priority", layout="centered")
@@ -141,6 +141,25 @@ def schedule_specific_slot(data, selected_slot):
         "High Tide": get_high_tide(data["Destination"], d)
     })
 
+def build_week_calendar(start_date):
+    timeslots = [time(8,0), time(9,30), time(11,0), time(12,30), time(14,0)]
+    days = [start_date + timedelta(days=i) for i in range(7)]
+
+    calendar = pd.DataFrame(index=[t.strftime('%-I:%M %p') for t in timeslots],
+                             columns=[d.strftime('%a %b %d') for d in days])
+
+    for truck in [20, 21, 23, 17]:
+        for d in days:
+            bookings = st.session_state.truck_bookings[truck].get(d, [])
+            for start, end in bookings:
+                for slot_time in timeslots:
+                    slot_dt = datetime.combine(d, slot_time)
+                    if start <= slot_dt < end:
+                        prev = calendar.at[slot_time.strftime('%-I:%M %p'), d.strftime('%a %b %d')]
+                        label = f"T{truck}"
+                        calendar.at[slot_time.strftime('%-I:%M %p'), d.strftime('%a %b %d')] = (prev + ' / ' if prev else '') + label
+    return calendar
+
 st.title("🛥️ ECM Scheduler (Crane Priority)")
 
 if st.sidebar.checkbox("📋 View Scheduled Boats"):
@@ -197,3 +216,8 @@ with st.container():
             st.session_state.proposed_slots = []
             st.session_state.pending_data = None
             st.session_state.show_form = True
+
+        st.markdown("### 📅 Current Schedule Overview (1 Week)")
+        week_start = datetime.today().date()
+        cal = build_week_calendar(week_start)
+        st.dataframe(cal)
