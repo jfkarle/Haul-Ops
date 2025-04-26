@@ -1,5 +1,3 @@
-# ECM Scheduler - Full Calendar Ops Upgrade
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time
@@ -7,26 +5,28 @@ import os
 
 st.set_page_config(page_title="ECM Scheduler: Crane Priority", layout="wide")
 
-# Dark background CSS
-st.markdown(
-    """
-    <style>
-    .main {
-        background-color: #1e1e1e;
-        color: white;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# Initialize session state variables
+# --- FIRST: initialize critical session variables ---
 if "current_day" not in st.session_state:
     st.session_state.current_day = datetime.today().date()
 if "view_mode" not in st.session_state:
     st.session_state.view_mode = "Week"
+if "schedule_log" not in st.session_state:
+    st.session_state.schedule_log = []
+if "truck_bookings" not in st.session_state:
+    st.session_state.truck_bookings = {20: {}, 21: {}, 23: {}, 17: {}}
+if "proposed_slots" not in st.session_state:
+    st.session_state.proposed_slots = []
 
-# Controls for calendar navigation
+# --- THEN inject your CSS, buttons, and page content ---
+st.markdown(
+    \"\"\"<style>
+    .main {
+        background-color: #1e1e1e;
+        color: white;
+    }
+    </style>\"\"\",
+    unsafe_allow_html=True
+)# Controls for calendar navigation
 col1, col2, col3 = st.columns([1,2,1])
 with col1:
     if st.button("⬅️ Previous"):
