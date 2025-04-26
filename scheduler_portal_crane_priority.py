@@ -234,7 +234,7 @@ with st.container():
             st.session_state.pending_data = None
             st.session_state.show_form = True
 
-      st.markdown("### 📅 Current Schedule Overview (1 Week)")
-      week_start = datetime.today().date()
-      cal = build_week_calendar(week_start)
-      st.dataframe(cal)
+    st.markdown("### 📅 Current Schedule Overview (1 Week)")
+    week_start = datetime.today().date()
+    cal = build_week_calendar(week_start)
+    st.dataframe(cal)
