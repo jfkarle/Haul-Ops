@@ -171,14 +171,14 @@ def build_week_calendar(start_date):
                     if start <= slot_dt < end:
                         calendar.at[slot_time.strftime('%-I:%M %p'), (d.strftime('%a %b %d'), truck_label)] = "Scheduled"
 
-    # Fill available slots for proposed slots
+    # Fill available slots for proposed slots with green dot
     if st.session_state.proposed_slots:
         for d, t in st.session_state.proposed_slots:
             for truck_label in trucks:
                 col = (d.strftime('%a %b %d'), truck_label)
                 row = t.strftime('%-I:%M %p')
                 if col in calendar.columns and (calendar.at[row, col] == '' or calendar.at[row, col] == 'None'):
-                    calendar.at[row, col] = "Available"
+                    calendar.at[row, col] = "🟢"
                     break  # Only fill one truck slot per proposed slot
 
     return calendar
