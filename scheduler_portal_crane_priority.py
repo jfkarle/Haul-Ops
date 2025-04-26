@@ -1,4 +1,4 @@
-# ECM Scheduler Patch: Manual Slot Selection Mode + Calendar View + Snap to Standard Time Blocks
+# ECM Scheduler Full Rebuild: Manual Slot Picker + Calendar + Snap to Standard Times
 
 import streamlit as st
 import pandas as pd
@@ -101,7 +101,7 @@ def find_available_slots(data, max_slots=3):
                                     datetime.combine(d, (datetime.combine(d, tide_time) - timedelta(hours=3)).time()))
             tide_window_end = min(datetime.combine(d, datetime.strptime("2:30 PM", "%I:%M %p").time()),
                                   datetime.combine(d, (datetime.combine(d, tide_time) + timedelta(hours=3)).time()))
-            
+
             if not (tide_window_start <= cursor <= tide_window_end - duration):
                 continue
 
