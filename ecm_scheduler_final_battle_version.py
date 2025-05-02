@@ -36,43 +36,42 @@ if "allowed_trucks" not in st.session_state:
 
 # --- FORM INPUTS ---
 st.markdown("""
-    <style>
-        /* Input & date styling */
-        .stTextInput>div>div>input,
-        .stDateInput>div>input,
-        .stSelectbox>div>div {
-            width: 250px !important;
-            padding: 8px;
-            font-size: 16px;
-            color: black !important;
+     <style>
+        /* Input fields and dropdowns */
+        .stTextInput input,
+        .stDateInput input,
+        .stSelectbox div[data-baseweb="select"] {
             background-color: white !important;
+            color: black !important;
+            font-size: 16px !important;
+            padding: 6px 8px !important;
+            border: 1px solid #ccc !important;
+            border-radius: 4px;
+            width: 250px;
         }
 
-        /* Dropdown menu items */
-        .css-1wa3eu0 {
-            color: black !important;
-            background-color: white !important;
-        }
-
-        /* Label text */
+        /* Dropdown label text */
         label, .stSelectbox label {
             color: black !important;
+            font-weight: 500;
         }
 
         /* Text area */
         .stTextArea textarea {
-            width: 500px !important;
-            padding: 10px;
-            font-size: 15px;
-            color: black !important;
             background-color: white !important;
+            color: black !important;
+            font-size: 15px !important;
+            padding: 10px !important;
+            border: 1px solid #ccc !important;
+            border-radius: 4px;
+            width: 500px;
         }
 
-        /* Header styling */
+        /* Form section header */
         .form-header {
             font-size: 22px;
             font-weight: bold;
-            color: #C0392B;
+            color: #8B0000;
             margin-bottom: 10px;
         }
     </style>
