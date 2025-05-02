@@ -177,6 +177,7 @@ def build_calendar(start_date, view_mode):
 if submit and customer_first and customer_last and boat_length and boat_type and origin and ramp:
     available_slots = find_available_slots(truck, requested_date)
     if available_slots:
+        st.session_state.current_day = available_slots[0][0]  # <= put this first
         st.session_state.proposed_slots = available_slots
         st.session_state.pending_customer = {
             "Customer": f"{customer_first} {customer_last}",
