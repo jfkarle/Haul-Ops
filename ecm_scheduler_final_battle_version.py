@@ -42,19 +42,64 @@ if "pending_customer" not in st.session_state:
     st.session_state.pending_customer = None
 
 # --- FORM INPUTS ---
-st.markdown("### 📋 Schedule New Delivery")
+st.markdown("""
+    <style>
+        .stTextInput>div>div>input {
+            padding: 8px;
+            font-size: 16px;
+        }
+        .stDateInput>div>input {
+            padding: 8px;
+        }
+        .stTextArea textarea {
+            padding: 10px;
+            font-size: 15px;
+        }
+        .form-header {
+            font-size: 22px;
+            font-weight: bold;
+            color: #C0392B;
+            margin-bottom: 10px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="form-header">📋 Schedule New Delivery</div>', unsafe_allow_html=True)
+
 with st.form("customer_form"):
-    customer = st.text_input("Customer Name")
-    boat_length = st.text_input("Boat Length")
-    boat_type = st.text_input("Boat Type")
+    col1, col2 = st.columns(2)
+    with col1:
+        customer_first = st.text_input("First Name")
+    with col2:
+        customer_last = st.text_input("Last Name")
+
+    col3, col4 = st.columns(2)
+    with col3:
+        boat_length = st.text_input("Boat Length")
+    with col4:
+        boat_type = st.text_input("Boat Type")
+
     origin = st.text_input("Origin Location")
     ramp = st.selectbox("Destination Ramp", [
         "Scituate", "Taylor", "Plymouth", "Duxbury", "Green Harbor", "Hingham", "Cohasset",
         "Sandwich", "Barnstable", "Dennis", "Chatham", "Harwich", "Hyannis", "Falmouth", "New Bedford"
     ])
-    truck = st.selectbox("Select Truck", [20, 21, 23])
-    requested_date = st.date_input("Requested Delivery Date", value=datetime.today())
+
+    col5, col6 = st.columns(2)
+    with col5:
+        truck = st.selectbox("Select Truck", [20, 21, 23])
+    with col6:
+        requested_date = st.date_input("Requested Delivery Date", value=datetime.today())
+
+    st.markdown("### ⭐ How satisfied are you with the project?")
+    satisfaction = st.radio("",
+        ["⭐", "⭐⭐", "⭐⭐⭐", "⭐⭐⭐⭐", "⭐⭐⭐⭐⭐"],
+        index=4, horizontal=True)
+
+    feedback = st.text_area("💬 Would you like to leave us some feedback?", placeholder="Your comments here...")
+
     submit = st.form_submit_button("Find Available Slots")
+
 
 # --- SLOT FINDER FUNCTION ---
 def find_available_slots(truck_num, requested_date):
