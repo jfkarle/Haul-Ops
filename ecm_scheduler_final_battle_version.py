@@ -113,7 +113,7 @@ def find_available_slots(truck_num, requested_date):
                     overlaps = True
                     break
             if not overlaps:
-                slots.append((day, slot))
+                slots.append((day, slot, truck_num))
                 if len(slots) == 3:
                     return slots
     return slots
@@ -188,7 +188,11 @@ def build_calendar(start_date, view_mode):
 
 # --- SLOT CONFIRMATION ---
 if submit and customer_first and customer_last and boat_length and boat_type and origin and ramp:
-    available_slots = find_available_slots(truck, requested_date)
+    available_slots = []
+    for t in allowed_trucks:
+        available_slots += find_available_slots(t, requested_date)
+    available_slots = sorted(available_slots)[:3]
+
     if available_slots:
         st.session_state.current_day = available_slots[0][0]  # <= put this first
         st.session_state.proposed_slots = available_slots
