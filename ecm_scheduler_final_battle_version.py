@@ -31,7 +31,7 @@ st.markdown(
         }
     </style>
 """, unsafe_allow_html=True)
-)
+
 
 # --- SESSION STATE INIT ---
 if "current_day" not in st.session_state:
