@@ -8,11 +8,12 @@ import os
 def get_allowed_trucks(length_ft, boat_type):
     length = float(length_ft)
     if boat_type.lower() == "sail":
-        return [20, 21]  # Sailboats require big trucks + crane
+        return [20, 21, 17]  # include crane truck for sails
     elif length > 40:
-        return [20, 21]  # Too big for 23
+        return [20, 21]  # truck 23 is too small
     else:
         return [20, 21, 23]
+
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="ECM Scheduler: Crane Priority", layout="wide")
