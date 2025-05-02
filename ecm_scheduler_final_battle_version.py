@@ -37,25 +37,38 @@ if "allowed_trucks" not in st.session_state:
 # --- FORM INPUTS ---
 st.markdown("""
     <style>
+        /* Input & date styling */
         .stTextInput>div>div>input,
         .stDateInput>div>input,
         .stSelectbox>div>div {
             width: 250px !important;
             padding: 8px;
             font-size: 16px;
-        }
-         .stSelectbox > div > div {
+            color: black !important;
             background-color: white !important;
+        }
+
+        /* Dropdown menu items */
+        .css-1wa3eu0 {
+            color: black !important;
+            background-color: white !important;
+        }
+
+        /* Label text */
+        label, .stSelectbox label {
             color: black !important;
         }
-        .stSelectbox label {
-            color: black !important;
-        }
+
+        /* Text area */
         .stTextArea textarea {
             width: 500px !important;
             padding: 10px;
             font-size: 15px;
+            color: black !important;
+            background-color: white !important;
         }
+
+        /* Header styling */
         .form-header {
             font-size: 22px;
             font-weight: bold;
@@ -64,6 +77,7 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
+
 
 st.markdown('<div class="form-header">Schedule New Delivery</div>', unsafe_allow_html=True)
 
