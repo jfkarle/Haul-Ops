@@ -7,7 +7,7 @@ import os
 # --- TRUCK CAPACITY RULES ---
 def get_allowed_trucks(length_ft, boat_type):
     length = float(length_ft)
-    if boat_type.lower() == "sail":
+    if boat_type == "Sail":
         return [20, 21, 17]  # include crane truck for sails
     elif length > 40:
         return [20, 21]  # truck 23 is too small
@@ -71,7 +71,10 @@ with st.form("customer_form"):
     with col3:
         boat_length = st.text_input("Boat Length")
     with col4:
-        boat_type = st.text_input("Boat Type")
+        bboat_type = st.selectbox("Boat Type", ["Select...", "Power", "Sail"])
+        if boat_type == "Select...":
+            st.warning("Please select a boat type.")
+
 
     origin = st.text_input("Origin Location")
     ramp = st.selectbox("Destination Ramp", [
