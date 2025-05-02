@@ -57,7 +57,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="form-header">\ud83d\udccb Schedule New Delivery</div>', unsafe_allow_html=True)
+st.markdown('<div class="form-header">[📋] Schedule New Delivery</div>', unsafe_allow_html=True)
 
 with st.form("customer_form"):
     col1, col2 = st.columns(2)
