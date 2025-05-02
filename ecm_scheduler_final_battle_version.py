@@ -71,7 +71,7 @@ with st.form("customer_form"):
     with col3:
         boat_length = st.text_input("Boat Length")
     with col4:
-        bboat_type = st.selectbox("Boat Type", ["Select...", "Power", "Sail"])
+        boat_type = st.selectbox("Boat Type", ["Select...", "Power", "Sail"])
         if boat_type == "Select...":
             st.warning("Please select a boat type.")
 
