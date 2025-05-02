@@ -118,7 +118,7 @@ def build_calendar(start_date, view_mode):
     trucks = [all_trucks[t] for t in all_trucks]
     allowed_truck_nums = st.session_state.get("allowed_trucks")
     if not allowed_truck_nums:
-        allowed_truck_nums = [20, 21, 23]  # safe default for powerboats
+        allowed_truck_nums = [20, 21, 23, 17]  # safe default for powerboats
 
     
     if view_mode == "Day":
