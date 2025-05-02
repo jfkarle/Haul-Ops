@@ -174,12 +174,12 @@ def build_calendar(start_date, view_mode):
     return calendar
 
 # --- SLOT CONFIRMATION ---
-if submit and customer and boat_length and boat_type and origin and ramp:
+if submit and customer_first and customer_last and boat_length and boat_type and origin and ramp:
     available_slots = find_available_slots(truck, requested_date)
     if available_slots:
         st.session_state.proposed_slots = available_slots
         st.session_state.pending_customer = {
-            "Customer": customer,
+            "Customer": f"{customer_first} {customer_last}",
             "Boat Length": boat_length,
             "Boat Type": boat_type,
             "Origin": origin,
