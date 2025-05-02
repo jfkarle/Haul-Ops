@@ -4,11 +4,18 @@ import pandas as pd
 from datetime import datetime, timedelta, time
 import os
 
+# --- TRUCK CAPACITY RULES ---
+def get_allowed_trucks(length_ft, boat_type):
+    length = float(length_ft)
+    if boat_type.lower() == "sail":
+        return [20, 21]  # crane + big trucks only
+    elif length > 40:
+        return [20, 21]  # 23 is too small
+    else:
+        return [20, 21, 23]
+
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="ECM Scheduler: Crane Priority", layout="wide")
-
-
-
 
 # --- SESSION STATE INIT ---
 if "current_day" not in st.session_state:
@@ -70,7 +77,13 @@ with st.form("customer_form"):
 
     col5, col6 = st.columns(2)
     with col5:
-        truck = st.selectbox("Select Truck", [20, 21, 23])
+        allowed_trucks = get_allowed_trucks(boat_length, boat_type) if boat_length and boat_type else []
+        if allowed_trucks:
+            truck = st.selectbox("Select Truck", allowed_trucks)
+        else:
+            st.warning("Please enter Boat Length and Type first.")
+            truck = None
+
     with col6:
         requested_date = st.date_input("Requested Delivery Date", value=datetime.today())
 
