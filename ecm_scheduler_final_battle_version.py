@@ -37,37 +37,48 @@ if "allowed_trucks" not in st.session_state:
 # --- FORM INPUTS ---
 st.markdown("""
      <style>
-        /* Input fields and dropdowns */
-        .stTextInput input,
-        .stDateInput input,
-        .stSelectbox div[data-baseweb="select"] {
+        /* Global light theme fixes */
+        input, select, textarea {
             background-color: white !important;
             color: black !important;
-            font-size: 16px !important;
-            padding: 6px 8px !important;
             border: 1px solid #ccc !important;
-            border-radius: 4px;
-            width: 250px;
+            font-size: 16px !important;
         }
 
-        /* Dropdown label text */
-        label, .stSelectbox label {
+        /* SelectBox dropdown menu items */
+        .css-1wa3eu0, .css-1n76uvr {
+            background-color: white !important;
             color: black !important;
+        }
+
+        /* Field labels */
+        label {
+            color: #000000 !important;
             font-weight: 500;
         }
 
-        /* Text area */
+        /* Text input padding and shape */
+        .stTextInput input, .stDateInput input, .stSelectbox div[data-baseweb="select"] {
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        /* Textarea */
         .stTextArea textarea {
             background-color: white !important;
             color: black !important;
-            font-size: 15px !important;
-            padding: 10px !important;
-            border: 1px solid #ccc !important;
-            border-radius: 4px;
-            width: 500px;
+            padding: 10px;
+            font-size: 15px;
+            border-radius: 6px;
         }
 
-        /* Form section header */
+        /* Button style */
+        .stButton>button {
+            border-radius: 6px;
+            font-size: 16px;
+            padding: 6px 20px;
+        }
+
         .form-header {
             font-size: 22px;
             font-weight: bold;
