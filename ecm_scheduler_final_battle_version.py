@@ -175,15 +175,14 @@ def build_calendar(start_date, view_mode):
                         label = scheduled_lookup.get((d, slot_time, truck_label), "Scheduled")
                         calendar.at[slot_time.strftime('%-I:%M %p'), (d.strftime('%a %b %d'), truck_label)] = label
 
-    if st.session_state.proposed_slots:
-        for d, t, tr_num in st.session_state.proposed_slots:
-            tr = f"S{tr_num}"
-            for truck in trucks:
-                col = (d.strftime('%a %b %d'), truck)
-                row = t.strftime('%-I:%M %p')
-                if col in calendar.columns and row in calendar.index:
-                    if pd.isna(calendar.at[row, col]) or calendar.at[row, col] == '':
-                        calendar.at[row, col] = "🟢"
+   if st.session_state.proposed_slots:
+       for d, t, tr_num in st.session_state.proposed_slots:
+           col = (d.strftime('%a %b %d'), f"S{tr_num}")
+           row = t.strftime('%-I:%M %p')
+           if col in calendar.columns and row in calendar.index:
+               if pd.isna(calendar.at[row, col]) or calendar.at[row, col] == '':
+                    calendar.at[row, col] = "🟢"
+
 
     return calendar
 
