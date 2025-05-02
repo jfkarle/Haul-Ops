@@ -186,6 +186,8 @@ if submit and customer_first and customer_last and boat_length and boat_type and
             "Ramp": ramp,
             "Truck": truck
         }
+        st.session_state.view_mode = "Week"  # or "Day"
+
     else:
         st.error("No available slots found!")
 
