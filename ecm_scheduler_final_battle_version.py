@@ -277,6 +277,11 @@ with col3:
             st.session_state.current_day += timedelta(weeks=1)
         elif st.session_state.view_mode == "Month":
             st.session_state.current_day += timedelta(days=30)
+
+cal = build_calendar(st.session_state.current_day, st.session_state.view_mode)
+st.dataframe(cal)
+
+
 # --- CALENDAR RENDER ---
 cal = build_calendar(st.session_state.current_day, st.session_state.view_mode)
 st.dataframe(cal)
