@@ -252,7 +252,31 @@ if st.session_state.proposed_slots and st.session_state.pending_customer:
         st.session_state.proposed_slots = []
         st.session_state.pending_customer = None
         st.success("Scheduled successfully!")
+# --- CALENDAR NAVIGATION ---
+st.markdown("### 📅 Current Schedule")
 
+col1, col2, col3 = st.columns([1, 2, 1])
+with col1:
+    if st.button("⬅️ Previous"):
+        if st.session_state.view_mode == "Day":
+            st.session_state.current_day -= timedelta(days=1)
+        elif st.session_state.view_mode == "Week":
+            st.session_state.current_day -= timedelta(weeks=1)
+        elif st.session_state.view_mode == "Month":
+            st.session_state.current_day -= timedelta(days=30)
+with col2:
+    st.session_state.view_mode = st.selectbox(
+        "Select View Mode", ["Day", "Week", "Month"],
+        index=["Day", "Week", "Month"].index(st.session_state.view_mode)
+    )
+with col3:
+    if st.button("Next ➡️"):
+        if st.session_state.view_mode == "Day":
+            st.session_state.current_day += timedelta(days=1)
+        elif st.session_state.view_mode == "Week":
+            st.session_state.current_day += timedelta(weeks=1)
+        elif st.session_state.view_mode == "Month":
+            st.session_state.current_day += timedelta(days=30)
 # --- CALENDAR RENDER ---
 cal = build_calendar(st.session_state.current_day, st.session_state.view_mode)
 st.dataframe(cal)
