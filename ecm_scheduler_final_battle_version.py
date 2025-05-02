@@ -210,7 +210,9 @@ if submit and customer_first and customer_last and boat_length and boat_type and
         st.error("No available slots found!")
 
 if st.session_state.proposed_slots and st.session_state.pending_customer:
-    selected = st.radio("Select a slot to confirm:", [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots])
+    selected = st.radio("Select a slot to confirm:",[f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')} on S{tr}" for d, t, tr in st.session_state.proposed_slots]
+)
+
     if st.button("✅ Confirm Selection"):
         idx = [f"{d.strftime('%B %d, %Y')} at {t.strftime('%-I:%M %p')}" for d, t in st.session_state.proposed_slots].index(selected)
         selected_slot = st.session_state.proposed_slots[idx]
