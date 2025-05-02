@@ -176,7 +176,8 @@ def build_calendar(start_date, view_mode):
                         calendar.at[slot_time.strftime('%-I:%M %p'), (d.strftime('%a %b %d'), truck_label)] = label
 
     if st.session_state.proposed_slots:
-        for d, t in st.session_state.proposed_slots:
+        for d, t, tr_num in st.session_state.proposed_slots:
+            tr = f"S{tr_num}"
             for truck in trucks:
                 col = (d.strftime('%a %b %d'), truck)
                 row = t.strftime('%-I:%M %p')
