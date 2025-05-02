@@ -44,6 +44,13 @@ st.markdown("""
             padding: 8px;
             font-size: 16px;
         }
+         .stSelectbox > div > div {
+            background-color: white !important;
+            color: black !important;
+        }
+        .stSelectbox label {
+            color: black !important;
+        }
         .stTextArea textarea {
             width: 500px !important;
             padding: 10px;
