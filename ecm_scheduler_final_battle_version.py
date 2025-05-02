@@ -7,30 +7,7 @@ import os
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="ECM Scheduler: Crane Priority", layout="wide")
 
-# --- DARK BACKGROUND ---
-st.markdown(
-    """
-    <style>
-        .stTextInput>div>div>input,
-        .stDateInput>div>input,
-        .stSelectbox>div>div {
-            width: 250px !important;
-            padding: 8px;
-            font-size: 16px;
-        }
-        .stTextArea textarea {
-            width: 500px !important;
-            padding: 10px;
-            font-size: 15px;
-        }
-        .form-header {
-            font-size: 22px;
-            font-weight: bold;
-            color: #C0392B;
-            margin-bottom: 10px;
-        }
-    </style>
-""", unsafe_allow_html=True)
+
 
 
 # --- SESSION STATE INIT ---
