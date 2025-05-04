@@ -4,6 +4,9 @@ import datetime
 import plotly.graph_objects as go
 from dateutil import parser
 import re
+from openai import OpenAI, RateLimitError
+
+client = OpenAI()
 
 # --- Setup ---
 SCHEDULE_FILE = "scheduled_jobs.csv"
@@ -17,35 +20,58 @@ if SCHEDULE_FILE not in st.session_state:
         scheduled_jobs.to_csv(SCHEDULE_FILE, index=False)
     st.session_state[SCHEDULE_FILE] = scheduled_jobs
 
-# --- Smarter Offline Parser ---
+# --- Mode Toggle ---
+use_ai = st.sidebar.checkbox("🔌 Use OpenAI GPT (turn off for mock mode)", value=False)
+
+# --- Parser ---
 def parse_customer_prompt(prompt):
-    st.warning("⚠️ AI offline — using rule-based parser.")
+    if not use_ai:
+        st.warning("⚠️ AI offline — using rule-based parser.")
 
-    # Extract name using capitalization and common patterns
-    name_match = re.search(r"(?:this is|i am|i’m|my name is) ([A-Z][a-z]+ [A-Z][a-z]+)", prompt, re.IGNORECASE)
-    name = name_match.group(1) if name_match else "Unknown"
+        # Extract name using capitalization and common patterns
+        name_match = re.search(r"(?:this is|i am|i’m|my name is) ([A-Z][a-z]+ [A-Z][a-z]+)", prompt, re.IGNORECASE)
+        name = name_match.group(1) if name_match else "Unknown"
 
-    # Extract service type
-    if "launch" in prompt.lower():
-        service = "Launch"
-    elif "haul" in prompt.lower():
-        service = "Haul"
-    elif "land-land" in prompt.lower():
-        service = "Land-Land"
-    else:
-        service = "Unknown"
+        # Extract service type
+        if "launch" in prompt.lower():
+            service = "Launch"
+        elif "haul" in prompt.lower():
+            service = "Haul"
+        elif "land-land" in prompt.lower():
+            service = "Land-Land"
+        else:
+            service = "Unknown"
 
-    # Extract date reference
-    date_match = re.search(r"(?:week of|on|around|for) ([A-Za-z]+ \d{1,2})", prompt, re.IGNORECASE)
-    if date_match:
-        try:
-            parsed_date = parser.parse(date_match.group(1))
-        except:
+        # Extract date reference
+        date_match = re.search(r"(?:week of|on|around|for) ([A-Za-z]+ \d{1,2})", prompt, re.IGNORECASE)
+        if date_match:
+            try:
+                parsed_date = parser.parse(date_match.group(1))
+            except:
+                parsed_date = datetime.date.today() + datetime.timedelta(days=7)
+        else:
             parsed_date = datetime.date.today() + datetime.timedelta(days=7)
-    else:
-        parsed_date = datetime.date.today() + datetime.timedelta(days=7)
 
-    return f"Name: {name}\nService: {service}\nDate: {parsed_date.strftime('%B %d, %Y')}"
+        return f"Name: {name}\nService: {service}\nDate: {parsed_date.strftime('%B %d, %Y')}"
+    else:
+        st.info("🤖 Using OpenAI GPT to parse input")
+        system_prompt = (
+            "You are a scheduling assistant for ECM, a boat transport company. "
+            "Extract the customer's full name, requested service (Launch, Haul, or Land-Land), "
+            "and the earliest date mentioned in the prompt."
+        )
+
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response.choices[0].message.content
+        except RateLimitError:
+            return "Rate limit exceeded. Please wait and try again."
 
 
 def get_next_available_dates(service, earliest_date, taken_dates):
