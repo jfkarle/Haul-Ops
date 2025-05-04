@@ -3,9 +3,10 @@ import pandas as pd
 import datetime
 import plotly.graph_objects as go
 from dateutil import parser
-from openai import OpenAI
 
-client = OpenAI()
+# --- MOCK MODE ENABLED ---
+# This disables real OpenAI calls until your API key is provisioned.
+# You can re-enable OpenAI integration by restoring the original parse_customer_prompt() function.
 
 # --- Setup ---
 SCHEDULE_FILE = "scheduled_jobs.csv"
@@ -21,21 +22,11 @@ if SCHEDULE_FILE not in st.session_state:
 
 # --- Functions ---
 def parse_customer_prompt(prompt):
-    system_prompt = (
-        "You are a scheduling assistant for ECM, a boat transport company. "
-        "Extract the customer's full name, requested service (Launch, Haul, or Land-Land), "
-        "and the earliest date mentioned in the prompt."
-    )
+    st.warning("⚠️ AI offline — using mock parser response.")
+    # This mock parser is for local testing only
+    # Customize this logic as needed for testing
+    return """Name: Lyndsey Graham\nService: Launch\nDate: May 18, 2025"""
 
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    return response.choices[0].message.content
 
 def get_next_available_dates(service, earliest_date, taken_dates):
     results = []
@@ -52,6 +43,7 @@ def get_next_available_dates(service, earliest_date, taken_dates):
         dt += datetime.timedelta(days=1)
 
     return results
+
 
 def plot_calendar(available_dates, taken_dates):
     start_date = min(available_dates + taken_dates)
@@ -83,6 +75,7 @@ def plot_calendar(available_dates, taken_dates):
         margin=dict(l=20, r=20, t=40, b=20)
     )
     st.plotly_chart(fig)
+
 
 # --- Streamlit App ---
 st.title("⚓ ECM Boat Transport Scheduler")
