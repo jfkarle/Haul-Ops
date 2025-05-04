@@ -23,16 +23,23 @@ if SCHEDULE_FILE not in st.session_state:
 # --- Mode Toggle ---
 use_ai = st.sidebar.checkbox("🔌 Use OpenAI GPT (turn off for mock mode)", value=False)
 
+# --- Date Cleaning ---
+def clean_date_string(raw):
+    lowered = raw.lower()
+    for prefix in ["week of", "around", "on", "for"]:
+        if prefix in lowered:
+            raw = raw.lower().split(prefix)[-1].strip()
+            break
+    return raw
+
 # --- Parser ---
 def parse_customer_prompt(prompt):
     if not use_ai:
         st.warning("⚠️ AI offline — using rule-based parser.")
 
-        # Extract name using capitalization and common patterns
         name_match = re.search(r"(?:this is|i am|i’m|my name is) ([A-Z][a-z]+ [A-Z][a-z]+)", prompt, re.IGNORECASE)
         name = name_match.group(1) if name_match else "Unknown"
 
-        # Extract service type
         if "launch" in prompt.lower():
             service = "Launch"
         elif "haul" in prompt.lower():
@@ -42,11 +49,10 @@ def parse_customer_prompt(prompt):
         else:
             service = "Unknown"
 
-        # Extract date reference
         date_match = re.search(r"(?:week of|on|around|for) ([A-Za-z]+ \d{1,2})", prompt, re.IGNORECASE)
         if date_match:
             try:
-                parsed_date = parser.parse(date_match.group(1))
+                parsed_date = parser.parse(clean_date_string(date_match.group(1)))
             except:
                 parsed_date = datetime.date.today() + datetime.timedelta(days=7)
         else:
@@ -140,15 +146,7 @@ if st.button("Check Availability") and user_input:
         name = [l for l in lines if "name" in l.lower()][0].split(":")[-1].strip()
         service = [l for l in lines if "service" in l.lower()][0].split(":")[-1].strip()
         date_str = [l for l in lines if "date" in l.lower()][0].split(":")[-1].strip()
-
-        if "week of" in date_str.lower():
-            date_str = date_str.split("week of")[-1].strip()
-        elif "around" in date_str.lower():
-            date_str = date_str.split("around")[-1].strip()
-        elif "on" in date_str.lower():
-            date_str = date_str.split("on")[-1].strip()
-
-        earliest_date = parser.parse(date_str).date()
+        earliest_date = parser.parse(clean_date_string(date_str)).date()
     except Exception as e:
         st.error(f"Could not interpret the parsed output. Error: {e}")
         st.stop()
