@@ -3,10 +3,7 @@ import pandas as pd
 import datetime
 import plotly.graph_objects as go
 from dateutil import parser
-
-# --- MOCK MODE ENABLED ---
-# This disables real OpenAI calls until your API key is provisioned.
-# You can re-enable OpenAI integration by restoring the original parse_customer_prompt() function.
+import re
 
 # --- Setup ---
 SCHEDULE_FILE = "scheduled_jobs.csv"
@@ -20,12 +17,35 @@ if SCHEDULE_FILE not in st.session_state:
         scheduled_jobs.to_csv(SCHEDULE_FILE, index=False)
     st.session_state[SCHEDULE_FILE] = scheduled_jobs
 
-# --- Functions ---
+# --- Smarter Offline Parser ---
 def parse_customer_prompt(prompt):
-    st.warning("⚠️ AI offline — using mock parser response.")
-    # This mock parser is for local testing only
-    # Customize this logic as needed for testing
-    return """Name: Lyndsey Graham\nService: Launch\nDate: May 18, 2025"""
+    st.warning("⚠️ AI offline — using rule-based parser.")
+
+    # Extract name using capitalization and common patterns
+    name_match = re.search(r"(?:this is|i am|i’m|my name is) ([A-Z][a-z]+ [A-Z][a-z]+)", prompt, re.IGNORECASE)
+    name = name_match.group(1) if name_match else "Unknown"
+
+    # Extract service type
+    if "launch" in prompt.lower():
+        service = "Launch"
+    elif "haul" in prompt.lower():
+        service = "Haul"
+    elif "land-land" in prompt.lower():
+        service = "Land-Land"
+    else:
+        service = "Unknown"
+
+    # Extract date reference
+    date_match = re.search(r"(?:week of|on|around|for) ([A-Za-z]+ \d{1,2})", prompt, re.IGNORECASE)
+    if date_match:
+        try:
+            parsed_date = parser.parse(date_match.group(1))
+        except:
+            parsed_date = datetime.date.today() + datetime.timedelta(days=7)
+    else:
+        parsed_date = datetime.date.today() + datetime.timedelta(days=7)
+
+    return f"Name: {name}\nService: {service}\nDate: {parsed_date.strftime('%B %d, %Y')}"
 
 
 def get_next_available_dates(service, earliest_date, taken_dates):
