@@ -140,6 +140,14 @@ if st.button("Check Availability") and user_input:
         name = [l for l in lines if "name" in l.lower()][0].split(":")[-1].strip()
         service = [l for l in lines if "service" in l.lower()][0].split(":")[-1].strip()
         date_str = [l for l in lines if "date" in l.lower()][0].split(":")[-1].strip()
+
+        if "week of" in date_str.lower():
+            date_str = date_str.split("week of")[-1].strip()
+        elif "around" in date_str.lower():
+            date_str = date_str.split("around")[-1].strip()
+        elif "on" in date_str.lower():
+            date_str = date_str.split("on")[-1].strip()
+
         earliest_date = parser.parse(date_str).date()
     except Exception as e:
         st.error(f"Could not interpret the parsed output. Error: {e}")
