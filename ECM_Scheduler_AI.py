@@ -1,12 +1,13 @@
 import streamlit as st
-import openai
 import pandas as pd
 import datetime
 import plotly.graph_objects as go
 from dateutil import parser
+from openai import OpenAI
+
+client = OpenAI()
 
 # --- Setup ---
-openai.api_key = st.secrets["OPENAI_API_KEY"]
 SCHEDULE_FILE = "scheduled_jobs.csv"
 
 # --- Initialize Schedule File ---
@@ -22,26 +23,24 @@ if SCHEDULE_FILE not in st.session_state:
 def parse_customer_prompt(prompt):
     system_prompt = (
         "You are a scheduling assistant for ECM, a boat transport company. "
-        "Your job is to extract three fields from the customer message: their full name, "
-        "the type of service (Launch, Haul, or Land-Land), and the earliest date they mentioned."
+        "Extract the customer's full name, requested service (Launch, Haul, or Land-Land), "
+        "and the earliest date mentioned in the prompt."
     )
-    
-    response = openai.ChatCompletion.create(
+
+    response = client.chat.completions.create(
         model="gpt-4",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
         ]
     )
-    
-    output = response["choices"][0]["message"]["content"]
-    return output
 
+    return response.choices[0].message.content
 
 def get_next_available_dates(service, earliest_date, taken_dates):
     results = []
     dt = earliest_date
-    
+
     while len(results) < 3:
         weekday = dt.weekday()
         is_may_or_sept = dt.month in [5, 9]
@@ -51,9 +50,8 @@ def get_next_available_dates(service, earliest_date, taken_dates):
         if (is_weekday or is_saturday_ok) and dt not in taken_dates:
             results.append(dt)
         dt += datetime.timedelta(days=1)
-    
-    return results
 
+    return results
 
 def plot_calendar(available_dates, taken_dates):
     start_date = min(available_dates + taken_dates)
@@ -86,7 +84,6 @@ def plot_calendar(available_dates, taken_dates):
     )
     st.plotly_chart(fig)
 
-
 # --- Streamlit App ---
 st.title("⚓ ECM Boat Transport Scheduler")
 
@@ -94,7 +91,7 @@ user_input = st.text_area("Enter your scheduling request:")
 
 if st.button("Check Availability") and user_input:
     st.markdown("---")
-    
+
     parsed = parse_customer_prompt(user_input)
     st.markdown("### 🧾 Parsed Request")
     st.code(parsed)
