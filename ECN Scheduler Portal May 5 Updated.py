@@ -119,6 +119,51 @@ def draw_calendar_week(start_date):
         ax.add_patch(Circle((i + 0.5, 0.5), 0.35, fill=False))
     st.pyplot(fig)
 
+
+
+def render_calendar(scheduled_df, suggestions, start_date):
+    import numpy as np
+
+    # Define time grid
+    time_slots = [dt.time(hour=h, minute=m) for h in range(8, 17) for m in [0, 15, 30, 45]]
+    days = [start_date + dt.timedelta(days=i) for i in range(5)]  # Monday to Friday
+
+    # Create empty schedule table
+    grid = pd.DataFrame(index=[t.strftime("%-I:%M %p") for t in time_slots],
+                        columns=[d.strftime("%a\n%b %d") for d in days])
+
+    # Fill in scheduled jobs
+    for _, row in scheduled_df.iterrows():
+        d = pd.to_datetime(row["Date"])
+        col = d.strftime("%a\n%b %d")
+        t = pd.to_datetime(str(row["Time"]))
+        row_label = t.strftime("%-I:%M %p")
+        if col in grid.columns and row_label in grid.index:
+            grid.at[row_label, col] = f"🛥 {row['Customer']}"
+
+    # Mark suggestions in green
+    for t in suggestions:
+        col = t.strftime("%a\n%b %d")
+        row_label = t.strftime("%-I:%M %p")
+        if col in grid.columns and row_label in grid.index:
+            if grid.at[row_label, col] is None or pd.isna(grid.at[row_label, col]):
+                grid.at[row_label, col] = f"✅ AVAILABLE"
+
+    # Display with style
+    def highlight_cells(val):
+        if isinstance(val, str) and "AVAILABLE" in val:
+            return "background-color: lightgreen"
+        elif isinstance(val, str) and "🛥" in val:
+            return "color: gray"
+        return ""
+
+    styled = grid.style.applymap(highlight_cells)
+    st.dataframe(styled, use_container_width=True, height=800)
+
+
+
+
+
 if st.button("Submit Request"):
     parsed = parse_request(user_input)
     st.subheader("🔍 Parsed Request")
@@ -137,6 +182,49 @@ if st.button("Submit Request"):
     st.subheader("📅 Weekly Grid")
     draw_grid(week_slots, selected_slot)
 
+
+def render_calendar(scheduled_df, suggestions, start_date):
+    import numpy as np
+
+    # Time grid: 15-min slots from 8:00 AM to 5:00 PM
+    time_slots = [dt.time(hour=h, minute=m) for h in range(8, 17) for m in [0, 15, 30, 45]]
+    days = [start_date + dt.timedelta(days=i) for i in range(5)]  # Monday to Friday
+
+    # Create calendar grid
+    grid = pd.DataFrame(index=[t.strftime("%-I:%M %p") for t in time_slots],
+                        columns=[d.strftime("%a\n%b %d") for d in days])
+
+    # Fill in scheduled jobs
+    for _, row in scheduled_df.iterrows():
+        d = pd.to_datetime(row["Date"])
+        col = d.strftime("%a\n%b %d")
+        t = pd.to_datetime(str(row["Time"]))
+        row_label = t.strftime("%-I:%M %p")
+        if col in grid.columns and row_label in grid.index:
+            grid.at[row_label, col] = f"🛥 {row['Customer']}"
+
+    # Highlight suggestions
+    for t in suggestions:
+        col = t.strftime("%a\n%b %d")
+        row_label = t.strftime("%-I:%M %p")
+        if col in grid.columns and row_label in grid.index:
+            if grid.at[row_label, col] is None or pd.isna(grid.at[row_label, col]):
+                grid.at[row_label, col] = f"✅ AVAILABLE"
+
+    # Apply formatting
+    def highlight(val):
+        if isinstance(val, str) and "AVAILABLE" in val:
+            return "background-color: lightgreen"
+        elif isinstance(val, str) and "🛥" in val:
+            return "color: gray"
+        return ""
+
+    styled = grid.style.applymap(highlight)
+    st.subheader("📊 Weekly Calendar Grid")
+    st.dataframe(styled, use_container_width=True, height=800)
+
+
+    
     if st.button("✅ Confirm This Slot"):
         st.success(f"✅ {parsed['Customer']} scheduled on {selected_slot.strftime('%A, %B %d at %I:%M %p')} at {parsed['Ramp']}.")
         new_job = pd.DataFrame([{
@@ -152,3 +240,5 @@ if st.button("Submit Request"):
 
     st.subheader("📆 Calendar")
     draw_calendar_week(week_slots[0])
+        render_calendar(scheduled, week_slots, parsed['StartDate'])
+
