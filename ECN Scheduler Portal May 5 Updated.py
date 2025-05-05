@@ -180,7 +180,7 @@ if st.button("Submit Request"):
     selected_slot = week_slots[selected_idx]
 
     st.subheader("📅 Weekly Grid")
-    draw_grid(week_slots, selected_slot)
+    render_calendar(scheduled, week_slots, parsed['StartDate'])
 
 
 def render_calendar(scheduled_df, suggestions, start_date):
