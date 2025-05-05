@@ -88,7 +88,7 @@ def get_ai_slots(start_date):
     return slots[:3]
 
 # --- Draw 3 qualified dots only ---
-def draw_grid(slots, selected):
+render_calendar(scheduled, week_slots, parsed['StartDate'], parsed['Ramp'])
     fig, ax = plt.subplots(figsize=(7, 2))
     ax.set_xlim(0, len(slots))
     ax.set_ylim(0, 1)
@@ -203,6 +203,14 @@ def render_calendar(scheduled_df, suggestions, start_date):
         if col in grid.columns and row_label in grid.index:
             grid.at[row_label, col] = f"🛥 {row['Customer']}"
 
+# Highlight Tides
+    def get_tide_events_for_day(harbor_csv, target_date):
+    df = pd.read_csv(harbor_csv)
+    df["DateTime"] = pd.to_datetime(df["Date Time"])
+    df_day = df[df["DateTime"].dt.date == target_date.date()]
+    return df_day[df_day["DateTime"].dt.time.between(dt.time(7, 30), dt.time(16, 0))]
+
+    
     # Highlight suggestions
     for t in suggestions:
         col = t.strftime("%a\n%b %d")
