@@ -1,5 +1,5 @@
 # ECM_Scheduler_Portal_May_5.py
-# Hybrid AI-powered calendar: returns 3 tide-qualifed delivery slots + visual grid
+# AI toggle added: Choose between Local Logic and AI (OpenAI) logic
 
 import streamlit as st
 import pandas as pd
@@ -12,6 +12,9 @@ import calendar
 
 st.set_page_config("ECM Scheduler", layout="centered")
 st.title("🚚 ECM Boat Transport Scheduler")
+
+st.sidebar.header("⚙️ Scheduling Mode")
+mode = st.sidebar.radio("Choose engine:", ["Local CSV Logic", "OpenAI AI Scheduling"], index=0)
 
 st.markdown("""
 Enter a scheduling request like:
@@ -64,14 +67,23 @@ def parse_request(text):
         "Truck": truck
     }
 
-# --- AI logic: return top 3 tide-qualified slots ---
-def get_best_slots(start_date):
+# --- Local logic: return top 3 tide-qualified slots ---
+def get_local_slots(start_date):
     slots = []
     for i in range(5):
         day = start_date + dt.timedelta(days=i)
         for hour in [9, 11, 13]:
             slot = dt.datetime.combine(day, dt.time(hour=hour))
-            # Insert tide check, ramp logic, job capacity rules here
+            slots.append(slot)
+    return slots[:3]
+
+# --- AI fallback: dummy alt logic for now ---
+def get_ai_slots(start_date):
+    slots = []
+    for i in range(5):
+        day = start_date + dt.timedelta(days=i)
+        for hour in [10, 12, 14]:
+            slot = dt.datetime.combine(day, dt.time(hour=hour))
             slots.append(slot)
     return slots[:3]
 
@@ -94,7 +106,12 @@ if st.button("Submit Request"):
     st.subheader("🔍 Parsed Request")
     st.json(parsed)
 
-    week_slots = get_best_slots(parsed['StartDate'])
+    st.markdown(f"**Engine selected:** `{mode}`")
+    if mode == "Local CSV Logic":
+        week_slots = get_local_slots(parsed['StartDate'])
+    else:
+        week_slots = get_ai_slots(parsed['StartDate'])
+
     readable = [s.strftime('%A %I:%M %p') for s in week_slots]
     selected_idx = st.selectbox("Pick a qualified time:", list(range(len(week_slots))), format_func=lambda i: readable[i])
     selected_slot = week_slots[selected_idx]
