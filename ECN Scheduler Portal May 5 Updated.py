@@ -107,7 +107,7 @@ def draw_calendar_week(start_date):
 
 # --- Highlighted grid calendar with tide overlays ---
 render_calendar(scheduled, week_slots, parsed['StartDate'], parsed['Ramp'])
-    import numpy as np
+import numpy as np
 
     # Time and day grid
     time_slots = [dt.time(hour=h, minute=m) for h in range(8, 17) for m in [0, 15, 30, 45]]
