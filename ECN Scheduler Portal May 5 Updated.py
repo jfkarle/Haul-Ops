@@ -240,5 +240,5 @@ def render_calendar(scheduled_df, suggestions, start_date):
 
     st.subheader("📆 Calendar")
     draw_calendar_week(week_slots[0])
-        render_calendar(scheduled, week_slots, parsed['StartDate'])
+    render_calendar(scheduled, week_slots, parsed['StartDate'])
 
