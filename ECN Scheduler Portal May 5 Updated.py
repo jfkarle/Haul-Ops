@@ -1,5 +1,5 @@
 # ECM_Scheduler_Portal_May_5.py
-# AI toggle added: Choose between Local Logic and AI (OpenAI) logic
+# Now with sidebar AI toggle, smarter name parsing, and improved calendar display
 
 import streamlit as st
 import pandas as pd
@@ -101,6 +101,24 @@ def draw_grid(slots, selected):
         ax.text(i + 0.5, 0.5, s.strftime('%a\n%I:%M'), ha='center', va='center', fontsize=8, color='white')
     st.pyplot(fig)
 
+# --- Draw calendar for week of a given date ---
+def draw_calendar_week(start_date):
+    week_start = start_date - dt.timedelta(days=start_date.weekday())
+    week_dates = [week_start + dt.timedelta(days=i) for i in range(5)]
+
+    fig, ax = plt.subplots(figsize=(10, 2))
+    ax.set_xlim(0, 5)
+    ax.set_ylim(0, 1)
+    ax.axis('off')
+
+    for i, d in enumerate(week_dates):
+        jobs = scheduled[scheduled['Date'] == d.date()]
+        label = d.strftime('%a %b %d')
+        text = f"{label}\n{len(jobs)} job(s)"
+        ax.text(i + 0.5, 0.5, text, ha='center', va='center', fontsize=10)
+        ax.add_patch(Circle((i + 0.5, 0.5), 0.35, fill=False))
+    st.pyplot(fig)
+
 if st.button("Submit Request"):
     parsed = parse_request(user_input)
     st.subheader("🔍 Parsed Request")
@@ -132,5 +150,5 @@ if st.button("Submit Request"):
         scheduled = pd.concat([scheduled, new_job], ignore_index=True)
         scheduled.to_csv("scheduled_jobs.csv", index=False)
 
-st.subheader("🗂️ Scheduled Jobs")
-st.dataframe(scheduled.sort_values(by=["Date", "Time"]))
+    st.subheader("📆 Calendar")
+    draw_calendar_week(week_slots[0])
