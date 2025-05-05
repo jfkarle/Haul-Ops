@@ -1,5 +1,5 @@
 # ECM_Scheduler_Portal_May_5.py
-# Fully rebuilt with interactive weekly grid calendar + improved name parsing
+# Name parser fix: Extracts 'Norma Jean' from input like "Hi this is Norma Jean - I'd like..."
 
 import streamlit as st
 import pandas as pd
@@ -10,7 +10,6 @@ from matplotlib.patches import Circle
 from dateutil.parser import parse
 import calendar
 
-# --- Configuration ---
 st.set_page_config("ECM Scheduler", layout="centered")
 st.title("🚚 ECM Boat Transport Scheduler")
 
@@ -21,20 +20,23 @@ Enter a scheduling request like:
 
 user_input = st.text_area("Enter request here:")
 
-# --- Load scheduled jobs ---
 try:
     scheduled = pd.read_csv("scheduled_jobs.csv")
 except:
     scheduled = pd.DataFrame(columns=["Customer", "Service", "Date", "Time", "Ramp", "Truck"])
 
-# --- Improved parser ---
+# Improved parser: now handles name before dash or comma
+
 def parse_request(text):
-    name_match = re.search(r"(?:this is|i'm|i am|^)([A-Z][a-zA-Z']+\s[A-Z][a-zA-Z']+)(?=\s+(would|is|wants|\w+ing|\.|,))", text, re.IGNORECASE)
+    name_match = re.search(r"(?:this is|i'm|i am)\s+([A-Z][a-zA-Z']+\s[A-Z][a-zA-Z']+)(?=\s|[-,])", text, re.IGNORECASE)
+    if not name_match:
+        name_match = re.search(r"^([A-Z][a-zA-Z']+\s[A-Z][a-zA-Z']+)(?=\s|[-,])", text)
+
     service_match = re.search(r"launch|haul|land-?land", text, re.IGNORECASE)
-    date_match = re.search(r"week of ([A-Za-z]+ \d{1,2})", text)
-    ramp_match = re.search(r"(at|from) ([A-Za-z\s]+)[.,]", text)
+    date_match = re.search(r"week of ([A-Za-z]+\s\d{1,2})", text)
+    ramp_match = re.search(r"(at|from)\s+([A-Za-z\s]+)[.,]", text)
     boat_match = re.search(r"(\d+\'?\s?(foot|ft|\'))?\s*(powerboat|sailboat).*", text, re.IGNORECASE)
-    truck_match = re.search(r"truck (S\d+)", text)
+    truck_match = re.search(r"truck\s+(S\d+)", text)
 
     name = name_match.group(1).title() if name_match else "Unknown"
     service = service_match.group(0).capitalize() if service_match else "Haul"
@@ -46,7 +48,7 @@ def parse_request(text):
             boat_type = "Sailboat"
 
     truck = truck_match.group(1) if truck_match else "S20"
-    
+
     try:
         year = 2025
         base_date = parse(f"{date_str} {year}")
@@ -63,7 +65,6 @@ def parse_request(text):
         "Truck": truck
     }
 
-# --- Simulate time slots ---
 def generate_weekly_slots(start_date):
     times = [dt.time(9), dt.time(11), dt.time(13)]
     slots = []
@@ -74,7 +75,6 @@ def generate_weekly_slots(start_date):
             slots.append(slot_dt)
     return slots
 
-# --- Interactive Calendar Grid ---
 def draw_slot_grid(slots, selected_slot):
     fig, ax = plt.subplots(figsize=(7, 4))
     times = sorted(set([s.time() for s in slots]))
@@ -86,17 +86,13 @@ def draw_slot_grid(slots, selected_slot):
     for x, d in enumerate(days):
         for y, t in enumerate(times):
             slot = dt.datetime.combine(d, t)
-            if slot in slots:
-                color = 'green' if slot != selected_slot else 'blue'
-            else:
-                color = 'lightgray'
+            color = 'green' if slot != selected_slot else 'blue'
             circ = Circle((x + 0.5, y + 0.5), 0.3, color=color)
             ax.add_patch(circ)
             ax.text(x + 0.5, y + 0.5, t.strftime('%I:%M'), ha='center', va='center', fontsize=8, color='white')
         ax.text(x + 0.5, len(times) + 0.1, calendar.day_abbr[d.weekday()], ha='center', fontsize=9)
     st.pyplot(fig)
 
-# --- Main Execution ---
 if st.button("Submit Request"):
     parsed = parse_request(user_input)
     st.subheader("🔍 Parsed Request")
