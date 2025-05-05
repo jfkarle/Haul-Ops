@@ -89,10 +89,10 @@ def get_ai_slots(start_date):
 
 # --- Draw 3 qualified dots only ---
 render_calendar(scheduled, week_slots, parsed['StartDate'], parsed['Ramp'])
-    fig, ax = plt.subplots(figsize=(7, 2))
-    ax.set_xlim(0, len(slots))
-    ax.set_ylim(0, 1)
-    ax.axis('off')
+fig, ax = plt.subplots(figsize=(7, 2))
+ax.set_xlim(0, len(slots))
+ax.set_ylim(0, 1)
+ax.axis('off')
 
     for i, s in enumerate(slots):
         color = 'blue' if s == selected else 'green'
