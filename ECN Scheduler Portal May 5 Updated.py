@@ -106,9 +106,73 @@ def draw_calendar_week(start_date):
     st.pyplot(fig)
 
 # --- Highlighted grid calendar with tide overlays ---
-def render_calendar(scheduled_df, suggestions, start_date):
+render_calendar(scheduled, week_slots, parsed['StartDate'], parsed['Ramp'])
+    import numpy as np
+
+    # Time and day grid
     time_slots = [dt.time(hour=h, minute=m) for h in range(8, 17) for m in [0, 15, 30, 45]]
     days = [start_date + dt.timedelta(days=i) for i in range(5)]
-    grid = pd.DataFrame(index=[t.strftime("%-I:%M %p") for t in time_slots],
-                        columns=
 
+    grid = pd.DataFrame(index=[t.strftime("%-I:%M %p") for t in time_slots],
+                        columns=[d.strftime("%a\n%b %d") for d in days])
+
+    # Fill scheduled jobs
+    for _, row in scheduled_df.iterrows():
+        d = pd.to_datetime(row["Date"])
+        col = d.strftime("%a\n%b %d")
+        t = pd.to_datetime(str(row["Time"]))
+        row_label = t.strftime("%-I:%M %p")
+        if col in grid.columns and row_label in grid.index:
+            grid.at[row_label, col] = f"🛥 {row['Customer']}"
+
+    # Add suggested green slots
+    for t in suggestions:
+        col = t.strftime("%a\n%b %d")
+        row_label = t.strftime("%-I:%M %p")
+        if col in grid.columns and row_label in grid.index:
+            if pd.isna(grid.at[row_label, col]):
+                grid.at[row_label, col] = "✅ AVAILABLE"
+
+    # Load tide data
+    tide_file = TIDE_FILES.get(ramp_name.strip(), TIDE_FILES["Scituate"])
+    tide_df = pd.read_csv(tide_file)
+    tide_df["DateTime"] = pd.to_datetime(tide_df["Date Time"])
+    tide_df = tide_df[tide_df["DateTime"].dt.time.between(dt.time(7, 30), dt.time(16, 0))]
+
+    tide_by_day = {}
+    for d in days:
+        key = d.strftime("%a\n%b %d")
+        tide_by_day[key] = tide_df[tide_df["DateTime"].dt.date == d.date()]
+
+    # Highlighter
+    def style_func(val, row_idx, col_name):
+        try:
+            cell_time = dt.datetime.strptime(row_idx, "%I:%M %p").time()
+        except:
+            return ""
+
+        # Check for tide match
+        if col_name in tide_by_day:
+            for _, tide_row in tide_by_day[col_name].iterrows():
+                tide_time = tide_row["DateTime"].time()
+                diff = abs((dt.datetime.combine(dt.date.today(), tide_time) -
+                            dt.datetime.combine(dt.date.today(), cell_time)).total_seconds())
+                if diff < 3600:  # within 1 hour
+                    if tide_row["High/Low"] == "H":
+                        return "background-color: yellow"
+                    elif tide_row["High/Low"] == "L":
+                        return "background-color: red"
+
+        if isinstance(val, str) and "AVAILABLE" in val:
+            return "background-color: lightgreen"
+        elif isinstance(val, str) and "🛥" in val:
+            return "color: gray"
+        return ""
+
+    styled = grid.style.apply(
+        lambda row: [style_func(row[col], row.name, col) for col in row.index],
+        axis=1
+    )
+
+    st.subheader("📊 Weekly Calendar Grid with Tides")
+    st.dataframe(styled, use_container_width=True, height=800)y
