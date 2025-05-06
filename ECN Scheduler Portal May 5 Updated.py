@@ -134,9 +134,10 @@ def render_calendar(scheduled_df, suggestions, start_date, ramp_name):
 
     tide_file = TIDE_FILES.get(ramp_name.strip(), TIDE_FILES["Scituate"])
     tide_df = pd.read_csv(tide_file)
-    tide_df.columns = tide_df.columns.str.strip()  # Clean column headers
-    tide_df["DateTime"] = pd.to_datetime(tide_df.iloc[:, 0])  # Use the first column, whatever its name is
-    tide_df = tide_df[tide_df["DateTime"].dt.time.between(dt.time(7, 30), dt.time(16, 0))]
+tide_df.columns = tide_df.columns.str.strip()
+tide_df["DateTime"] = pd.to_datetime(tide_df.iloc[:, 0], errors='coerce')
+tide_df = tide_df.dropna(subset=["DateTime"])
+tide_df = tide_df[tide_df["DateTime"].dt.time.between(dt.time(7, 30), dt.time(16, 0))]
 
     tide_by_day = {}
     for d in days:
