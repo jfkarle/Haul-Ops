@@ -3,7 +3,6 @@ import streamlit as st
 import pandas as pd
 import datetime as dt
 import re
-import matplotlib.pyplot as plt
 from dateutil.parser import parse
 
 TIDE_FILES = {
@@ -33,31 +32,24 @@ except:
     scheduled = pd.DataFrame(columns=["Customer", "Service", "Date", "Time", "Ramp", "Truck"])
 
 def parse_request(text):
-    name_match = re.search(r"(?:this is|i'm|i am)\s+([A-Z][a-zA-Z']+\s[A-Z][a-zA-Z']+)(?=\s|[-,])", text, re.IGNORECASE)
+    name_match = re.search(r"(?:this is|i'm|i am)\s+([A-Z][a-zA-Z']+\s[A-Z][a-zA-Z']+)", text, re.IGNORECASE)
     if not name_match:
-        name_match = re.search(r"^([A-Z][a-zA-Z']+\s[A-Z][a-zA-Z']+)(?=\s|[-,])", text)
-
+        name_match = re.search(r"^([A-Z][a-zA-Z']+\s[A-Z][a-zA-Z']+)", text)
     service_match = re.search(r"launch|haul|land-?land", text, re.IGNORECASE)
     date_match = re.search(r"week of ([A-Za-z]+\s\d{1,2})", text)
     ramp_match = re.search(r"(at|from)\s+([A-Za-z\s]+)[.,]", text)
-    boat_match = re.search(r"(\d+'?\s?(foot|ft|'))?\s*(powerboat|sailboat).*", text, re.IGNORECASE)
+    boat_match = re.search(r"(powerboat|sailboat)", text, re.IGNORECASE)
     truck_match = re.search(r"truck\s+(S\d+)", text)
 
     name = name_match.group(1).title() if name_match else "Unknown"
     service = service_match.group(0).capitalize() if service_match else "Haul"
     date_str = date_match.group(1) if date_match else "October 14"
     ramp = ramp_match.group(2).strip() if ramp_match else "Scituate"
-    boat_type = "Powerboat"
-    if boat_match and "sail" in boat_match.group(0).lower():
-        boat_type = "Sailboat"
+    boat_type = boat_match.group(1).capitalize() if boat_match else "Powerboat"
     truck = truck_match.group(1) if truck_match else "S20"
 
-    try:
-        year = 2025
-        base_date = parse(f"{date_str} {year}")
-        start_date = base_date - dt.timedelta(days=base_date.weekday())
-    except:
-        start_date = dt.date(2025, 10, 14)
+    base_date = parse(f"{date_str} 2025")
+    start_date = base_date - dt.timedelta(days=base_date.weekday())
 
     return {
         "Customer": name,
@@ -79,15 +71,13 @@ def get_local_slots(start_date, boat_type):
         for hour in hours:
             h = int(hour)
             m = int((hour - h) * 60)
-            slot = dt.datetime.combine(day, dt.time(hour=h, minute=m))
-            slots.append(slot)
+            slots.append(dt.datetime.combine(day, dt.time(h, m)))
     return slots[:3]
 
 def render_calendar(scheduled_df, suggestions, start_date, ramp_name):
     time_slots = [dt.time(hour=h, minute=m) for h in range(8, 17) for m in [0, 15, 30, 45]]
     days = [start_date + dt.timedelta(days=i) for i in range(5)]
-    time_labels = [t.strftime("%-I:%M %p") for t in time_slots]
-    grid = pd.DataFrame(index=time_labels,
+    grid = pd.DataFrame(index=[t.strftime("%-I:%M %p") for t in time_slots],
                         columns=[d.strftime("%a\n%b %d") for d in days])
 
     for _, row in scheduled_df.iterrows():
@@ -117,29 +107,26 @@ def render_calendar(scheduled_df, suggestions, start_date, ramp_name):
         key = d.strftime("%a\n%b %d")
         tide_by_day[key] = tide_df[tide_df["DateTime"].dt.date == d.date()]
 
-    
-def style_func(val, row_idx, col_name):
-    try:
-        cell_time = dt.datetime.strptime(row_idx, "%I:%M %p").time()
-    except:
+    def style_func(val, row_idx, col_name):
+        try:
+            cell_time = dt.datetime.strptime(row_idx, "%I:%M %p").time()
+        except:
+            return ""
+
+        if col_name in tide_by_day:
+            for _, tide_row in tide_by_day[col_name].iterrows():
+                if tide_row["High/Low"] == "H":
+                    tide_time = tide_row["DateTime"].time()
+                    total_minutes = tide_time.hour * 60 + tide_time.minute
+                    rounded_minutes = int(15 * round(total_minutes / 15))
+                    tide_rounded = dt.time(hour=rounded_minutes // 60, minute=rounded_minutes % 60)
+                    if tide_rounded == cell_time:
+                        return "background-color: yellow"
+        if isinstance(val, str) and "AVAILABLE" in val:
+            return "background-color: lightgreen"
+        elif isinstance(val, str) and "🛥" in val:
+            return "color: gray"
         return ""
-
-    if col_name in tide_by_day:
-        for _, tide_row in tide_by_day[col_name].iterrows():
-            if tide_row["High/Low"] == "H":
-                tide_time = tide_row["DateTime"].time()
-                # Round to nearest 15 minutes
-                total_minutes = tide_time.hour * 60 + tide_time.minute
-                rounded_minutes = int(15 * round(total_minutes / 15))
-                tide_rounded = dt.time(hour=rounded_minutes // 60, minute=rounded_minutes % 60)
-                if tide_rounded == cell_time:
-                    return "background-color: yellow"
-    if isinstance(val, str) and "AVAILABLE" in val:
-        return "background-color: lightgreen"
-    elif isinstance(val, str) and "🛥" in val:
-        return "color: gray"
-    return ""
-
 
     styled = grid.style.apply(lambda row: [style_func(row[col], row.name, col) for col in row.index], axis=1)
     st.subheader("📊 Weekly Calendar Grid with Tides")
@@ -154,7 +141,7 @@ if st.button("Submit Request"):
     if mode == "Local CSV Logic":
         week_slots = get_local_slots(parsed['StartDate'], parsed['BoatType'])
     else:
-        week_slots = get_local_slots(parsed['StartDate'], parsed['BoatType'])  # fallback same for demo
+        week_slots = get_local_slots(parsed['StartDate'], parsed['BoatType'])  # Fallback same
 
     readable = [s.strftime('%A %I:%M %p') for s in week_slots]
     selected_idx = st.selectbox("Pick a qualified time:", list(range(len(week_slots))), format_func=lambda i: readable[i])
