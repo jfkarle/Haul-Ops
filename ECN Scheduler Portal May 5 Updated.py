@@ -1,6 +1,6 @@
 
 # ECM_Scheduler_Portal_May_5.py
-# Streamlit app with tide overlay calendar logic
+# Streamlit app with tide overlay calendar logic and high tide time row highlighting
 
 import streamlit as st
 import pandas as pd
@@ -80,10 +80,7 @@ def get_local_slots(start_date, boat_type):
     slots = []
     for i in range(5):
         day = start_date + dt.timedelta(days=i)
-        if boat_type.lower() == "sailboat":
-            hours = [8, 11, 14]  # 3-hour spacing
-        else:
-            hours = [8, 9, 10.5, 12, 1.5, 3]  # 90-min spacing for powerboats
+        hours = [8, 9.5, 11, 12.5, 14, 15.5] if boat_type.lower() == "powerboat" else [8, 11, 14]
         for hour in hours:
             h = int(hour)
             m = int((hour - h) * 60)
@@ -150,23 +147,21 @@ def render_calendar(scheduled_df, suggestions, start_date, ramp_name):
         key = d.strftime("%a\n%b %d")
         tide_by_day[key] = tide_df[tide_df["DateTime"].dt.date == d.date()]
 
-    def style_func(val, row_idx, col_name):
-        try:
-            cell_time = dt.datetime.strptime(row_idx, "%I:%M %p").time()
-        except:
-            return ""
-
-        if col_name in tide_by_day:
-            for _, tide_row in tide_by_day[col_name].iterrows():
+    highlight_rows = set()
+    for d in days:
+        key = d.strftime("%a\n%b %d")
+        for _, tide_row in tide_by_day.get(key, pd.DataFrame()).iterrows():
+            if tide_row["High/Low"] == "H":
                 tide_time = tide_row["DateTime"].time()
-                diff = abs((dt.datetime.combine(dt.date.today(), tide_time) -
-                            dt.datetime.combine(dt.date.today(), cell_time)).total_seconds())
-                if diff < 3600:
-                    if tide_row["High/Low"] == "H":
-                        return "background-color: yellow"
-                    elif tide_row["High/Low"] == "L":
-                        return "background-color: red"
+                tide_dt = dt.datetime.combine(dt.date.today(), tide_time)
+                for t in time_slots:
+                    slot_dt = dt.datetime.combine(dt.date.today(), t)
+                    if abs((slot_dt - tide_dt).total_seconds()) <= 450:
+                        highlight_rows.add(t.strftime("%-I:%M %p"))
 
+    def style_func(val, row_idx, col_name):
+        if row_idx in highlight_rows:
+            return "background-color: yellow"
         if isinstance(val, str) and "AVAILABLE" in val:
             return "background-color: lightgreen"
         elif isinstance(val, str) and "🛥" in val:
@@ -177,7 +172,6 @@ def render_calendar(scheduled_df, suggestions, start_date, ramp_name):
     st.subheader("📊 Weekly Calendar Grid with Tides")
     st.dataframe(styled, use_container_width=True, height=800)
 
-# --- Main interaction ---
 if st.button("Submit Request"):
     parsed = parse_request(user_input)
     st.subheader("🔍 Parsed Request")
