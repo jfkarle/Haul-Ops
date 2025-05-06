@@ -83,7 +83,7 @@ def get_local_slots(start_date, boat_type):
         if boat_type.lower() == "sailboat":
             hours = [8, 11, 14]  # 3-hour spacing
         else:
-            hours = [8, 9, 10:30, 12, 1:30, 3]  # 90-min spacing for powerboats
+            hours = [8, 9, 10.5, 12, 1:30, 3]  # 90-min spacing for powerboats
         for hour in hours:
             h = int(hour)
             m = int((hour - h) * 60)
