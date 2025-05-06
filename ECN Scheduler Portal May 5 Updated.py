@@ -76,12 +76,18 @@ def parse_request(text):
         "Truck": truck
     }
 
-def get_local_slots(start_date):
+def get_local_slots(start_date, boat_type):
     slots = []
     for i in range(5):
         day = start_date + dt.timedelta(days=i)
-        for hour in [9, 11, 13]:
-            slot = dt.datetime.combine(day, dt.time(hour=hour))
+        if boat_type.lower() == "sailboat":
+            hours = [8, 11, 14]  # 3-hour spacing
+        else:
+            hours = [8, 9, 10:30, 12, 1:30, 3]  # 90-min spacing for powerboats
+        for hour in hours:
+            h = int(hour)
+            m = int((hour - h) * 60)
+            slot = dt.datetime.combine(day, dt.time(hour=h, minute=m))
             slots.append(slot)
     return slots[:3]
 
