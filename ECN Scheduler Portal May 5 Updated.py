@@ -141,19 +141,6 @@ def style_func(val, row_idx, col_name):
     return ""
 
 
-        if col_name in tide_by_day:
-            for _, tide_row in tide_by_day[col_name].iterrows():
-                if tide_row["High/Low"] == "H":
-                    tide_time = tide_row["DateTime"].time()
-                    if abs((dt.datetime.combine(dt.date.today(), cell_time) -
-                            dt.datetime.combine(dt.date.today(), tide_time)).total_seconds()) <= 450:
-                        return "background-color: yellow"
-        if isinstance(val, str) and "AVAILABLE" in val:
-            return "background-color: lightgreen"
-        elif isinstance(val, str) and "🛥" in val:
-            return "color: gray"
-        return ""
-
     styled = grid.style.apply(lambda row: [style_func(row[col], row.name, col) for col in row.index], axis=1)
     st.subheader("📊 Weekly Calendar Grid with Tides")
     st.dataframe(styled, use_container_width=True, height=800)
