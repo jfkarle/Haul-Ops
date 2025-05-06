@@ -117,11 +117,29 @@ def render_calendar(scheduled_df, suggestions, start_date, ramp_name):
         key = d.strftime("%a\n%b %d")
         tide_by_day[key] = tide_df[tide_df["DateTime"].dt.date == d.date()]
 
-    def style_func(val, row_idx, col_name):
-        try:
-            cell_time = dt.datetime.strptime(row_idx, "%I:%M %p").time()
-        except:
-            return ""
+    
+def style_func(val, row_idx, col_name):
+    try:
+        cell_time = dt.datetime.strptime(row_idx, "%I:%M %p").time()
+    except:
+        return ""
+
+    if col_name in tide_by_day:
+        for _, tide_row in tide_by_day[col_name].iterrows():
+            if tide_row["High/Low"] == "H":
+                tide_time = tide_row["DateTime"].time()
+                # Round to nearest 15 minutes
+                total_minutes = tide_time.hour * 60 + tide_time.minute
+                rounded_minutes = int(15 * round(total_minutes / 15))
+                tide_rounded = dt.time(hour=rounded_minutes // 60, minute=rounded_minutes % 60)
+                if tide_rounded == cell_time:
+                    return "background-color: yellow"
+    if isinstance(val, str) and "AVAILABLE" in val:
+        return "background-color: lightgreen"
+    elif isinstance(val, str) and "🛥" in val:
+        return "color: gray"
+    return ""
+
 
         if col_name in tide_by_day:
             for _, tide_row in tide_by_day[col_name].iterrows():
