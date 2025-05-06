@@ -4,10 +4,8 @@ import pandas as pd
 import datetime as dt
 import re
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
 from dateutil.parser import parse
 
-# Tide data mapping
 TIDE_FILES = {
     'Scituate': 'Scituate_2025_Tide_Times.csv',
     'Plymouth': 'Plymouth_2025_Tide_Times.csv',
@@ -119,23 +117,19 @@ def render_calendar(scheduled_df, suggestions, start_date, ramp_name):
         key = d.strftime("%a\n%b %d")
         tide_by_day[key] = tide_df[tide_df["DateTime"].dt.date == d.date()]
 
-    highlight_times = set()
-    for d in days:
-        key = d.strftime("%a\n%b %d")
-        for _, tide_row in tide_by_day.get(key, pd.DataFrame()).iterrows():
-            if tide_row["High/Low"] == "H":
-                tide_time = tide_row["DateTime"].time()
-                tide_dt = dt.datetime.combine(dt.date.today(), tide_time)
-                for t in time_slots:
-                    slot_dt = dt.datetime.combine(dt.date.today(), t)
-                    if abs((slot_dt - tide_dt).total_seconds()) <= 450:
-                        highlight_times.add(t.strftime("%-I:%M %p"))
-
-    grid.insert(0, "Time", grid.index)
-
     def style_func(val, row_idx, col_name):
-        if col_name == "Time" and row_idx in highlight_times:
-            return "background-color: yellow"
+        try:
+            cell_time = dt.datetime.strptime(row_idx, "%I:%M %p").time()
+        except:
+            return ""
+
+        if col_name in tide_by_day:
+            for _, tide_row in tide_by_day[col_name].iterrows():
+                if tide_row["High/Low"] == "H":
+                    tide_time = tide_row["DateTime"].time()
+                    if abs((dt.datetime.combine(dt.date.today(), cell_time) -
+                            dt.datetime.combine(dt.date.today(), tide_time)).total_seconds()) <= 450:
+                        return "background-color: yellow"
         if isinstance(val, str) and "AVAILABLE" in val:
             return "background-color: lightgreen"
         elif isinstance(val, str) and "🛥" in val:
@@ -143,7 +137,7 @@ def render_calendar(scheduled_df, suggestions, start_date, ramp_name):
         return ""
 
     styled = grid.style.apply(lambda row: [style_func(row[col], row.name, col) for col in row.index], axis=1)
-    st.subheader("📊 Weekly Calendar Grid with Tide Highlights")
+    st.subheader("📊 Weekly Calendar Grid with Tides")
     st.dataframe(styled, use_container_width=True, height=800)
 
 if st.button("Submit Request"):
