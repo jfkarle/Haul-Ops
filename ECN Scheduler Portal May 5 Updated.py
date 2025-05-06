@@ -185,7 +185,7 @@ if st.button("Submit Request"):
 
     st.markdown(f"**Engine selected:** `{mode}`")
     if mode == "Local CSV Logic":
-        week_slots = get_local_slots(parsed['StartDate'])
+        week_slots = get_local_slots(parsed['StartDate'], parsed['BoatType'])
     else:
         week_slots = get_ai_slots(parsed['StartDate'])
 
