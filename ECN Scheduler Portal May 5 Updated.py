@@ -99,13 +99,20 @@ def render_calendar(scheduled_df, suggestions, start_date, ramp_name):
     tide_df = pd.read_csv(tide_file)
     tide_df.columns = tide_df.columns.str.strip()
     tide_df["DateTime"] = pd.to_datetime(tide_df.iloc[:, 0], errors='coerce')
+    tide_df["High/Low"] = tide_df["High/Low"].astype(str).str.strip()
     tide_df = tide_df.dropna(subset=["DateTime"])
     tide_df = tide_df[tide_df["DateTime"].dt.time.between(dt.time(7, 30), dt.time(16, 0))]
 
     tide_by_day = {}
     for d in days:
         key = d.strftime("%a\n%b %d")
-        tide_by_day[key] = tide_df[tide_df["DateTime"].dt.date == d.date()]
+        day_df = tide_df[tide_df["DateTime"].dt.date == d.date()]
+        tide_by_day[key] = day_df
+        st.markdown(f"**{key} Tide Events:**")
+        for _, row in day_df.iterrows():
+            time_str = row["DateTime"].strftime("%I:%M %p")
+            hl = row["High/Low"]
+            st.markdown(f"- {time_str} → {hl}")
 
     def style_func(val, row_idx, col_name):
         try:
@@ -115,7 +122,8 @@ def render_calendar(scheduled_df, suggestions, start_date, ramp_name):
 
         if col_name in tide_by_day:
             for _, tide_row in tide_by_day[col_name].iterrows():
-                if tide_row["High/Low"] == "H":
+                hl = tide_row["High/Low"].strip().lower()
+                if hl == "h" or hl == "high":
                     tide_time = tide_row["DateTime"].time()
                     total_minutes = tide_time.hour * 60 + tide_time.minute
                     rounded_minutes = int(15 * round(total_minutes / 15))
@@ -141,7 +149,7 @@ if st.button("Submit Request"):
     if mode == "Local CSV Logic":
         week_slots = get_local_slots(parsed['StartDate'], parsed['BoatType'])
     else:
-        week_slots = get_local_slots(parsed['StartDate'], parsed['BoatType'])  # Fallback same
+        week_slots = get_local_slots(parsed['StartDate'], parsed['BoatType'])  # fallback
 
     readable = [s.strftime('%A %I:%M %p') for s in week_slots]
     selected_idx = st.selectbox("Pick a qualified time:", list(range(len(week_slots))), format_func=lambda i: readable[i])
