@@ -1,4 +1,64 @@
 
+# === TIDE WINDOW PREPROCESSING ===
+# Load tide data and ramp rules (should be preloaded from file or memory in production)
+daytime_high_tides = pd.read_csv("daytime_tide_inputs.csv", parse_dates=["DateTime"])
+ramp_rules = {
+    'Scituate': {'before_buffer_min': 180, 'after_buffer_min': 180},
+    'Duxbury': {'before_buffer_min': 90, 'after_buffer_min': 120},
+    'Plymouth': {'before_buffer_min': 120, 'after_buffer_min': 120},
+    'Cohasset': {'before_buffer_min': 150, 'after_buffer_min': 150},
+    'Brant Rock': {'before_buffer_min': 90, 'after_buffer_min': 90}
+}
+valid_windows_df = get_valid_ramp_windows(daytime_high_tides, ramp_rules)
+
+# Example: During job loop, filter this table by harbor and date
+# job_harbor = 'Scituate'
+# job_date = datetime(2025, 10, 14).date()
+# windows = valid_windows_df[(valid_windows_df['Harbor'] == job_harbor) & (valid_windows_df['Date'] == job_date)]
+# Then check if job duration fits within any window in `windows`
+
+
+from datetime import timedelta
+
+def get_valid_ramp_windows(daytime_high_tides, ramp_rules):
+    """
+    Apply ramp-specific tide buffer windows to verified daytime high tides.
+    Returns a list of valid scheduling windows per harbor per day.
+    """
+    valid_windows = []
+
+    for _, row in daytime_high_tides.iterrows():
+        harbor = row['Harbor']
+        tide_time = row['DateTime']
+
+        if harbor not in ramp_rules:
+            continue  # skip unknown ramps
+
+        buffers = ramp_rules[harbor]
+        before = timedelta(minutes=buffers['before_buffer_min'])
+        after = timedelta(minutes=buffers['after_buffer_min'])
+
+        start_time = tide_time - before
+        end_time = tide_time + after
+
+        # Clamp to operating hours (7:30 AM to 5:00 PM)
+        business_start = tide_time.replace(hour=7, minute=30)
+        business_end = tide_time.replace(hour=17, minute=0)
+
+        start_time = max(start_time, business_start)
+        end_time = min(end_time, business_end)
+
+        if start_time < end_time:
+            valid_windows.append({
+                'Harbor': harbor,
+                'Date': tide_time.date(),
+                'Start': start_time,
+                'End': end_time
+            })
+
+    return pd.DataFrame(valid_windows)
+
+
 import streamlit as st
 import pandas as pd
 import datetime as dt
