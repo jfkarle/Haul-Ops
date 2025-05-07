@@ -71,6 +71,9 @@ def find_slot(valid_starts, truck_jobs, job_length):
             return start
     return None
 
+def get_daytime_high_tides(tide_times):
+    return [t.strftime("%-I:%M %p") for t in tide_times if t.time() >= datetime.strptime("07:30", "%H:%M").time() and t.time() <= datetime.strptime("17:00", "%H:%M").time()]
+
 st.set_page_config("ECM Scheduler", layout="wide")
 st.title("🚛 ECM Scheduler — NOAA + Ramp Verified")
 
@@ -114,7 +117,9 @@ if submitted:
                     "End": (slot + job_length).strftime("%I:%M %p"),
                     "Truck": truck
                 })
-                st.success(f"✅ Scheduled: {customer} on {day.strftime('%a %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
+                high_tide_times = get_daytime_high_tides(tides)
+                tide_str = ", ".join(high_tide_times) if high_tide_times else "No daytime high tide"
+                st.success(f"✅ Scheduled: {customer} on {day.strftime('%a %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck} — High Tide: {tide_str}")
                 assigned = True
                 break
         if assigned:
