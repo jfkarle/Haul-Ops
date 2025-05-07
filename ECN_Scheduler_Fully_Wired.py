@@ -5,6 +5,8 @@ import os
 
 
 import requests
+import pandas as pd
+
 
 def extract_daytime_high_tides_from_url(url, harbor_name):
     try:
