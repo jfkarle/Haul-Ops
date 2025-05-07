@@ -3,27 +3,31 @@
 # Load tide data and ramp rules (should be preloaded from file or memory in production)
 import os
 
-# === DYNAMIC TIDE LOADER ===
-def extract_daytime_high_tides(csv_path, harbor_name):
-    df = pd.read_csv(csv_path)
-    valid_times = []
 
-    for _, row in df.iterrows():
-        try:
-            date = pd.to_datetime(row['Date']).date()
-            tide_times = str(row['High Tide']).split('/')
-            for tide_str in tide_times:
-                t = datetime.strptime(tide_str.strip(), "%I:%M %p").time()
-                if datetime.strptime("07:30", "%H:%M").time() <= t <= datetime.strptime("17:00", "%H:%M").time():
-                    dt = datetime.combine(date, t)
-                    valid_times.append({'DateTime': dt, 'Harbor': harbor_name})
-                    break  # use only one daytime tide per day
-        except:
-            continue
+import requests
 
-    return pd.DataFrame(valid_times)
+def extract_daytime_high_tides_from_url(url, harbor_name):
+    try:
+        df = pd.read_csv(url)
+        valid_times = []
+        for _, row in df.iterrows():
+            try:
+                date = pd.to_datetime(row['Date']).date()
+                tide_times = str(row['High Tide']).split('/')
+                for tide_str in tide_times:
+                    t = datetime.strptime(tide_str.strip(), "%I:%M %p").time()
+                    if datetime.strptime("07:30", "%H:%M").time() <= t <= datetime.strptime("17:00", "%H:%M").time():
+                        dt = datetime.combine(date, t)
+                        valid_times.append({ 'DateTime': dt, 'Harbor': harbor_name })
+                        break
+            except:
+                continue
+        return pd.DataFrame(valid_times)
+    except Exception as e:
+        print(f"Failed to load {harbor_name} from URL: {url}")
+        return pd.DataFrame(columns=['DateTime', 'Harbor'])
 
-# Load all harbor tide CSVs
+# Load each tide CSV from GitHub
 tide_files = {
     "Scituate": "Scituate_2025_Tide_Times.csv",
     "Plymouth": "Plymouth_2025_Tide_Times.csv",
@@ -33,9 +37,9 @@ tide_files = {
 }
 
 tide_frames = []
-for harbor, path in tide_files.items():
-    if os.path.exists(path):
-        tide_frames.append(extract_daytime_high_tides(path, harbor))
+for harbor, filename in tide_files.items():
+    url = f"https://raw.githubusercontent.com/Jfkarle/Haul-Ops/main/data/{filename}"
+    tide_frames.append(extract_daytime_high_tides_from_url(url, harbor))
 
 daytime_high_tides = pd.concat(tide_frames).sort_values("DateTime").reset_index(drop=True)
 ramp_rules = {
