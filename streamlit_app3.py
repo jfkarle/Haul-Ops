@@ -98,7 +98,7 @@ if submitted:
 for truck, jobs in TRUCKS.items():
     st.markdown(f"### 🛻 Truck {truck} Schedule")
     for j in sorted(jobs):
-        st.markdown(f"- {j[0].strftime('%a %b %d')} — {j[0].strftime('%I:%M %p')} → {j[1].strftime('%I:%M %p')} — {j[2]}")")
+        st.markdown(f"- {j[0].strftime('%a %b %d')} — {j[0].strftime('%I:%M %p')} → {j[1].strftime('%I:%M %p')} — {j[2]}")
     }
   ]
 }
