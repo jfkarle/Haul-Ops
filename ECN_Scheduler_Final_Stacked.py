@@ -1,49 +1,56 @@
+# ECM Scheduler: Tide-Aware Ramp Scheduling Integration
+
 import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
-def extract_daytime_high_tides_from_url(url, harbor_name):
-    try:
-        df = pd.read_csv(url)
-        valid_times = []
-        for _, row in df.iterrows():
-            try:
-                date = pd.to_datetime(row['Date']).date()
-                tide_times = str(row['High Tide']).split('/')
-                for tide_str in tide_times:
-                    t = datetime.strptime(tide_str.strip(), "%I:%M %p").time()
-                    if datetime.strptime("07:30", "%H:%M").time() <= t <= datetime.strptime("17:00", "%H:%M").time():
-                        dt = datetime.combine(date, t)
-                        valid_times.append({ 'DateTime': dt, 'Harbor': harbor_name })
-                        break
-            except:
-                continue
-        return pd.DataFrame(valid_times)
-    except Exception as e:
-        print(f"Failed to load {harbor_name} from URL: {url}")
-        return pd.DataFrame(columns=['DateTime', 'Harbor'])
-
-# Load each tide CSV from GitHub
-tide_files = {
-    "Scituate": "Scituate_2025_Tide_Times.csv",
-    "Plymouth": "Plymouth_2025_Tide_Times.csv",
-    "Duxbury": "Duxbury_2025_Tide_Times.csv",
-    "Cohasset": "Cohasset_2025_Tide_Times.csv",
-    "Brant Rock": "Brant_Rock_2025_Tide_Times.csv"
+# NOAA Station IDs per harbor
+stations = {
+    "Scituate": "8445138",
+    "Plymouth": "8446493",
+    "Duxbury": "8446166",
+    "Cohasset": "8444762"
 }
 
-tide_frames = []
-for harbor, filename in tide_files.items():
-    url = f"https://raw.githubusercontent.com/Jfkarle/Haul-Ops/main/data/{filename}"
-    tide_frames.append(extract_daytime_high_tides_from_url(url, harbor))
+def fetch_daytime_high_tides_2025():
+    all_predictions = []
+    base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+    params_template = {
+        "product": "predictions",
+        "datum": "MLLW",
+        "time_zone": "lst_ldt",
+        "units": "english",
+        "interval": "hilo",
+        "format": "json",
+        "begin_date": "20250101",
+        "end_date": "20251231"
+    }
 
-daytime_high_tides = pd.concat(tide_frames).sort_values("DateTime").reset_index(drop=True)
+    for harbor, station_id in stations.items():
+        params = params_template.copy()
+        params["station"] = station_id
+
+        try:
+            response = requests.get(base_url, params=params)
+            response.raise_for_status()
+            data = response.json().get("predictions", [])
+
+            for entry in data:
+                t = datetime.strptime(entry["t"], "%Y-%m-%d %H:%M")
+                if entry["type"] == "H":
+                    if datetime.strptime("07:30", "%H:%M").time() <= t.time() <= datetime.strptime("17:00", "%H:%M").time():
+                        all_predictions.append({
+                            "Harbor": harbor,
+                            "DateTime": t,
+                            "Tide Height (ft)": float(entry["v"]),
+                            "Type": "H"
+                        })
+        except Exception as e:
+            print(f"Error fetching {harbor}: {e}")
+
+    return pd.DataFrame(all_predictions)
 
 def get_valid_ramp_windows(daytime_high_tides, ramp_rules):
-    """
-    Apply ramp-specific tide buffer windows to verified daytime high tides.
-    Returns a list of valid scheduling windows per harbor per day.
-    """
     valid_windows = []
 
     for _, row in daytime_high_tides.iterrows():
@@ -51,7 +58,7 @@ def get_valid_ramp_windows(daytime_high_tides, ramp_rules):
         tide_time = row['DateTime']
 
         if harbor not in ramp_rules:
-            continue  # skip unknown ramps
+            continue
 
         buffers = ramp_rules[harbor]
         before = timedelta(minutes=buffers['before_buffer_min'])
@@ -60,7 +67,6 @@ def get_valid_ramp_windows(daytime_high_tides, ramp_rules):
         start_time = tide_time - before
         end_time = tide_time + after
 
-        # Clamp to operating hours (7:30 AM to 5:00 PM)
         business_start = tide_time.replace(hour=7, minute=30)
         business_end = tide_time.replace(hour=17, minute=0)
 
@@ -77,73 +83,10 @@ def get_valid_ramp_windows(daytime_high_tides, ramp_rules):
 
     return pd.DataFrame(valid_windows)
 
-ramp_rules = {
-    'Scituate': {'before_buffer_min': 180, 'after_buffer_min': 180},
-    'Duxbury': {'before_buffer_min': 90, 'after_buffer_min': 120},
-    'Plymouth': {'before_buffer_min': 120, 'after_buffer_min': 120},
-    'Cohasset': {'before_buffer_min': 150, 'after_buffer_min': 150},
-    'Brant Rock': {'before_buffer_min': 90, 'after_buffer_min': 90}
-}
-
-valid_windows_df = get_valid_ramp_windows(daytime_high_tides, ramp_rules)
-
-from datetime import datetime, timedelta
-
-# === TIDE WINDOW PREPROCESSING ===
-# Load tide data and ramp rules (should be preloaded from file or memory in production)
-import os
-
-
-import requests
-
-def extract_daytime_high_tides_from_url(url, harbor_name):
-    try:
-        df = pd.read_csv(url)
-        valid_times = []
-        for _, row in df.iterrows():
-            try:
-                date = pd.to_datetime(row['Date']).date()
-                tide_times = str(row['High Tide']).split('/')
-                for tide_str in tide_times:
-                    t = datetime.strptime(tide_str.strip(), "%I:%M %p").time()
-                    if datetime.strptime("07:30", "%H:%M").time() <= t <= datetime.strptime("17:00", "%H:%M").time():
-                        dt = datetime.combine(date, t)
-                        valid_times.append({ 'DateTime': dt, 'Harbor': harbor_name })
-                        break
-            except:
-                continue
-        return pd.DataFrame(valid_times)
-    except Exception as e:
-        print(f"Failed to load {harbor_name} from URL: {url}")
-        return pd.DataFrame(columns=['DateTime', 'Harbor'])
-
-# Load each tide CSV from GitHub
-tide_files = {
-    "Scituate": "Scituate_2025_Tide_Times.csv",
-    "Plymouth": "Plymouth_2025_Tide_Times.csv",
-    "Duxbury": "Duxbury_2025_Tide_Times.csv",
-    "Cohasset": "Cohasset_2025_Tide_Times.csv",
-    "Brant Rock": "Brant_Rock_2025_Tide_Times.csv"
-}
-
-tide_frames = []
-for harbor, filename in tide_files.items():
-    url = f"https://raw.githubusercontent.com/Jfkarle/Haul-Ops/main/data/{filename}"
-    tide_frames.append(extract_daytime_high_tides_from_url(url, harbor))
-
-ramp_rules = {
-    'Scituate': {'before_buffer_min': 180, 'after_buffer_min': 180},
-    'Duxbury': {'before_buffer_min': 90, 'after_buffer_min': 120},
-    'Plymouth': {'before_buffer_min': 120, 'after_buffer_min': 120},
-    'Cohasset': {'before_buffer_min': 150, 'after_buffer_min': 150},
-    'Brant Rock': {'before_buffer_min': 90, 'after_buffer_min': 90}
-}
-
-# Example: During job loop, filter this table by harbor and date
-# job_harbor = 'Scituate'
-# job_date = datetime(2025, 10, 14).date()
-# windows = valid_windows_df[(valid_windows_df['Harbor'] == job_harbor) & (valid_windows_df['Date'] == job_date)]
-# Then check if job duration fits within any window in `windows`
+# EXAMPLE USAGE:
+# daytime_high_tides = fetch_daytime_high_tides_2025()
+# ramp_rules = { ... }
+# valid_windows_df = get_valid_ramp_windows(daytime_high_tides, ramp_rules)
 
 
 from datetime import timedelta
