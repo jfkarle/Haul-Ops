@@ -1,9 +1,9 @@
-# ECM Scheduler — NOAA Integrated + Persistent Job Tracking
+# ECM Scheduler — NOAA + Ramp Buffer Compliance
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
+import pandas as pd
 
-# Ramp to Station ID map
 RAMP_TO_STATION_ID = {
     "Sandwich": "8446493", "Plymouth": "8446493", "Cordage": "8446493",
     "Duxbury": "8446166", "Green Harbor": "8447001", "Taylor": "8447001",
@@ -11,6 +11,15 @@ RAMP_TO_STATION_ID = {
     "South River": "8447001", "Roht": "8447001", "Mary": "8447001",
     "Scituate": "8445138", "Cohasset": "8444762", "Hull": "8444762",
     "Hingham": "8444762", "Weymouth": "8444762"
+}
+
+RAMP_BUFFERS = {
+    "Duxbury": (60, 60), "Green Harbor": (180, 180), "Taylor": (180, 180),
+    "Safe Harbor": (60, 60), "Ferry Street": (60, 60), "Marshfield": (60, 60),
+    "South River": (60, 60), "Roht": (60, 60), "Mary": (60, 60),
+    "Scituate": (180, 180), "Cohasset": (180, 180), "Hull": (180, 180),
+    "Hingham": (180, 180), "Weymouth": (180, 180), "Sandwich": (60, 60),
+    "Plymouth": (60, 60), "Cordage": (60, 60)
 }
 
 if "TRUCKS" not in st.session_state:
@@ -24,7 +33,7 @@ def get_station_for_ramp(ramp):
     for name, sid in RAMP_TO_STATION_ID.items():
         if name.lower() in ramp.lower():
             return sid
-    return "8445138"  # fallback
+    return "8445138"
 
 def fetch_noaa_high_tides(station_id, date):
     url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
@@ -41,22 +50,30 @@ def fetch_noaa_high_tides(station_id, date):
     except:
         return []
 
-def find_matching_slot(tides, truck_jobs, job_length, job_date):
-    base = datetime.combine(job_date, datetime.strptime("07:30", "%H:%M").time())
-    end = datetime.combine(job_date, datetime.strptime("17:00", "%H:%M").time())
-    while base < end:
-        for tide in tides:
-            if abs((base - tide).total_seconds()) < 15 * 60:
-                conflict = any(base < j[1] and base + job_length > j[0] for j in truck_jobs)
-                if not conflict:
-                    return base
-        base += timedelta(minutes=15)
+def generate_valid_start_times(tides, ramp, date):
+    buffer = RAMP_BUFFERS.get(ramp, (60, 60))
+    valid_starts = []
+    for tide in tides:
+        start_window = tide - timedelta(minutes=buffer[0])
+        end_window = tide + timedelta(minutes=buffer[1])
+        t = datetime.combine(date, datetime.strptime("07:30", "%H:%M").time())
+        while t < datetime.combine(date, datetime.strptime("17:00", "%H:%M").time()):
+            if start_window <= t <= end_window:
+                valid_starts.append(t)
+            t += timedelta(minutes=15)
+    return valid_starts
+
+def find_slot(valid_starts, truck_jobs, job_length):
+    for start in valid_starts:
+        conflict = any(start < j[1] and start + job_length > j[0] for j in truck_jobs)
+        if not conflict:
+            return start
     return None
 
 st.set_page_config("ECM Scheduler", layout="wide")
-st.title("🚛 ECM Scheduler — NOAA Verified")
+st.title("🚛 ECM Scheduler — NOAA + Ramp Verified")
 
-# User form
+# Input form
 with st.form("schedule_form"):
     col1, col2 = st.columns(2)
     with col1:
@@ -80,21 +97,19 @@ if submitted:
         if day.weekday() >= 5:
             continue
         tides = fetch_noaa_high_tides(station_id, day)
+        valid_slots = generate_valid_start_times(tides, ramp, day)
         for truck, jobs in st.session_state.TRUCKS.items():
-            slot = find_matching_slot(tides, jobs, job_length, day)
+            slot = find_slot(valid_slots, jobs, job_length)
             if slot:
                 st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
                 st.session_state.ALL_JOBS.append({
-                    "Customer": customer,
-                    "Boat Type": boat_type,
-                    "Service": service,
-                    "Ramp": ramp,
-                    "Date": day.strftime("%Y-%m-%d"),
+                    "Customer": customer, "Boat Type": boat_type, "Service": service,
+                    "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
                     "Start": slot.strftime("%I:%M %p"),
                     "End": (slot + job_length).strftime("%I:%M %p"),
                     "Truck": truck
                 })
-                st.success(f"✅ Scheduled for {customer} on {day.strftime('%a %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
+                st.success(f"✅ Scheduled: {customer} on {day.strftime('%a %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                 assigned = True
                 break
         if assigned:
@@ -102,19 +117,16 @@ if submitted:
         fallback_days.append(day.strftime("%a %b %d"))
 
     if not assigned:
-        st.error("❌ No available slot in 45-day window")
+        st.error("❌ No slot found in 45-day tide + buffer window")
         if debug:
-            st.warning("Tried the following days with no match:")
             for d in fallback_days:
-                st.text(d)
+                st.text(f"Tried {d}")
 
-# Final truck schedules
 for truck, jobs in st.session_state.TRUCKS.items():
     st.markdown(f"### 🛻 Truck {truck} Schedule")
     for j in sorted(jobs):
         st.markdown(f"- {j[0].strftime('%a %b %d')} — {j[0].strftime('%I:%M %p')} → {j[1].strftime('%I:%M %p')} — {j[2]}")
 
-# All scheduled jobs summary
 if st.session_state.ALL_JOBS:
     st.markdown("### 📋 Master List: All Scheduled Jobs")
     st.dataframe(pd.DataFrame(st.session_state.ALL_JOBS))
