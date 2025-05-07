@@ -1,4 +1,4 @@
-# ECM Scheduler — Fresh Start with NOAA Tide Matching & Truck Assignment
+# ECM Scheduler — NOAA Integrated + Persistent Job Tracking
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
@@ -13,7 +13,11 @@ RAMP_TO_STATION_ID = {
     "Hingham": "8444762", "Weymouth": "8444762"
 }
 
-TRUCKS = {"S20": [], "S21": [], "S23": []}
+if "TRUCKS" not in st.session_state:
+    st.session_state.TRUCKS = {"S20": [], "S21": [], "S23": []}
+if "ALL_JOBS" not in st.session_state:
+    st.session_state.ALL_JOBS = []
+
 DURATION = {"Powerboat": timedelta(hours=1.5), "Sailboat": timedelta(hours=3)}
 
 def get_station_for_ramp(ramp):
@@ -76,10 +80,20 @@ if submitted:
         if day.weekday() >= 5:
             continue
         tides = fetch_noaa_high_tides(station_id, day)
-        for truck, jobs in TRUCKS.items():
+        for truck, jobs in st.session_state.TRUCKS.items():
             slot = find_matching_slot(tides, jobs, job_length, day)
             if slot:
-                TRUCKS[truck].append((slot, slot + job_length, customer))
+                st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
+                st.session_state.ALL_JOBS.append({
+                    "Customer": customer,
+                    "Boat Type": boat_type,
+                    "Service": service,
+                    "Ramp": ramp,
+                    "Date": day.strftime("%Y-%m-%d"),
+                    "Start": slot.strftime("%I:%M %p"),
+                    "End": (slot + job_length).strftime("%I:%M %p"),
+                    "Truck": truck
+                })
                 st.success(f"✅ Scheduled for {customer} on {day.strftime('%a %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                 assigned = True
                 break
@@ -95,10 +109,12 @@ if submitted:
                 st.text(d)
 
 # Final truck schedules
-for truck, jobs in TRUCKS.items():
+for truck, jobs in st.session_state.TRUCKS.items():
     st.markdown(f"### 🛻 Truck {truck} Schedule")
     for j in sorted(jobs):
-        st.markdown(
-            f"- {j[0].strftime('%a %b %d')} — {j[0].strftime('%I:%M %p')} → {j[1].strftime('%I:%M %p')} — {j[2]}"
-        )
+        st.markdown(f"- {j[0].strftime('%a %b %d')} — {j[0].strftime('%I:%M %p')} → {j[1].strftime('%I:%M %p')} — {j[2]}")
 
+# All scheduled jobs summary
+if st.session_state.ALL_JOBS:
+    st.markdown("### 📋 Master List: All Scheduled Jobs")
+    st.dataframe(pd.DataFrame(st.session_state.ALL_JOBS))
