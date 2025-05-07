@@ -1,8 +1,9 @@
-# ECM Scheduler — NOAA + Ramp Buffer Compliance
+# ECM Scheduler — NOAA + Ramp Buffers + Exportable Log
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
 import pandas as pd
+import io
 
 RAMP_TO_STATION_ID = {
     "Sandwich": "8446493", "Plymouth": "8446493", "Cordage": "8446493",
@@ -73,6 +74,10 @@ def find_slot(valid_starts, truck_jobs, job_length):
 st.set_page_config("ECM Scheduler", layout="wide")
 st.title("🚛 ECM Scheduler — NOAA + Ramp Verified")
 
+# Sidebar toggle for master CSV display
+with st.sidebar:
+    show_table = st.checkbox("📋 Show All Scheduled Jobs Table")
+
 # Input form
 with st.form("schedule_form"):
     col1, col2 = st.columns(2)
@@ -122,11 +127,7 @@ if submitted:
             for d in fallback_days:
                 st.text(f"Tried {d}")
 
-for truck, jobs in st.session_state.TRUCKS.items():
-    st.markdown(f"### 🛻 Truck {truck} Schedule")
-    for j in sorted(jobs):
-        st.markdown(f"- {j[0].strftime('%a %b %d')} — {j[0].strftime('%I:%M %p')} → {j[1].strftime('%I:%M %p')} — {j[2]}")
-
-if st.session_state.ALL_JOBS:
+# Optional master job table view
+if show_table and st.session_state.ALL_JOBS:
     st.markdown("### 📋 Master List: All Scheduled Jobs")
     st.dataframe(pd.DataFrame(st.session_state.ALL_JOBS))
