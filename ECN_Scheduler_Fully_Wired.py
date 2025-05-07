@@ -1,7 +1,43 @@
 
 # === TIDE WINDOW PREPROCESSING ===
 # Load tide data and ramp rules (should be preloaded from file or memory in production)
-daytime_high_tides = pd.read_csv("daytime_tide_inputs.csv", parse_dates=["DateTime"])
+import os
+
+# === DYNAMIC TIDE LOADER ===
+def extract_daytime_high_tides(csv_path, harbor_name):
+    df = pd.read_csv(csv_path)
+    valid_times = []
+
+    for _, row in df.iterrows():
+        try:
+            date = pd.to_datetime(row['Date']).date()
+            tide_times = str(row['High Tide']).split('/')
+            for tide_str in tide_times:
+                t = datetime.strptime(tide_str.strip(), "%I:%M %p").time()
+                if datetime.strptime("07:30", "%H:%M").time() <= t <= datetime.strptime("17:00", "%H:%M").time():
+                    dt = datetime.combine(date, t)
+                    valid_times.append({'DateTime': dt, 'Harbor': harbor_name})
+                    break  # use only one daytime tide per day
+        except:
+            continue
+
+    return pd.DataFrame(valid_times)
+
+# Load all harbor tide CSVs
+tide_files = {
+    "Scituate": "Scituate_2025_Tide_Times.csv",
+    "Plymouth": "Plymouth_2025_Tide_Times.csv",
+    "Duxbury": "Duxbury_2025_Tide_Times.csv",
+    "Cohasset": "Cohasset_2025_Tide_Times.csv",
+    "Brant Rock": "Brant_Rock_2025_Tide_Times.csv"
+}
+
+tide_frames = []
+for harbor, path in tide_files.items():
+    if os.path.exists(path):
+        tide_frames.append(extract_daytime_high_tides(path, harbor))
+
+daytime_high_tides = pd.concat(tide_frames).sort_values("DateTime").reset_index(drop=True)
 ramp_rules = {
     'Scituate': {'before_buffer_min': 180, 'after_buffer_min': 180},
     'Duxbury': {'before_buffer_min': 90, 'after_buffer_min': 120},
