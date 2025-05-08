@@ -87,6 +87,7 @@ with st.form("schedule_form"):
     with col1:
         customer = st.text_input("Customer Name")
         boat_type = st.selectbox("Boat Type", ["Powerboat", "Sailboat"])
+        boat_length = st.number_input("Boat Length (ft)", min_value=10, max_value=100, step=1)
         service = st.selectbox("Service Type", ["Launch", "Haul"])
     with col2:
         ramp = st.selectbox("Ramp", list(RAMP_TO_STATION_ID.keys()))
@@ -111,7 +112,7 @@ if submitted:
             if slot:
                 st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
                 st.session_state.ALL_JOBS.append({
-                    "Customer": customer, "Boat Type": boat_type, "Service": service,
+                    "Customer": customer, "Boat Type": boat_type, "Boat Length": boat_length, "Service": service,
                     "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
                     "Start": slot.strftime("%I:%M %p"),
                     "End": (slot + job_length).strftime("%I:%M %p"),
