@@ -1,4 +1,3 @@
-
 # ECM Scheduler — NOAA + Ramp Buffers + Exportable Log
 import streamlit as st
 import requests
@@ -8,9 +7,9 @@ import io
 
 RAMP_TO_STATION_ID = {
     "Sandwich": "8446493", "Plymouth": "8446493", "Cordage": "8446493",
-    "Duxbury": "8446166", "Green Harbor": "8447001", "Taylor": "8447001",
-    "Safe Harbor": "8447001", "Ferry Street": "8447001", "Marshfield": "8447001",
-    "South River": "8447001", "Roht": "8447001", "Mary": "8447001",
+    "Duxbury": "8446166", "Green Harbor": "8446009", "Taylor": "8446009",
+    "Safe Harbor": "8446009", "Ferry Street": "8446009", "Marshfield": "8446009",
+    "South River": "8446009", "Roht": "8446009", "Mary": "8446009",
     "Scituate": "8445138", "Cohasset": "8444762", "Hull": "8444762",
     "Hingham": "8444762", "Weymouth": "8444762"
 }
@@ -115,11 +114,7 @@ if submitted:
         if day.weekday() >= 5:
             continue
         tides = fetch_noaa_high_tides(station_id, day)
-        if debug:
-            st.warning(f"Tide fetch for {day.strftime('%B %d')} at station {station_id}: {len(tides)} tide(s) returned")
         valid_slots = generate_valid_start_times(tides, ramp, day)
-        if debug:
-            st.info(f"{day.strftime('%A %b %d')}: {len(valid_slots)} valid slots")
         for truck, jobs in st.session_state.TRUCKS.items():
             if boat_length > TRUCK_LIMITS[truck]:
                 continue
@@ -127,8 +122,6 @@ if submitted:
             if slot:
                 if mast_option == "Mast On Deck":
                     if any(j[0].date() == day and j[3] != ramp for j in st.session_state.CRANE_JOBS):
-                        if debug:
-                            st.warning(f"J17 already booked at another ramp on {day.strftime('%B %d')}")
                         continue
                     st.session_state.CRANE_JOBS.append((slot, slot + timedelta(hours=2), customer, ramp))
                 elif mast_option == "Mast Transport":
