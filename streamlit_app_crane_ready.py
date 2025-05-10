@@ -121,8 +121,41 @@ with st.form("schedule_form"):
     submitted = st.form_submit_button("Schedule This Job")
 
 if submitted:
-    st.info("Scheduling logic executed.")
     job_length = DURATION[boat_type]
     station_id = RAMP_TO_NOAA.get(ramp, "8445138")
     tide_times = fetch_noaa_high_tides(station_id, start_date)
-    st.write(f"High tide windows: {tide_times}")
+
+    explanation = ""
+    for tide in tide_times:
+        start = tide - timedelta(minutes=45)
+        end = start + job_length
+
+        truck = "J17" if boat_type == "Sailboat" else "S20"
+        job_record = {
+            "Customer": customer,
+            "Boat Type": boat_type,
+            "Boat Length": boat_length,
+            "Mast": mast_option,
+            "Service": service,
+            "Origin": origin,
+            "Ramp": ramp,
+            "Date": start.strftime("%B %d, %Y"),
+            "Start": start.strftime("%I:%M %p"),
+            "End": end.strftime("%I:%M %p"),
+            "Truck": truck,
+            "High Tide": tide.strftime("%I:%M %p")
+        }
+
+        st.session_state.ALL_JOBS.append(job_record)
+        if truck == "J17":
+            st.session_state.CRANE_JOBS.append((start, end, customer, ramp))
+
+        explanation += f"- Truck {truck} assigned for {boat_type}\n"
+        explanation += f"- Job scheduled {job_length.total_seconds() / 60:.0f} minutes before high tide ({tide.strftime('%I:%M %p')})\n"
+
+        st.success(f"✅ Scheduled: {customer} on {start.strftime('%A %b %d')} at {start.strftime('%I:%M %p')} — Truck {truck}")
+        st.markdown(f"**Why this slot was chosen:**\n```
+{explanation}
+```")
+        st.session_state.PDF_REPORT.add_job_page(job_record, explanation)
+        break
