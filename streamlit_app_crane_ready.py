@@ -171,7 +171,10 @@ if submitted:
         explanation += f"- Job scheduled {job_length.total_seconds() / 60:.0f} minutes before high tide ({tide.strftime('%I:%M %p')})\n"
 
         st.success(f"✅ Scheduled: {customer} on {start.strftime('%A %b %d')} at {start.strftime('%I:%M %p')} — Truck {truck}")
-        st.markdown(f"**Why this slot was chosen:**\n```
+        st.markdown(f"**Why this slot was chosen:**
+" + "```
+" + explanation + "
+```")
 {explanation}
 ```")
         st.session_state.PDF_REPORT.add_job_page(job_record, explanation)
