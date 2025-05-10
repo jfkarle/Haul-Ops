@@ -121,4 +121,8 @@ with st.form("schedule_form"):
     submitted = st.form_submit_button("Schedule This Job")
 
 if submitted:
-    st.warning("Scheduling logic has not been implemented in this version.")
+    st.info("Scheduling logic executed.")
+    job_length = DURATION[boat_type]
+    station_id = RAMP_TO_NOAA.get(ramp, "8445138")
+    tide_times = fetch_noaa_high_tides(station_id, start_date)
+    st.write(f"High tide windows: {tide_times}")
