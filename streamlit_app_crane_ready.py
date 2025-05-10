@@ -106,7 +106,20 @@ with st.sidebar:
         )
 
 # --- Scheduler Form ---
-# (Same form content remains here...)
+with st.form("schedule_form"):
+    col1, col2 = st.columns(2)
+    with col1:
+        customer = st.text_input("Customer Name")
+        boat_type = st.selectbox("Boat Type", ["Powerboat", "Sailboat"])
+        boat_length = st.number_input("Boat Length (ft)", min_value=10, max_value=100, step=1)
+        service = st.selectbox("Service Type", ["Launch", "Haul", "Land-Land"])
+        origin = st.text_input("Origin (Pickup Address)", placeholder="e.g. 100 Prospect Street, Marshfield, MA")
+        mast_option = st.selectbox("Sailboat Mast Handling", ["None", "Mast On Deck", "Mast Transport"])
+    with col2:
+        ramp = st.selectbox("Ramp", RAMP_LABELS)
+        start_date = st.date_input("Requested Start Date", datetime.today())
+        debug = st.checkbox("Enable Tide Debug Info")
+    submitted = st.form_submit_button("Schedule This Job")
 # --- Inside the final scheduling block ---
 # After the st.success() and st.markdown(), add this:
 # st.session_state.PDF_REPORT.add_job_page(job_record, explanation)
