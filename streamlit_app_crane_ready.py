@@ -189,17 +189,46 @@ if submitted:
                         "High Tide": tide_str
                     }
                     st.session_state.ALL_JOBS.append(job_record)
-                    explanation = f"- Truck {truck} fits boat length ({boat_length} ft ≤ {TRUCK_LIMITS[truck]} ft)
-""
+                    explanation = (
+    f"- Truck {truck} fits boat length ({boat_length} ft ≤ {TRUCK_LIMITS[truck]} ft)
+"
+    f"- Slot is tide-aligned with high tide at {tide_str}
+"
+)
+if origin.strip().lower() == ECM_ADDRESS.lower():
+    if service == "Launch":
+        explanation += "- ECM boat launch prioritized for 8:00 AM
+"
+    elif service == "Haul":
+        explanation += "- ECM boat haul prioritized for after 2:30 PM
+"
+if boat_type == "Sailboat":
+    crane_duration = timedelta(hours=1.5 if mast_option == "Mast Transport" else 1)
+    st.session_state.ALL_JOBS.append({
+        **job_record,
+        "Truck": "J17",
+        "End": (slot + crane_duration).strftime("%I:%M %p")
+    })
+    st.session_state.CRANE_JOBS.append((slot, slot + crane_duration, customer, ramp))
+    explanation += f"- Crane assigned for {crane_duration.total_seconds()/3600:.1f} hrs ({mast_option})
+"
+    if j17_aligned_days and day in j17_aligned_days:
+        explanation += "- J17 already booked at this ramp within 7-day window — grouped
+"
+    if len(crane_jobs_today) > 0:
+        explanation += "- Staggered 1 hour from other sailboat(s) at ramp
+"
+explanation += "- No conflicts with other jobs on truck
+"
                     explanation += f"- Slot is tide-aligned with high tide at {tide_str}
-""
+"
                     if origin.strip().lower() == ECM_ADDRESS.lower():
                         if service == "Launch":
                             explanation += "- ECM boat launch prioritized for 8:00 AM
-""
+"
                         elif service == "Haul":
                             explanation += "- ECM boat haul prioritized for after 2:30 PM
-""
+"
                     if boat_type == "Sailboat":
                         crane_duration = timedelta(hours=1.5 if mast_option == "Mast Transport" else 1)
                         st.session_state.ALL_JOBS.append({
@@ -209,15 +238,15 @@ if submitted:
                         })
                         st.session_state.CRANE_JOBS.append((slot, slot + crane_duration, customer, ramp))
                         explanation += f"- Crane assigned for {crane_duration.total_seconds()/3600:.1f} hrs ({mast_option})
-""
+"
                         if j17_aligned_days and day in j17_aligned_days:
                             explanation += f"- J17 already booked at this ramp within 7-day window — grouped
-""
+"
                         if len(crane_jobs_today) > 0:
                             explanation += f"- Staggered 1 hour from other sailboat(s) at ramp
-""
+"
                     explanation += "- No conflicts with other jobs on truck
-""
+"
 
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                     st.markdown(f"**Why this slot was chosen:**
