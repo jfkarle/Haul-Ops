@@ -140,11 +140,6 @@ if submitted:
         station_id = RAMP_TO_NOAA.get(ramp, "8445138")
         tides = fetch_noaa_high_tides(station_id, day)
         valid_slots = []
-        if origin.strip().lower() == ECM_ADDRESS.lower():
-            if service == "Launch":
-                valid_slots = [t for t in valid_slots if t.strftime("%I:%M %p") == "08:00 AM"]
-            elif service == "Haul":
-                valid_slots = [t for t in valid_slots if t >= datetime.combine(day, datetime.strptime("14:30", "%H:%M").time())]
         for tide in tides:
             start_window = tide - timedelta(minutes=60)
             end_window = tide + timedelta(minutes=60)
@@ -153,6 +148,13 @@ if submitted:
                 if start_window <= t <= end_window and t.minute in (0, 30):
                     valid_slots.append(t)
                 t += timedelta(minutes=15)
+
+        # Apply ECM time filter AFTER all tide-aligned slots are collected
+        if origin.strip().lower() == ECM_ADDRESS.lower():
+            if service == "Launch":
+                valid_slots = [t for t in valid_slots if t.strftime("%I:%M %p") == "08:00 AM"]
+            elif service == "Haul":
+                valid_slots = [t for t in valid_slots if t >= datetime.combine(day, datetime.strptime("14:30", "%H:%M").time())]
 
         crane_jobs_today = [j for j in st.session_state.CRANE_JOBS if j[0].date() == day and j[3] == ramp]
         if boat_type == "Sailboat" and len(crane_jobs_today) >= 4:
