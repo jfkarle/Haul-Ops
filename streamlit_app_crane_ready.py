@@ -23,6 +23,8 @@ RAMP_TO_NOAA = {
     "Weymouth Harbor (Wessagusset)": "8444788",
 }
 
+ECM_ADDRESS = "43 Mattakeeset Street, Pembroke, MA"
+
 # --- Session State Initialization ---
 if "TRUCKS" not in st.session_state:
     st.session_state.TRUCKS = {"S20": [], "S21": [], "S23": []}
@@ -105,19 +107,21 @@ if submitted:
                     valid_slots.append(t)
                 t += timedelta(minutes=15)
 
-        # J17 single-ramp enforcement
-        if boat_type == "Sailboat":
-            j17_conflict = any(
-                j[0].date() == day and j[3] != ramp
-                for j in st.session_state.CRANE_JOBS
-            )
-            if j17_conflict:
-                continue
+        # J17 crane rules — max 4 jobs/day at same ramp, staggered 1 hour
+        crane_jobs_today = [j for j in st.session_state.CRANE_JOBS if j[0].date() == day and j[3] == ramp]
+        if boat_type == "Sailboat" and len(crane_jobs_today) >= 4:
+            continue
+        if boat_type == "Sailboat" and any(j[0].date() == day and j[3] != ramp for j in st.session_state.CRANE_JOBS):
+            continue
 
         for truck, jobs in st.session_state.TRUCKS.items():
             if boat_length > TRUCK_LIMITS[truck]:
                 continue
             for slot in valid_slots:
+                if boat_type == "Sailboat":
+                    if any(abs((slot - j[0]).total_seconds()) < 3600 for j in crane_jobs_today):
+                        continue  # enforce 1-hour staggering
+
                 conflict = any(slot < j[1] and slot + job_length > j[0] for j in jobs)
                 if not conflict:
                     tide_str = tides[0].strftime("%I:%M %p") if tides else "N/A"
@@ -137,6 +141,7 @@ if submitted:
                         "High Tide": tide_str
                     })
                     if boat_type == "Sailboat":
+                        crane_duration = timedelta(hours=1.5 if mast_option == "Mast Transport" else 1)
                         st.session_state.ALL_JOBS.append({
                             "Customer": customer,
                             "Boat Type": boat_type,
@@ -147,11 +152,11 @@ if submitted:
                             "Ramp": ramp,
                             "Date": day.strftime("%Y-%m-%d"),
                             "Start": slot.strftime("%I:%M %p"),
-                            "End": (slot + job_length).strftime("%I:%M %p"),
+                            "End": (slot + crane_duration).strftime("%I:%M %p"),
                             "Truck": "J17",
                             "High Tide": tide_str
                         })
-                        st.session_state.CRANE_JOBS.append((slot, slot + job_length, customer, ramp))
+                        st.session_state.CRANE_JOBS.append((slot, slot + crane_duration, customer, ramp))
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                     assigned = True
                     break
