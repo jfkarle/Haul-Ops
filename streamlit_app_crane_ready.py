@@ -155,57 +155,7 @@ if submitted:
                 valid_slots = [t for t in valid_slots if t.strftime("%I:%M %p") == "08:00 AM"]
             elif service == "Haul":
                 valid_slots = [t for t in valid_slots if t >= datetime.combine(day, datetime.strptime("14:30", "%H:%M").time())]
-
-        crane_jobs_today = [j for j in st.session_state.CRANE_JOBS if j[0].date() == day and j[3] == ramp]
-        if boat_type == "Sailboat" and len(crane_jobs_today) >= 4:
-            continue
-        if boat_type == "Sailboat" and any(j[0].date() == day and j[3] != ramp for j in st.session_state.CRANE_JOBS):
-            continue
-
-        for truck, jobs in st.session_state.TRUCKS.items():
-            if boat_length > TRUCK_LIMITS[truck]:
-                continue
-            for slot in valid_slots:
-                if boat_type == "Sailboat":
-                    if any(abs((slot - j[0]).total_seconds()) < 3600 for j in crane_jobs_today):
-                        continue
-
-                conflict = any(slot < j[1] and slot + job_length > j[0] for j in jobs)
-                if not conflict:
-                    tide_str = tides[0].strftime("%I:%M %p") if tides else "N/A"
-                    st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
-                    job_record = {
-                        "Customer": customer,
-                        "Boat Type": boat_type,
-                        "Boat Length": boat_length,
-                        "Mast": mast_option,
-                        "Origin": origin,
-                        "Service": service,
-                        "Ramp": ramp,
-                        "Date": day.strftime("%Y-%m-%d"),
-                        "Start": slot.strftime("%I:%M %p"),
-                        "End": (slot + job_length).strftime("%I:%M %p"),
-                        "Truck": truck,
-                        "High Tide": tide_str
-                    }
-                    st.session_state.ALL_JOBS.append(job_record)
-                    explanation = (
-    f"- Truck {truck} fits boat length ({boat_length} ft ≤ {TRUCK_LIMITS[truck]} ft)
-"
-    f"- Slot is tide-aligned with high tide at {tide_str}
-"
-)
-"
-    f"- Slot is tide-aligned with high tide at {tide_str}
-"
-)
-
-if origin.strip().lower() == ECM_ADDRESS.lower():
-    if service == "Launch":
-        explanation += "- No conflicts with other jobs on truck
-""
-                    explanation += f"- Slot is tide-aligned with high tide at {tide_str}
-"
+                    "
                     if origin.strip().lower() == ECM_ADDRESS.lower():
                         if service == "Launch":
                             explanation += "- ECM boat launch prioritized for 8:00 AM
@@ -222,15 +172,15 @@ if origin.strip().lower() == ECM_ADDRESS.lower():
                         })
                         st.session_state.CRANE_JOBS.append((slot, slot + crane_duration, customer, ramp))
                         explanation += f"- Crane assigned for {crane_duration.total_seconds()/3600:.1f} hrs ({mast_option})
-"
+""
                         if j17_aligned_days and day in j17_aligned_days:
-                            explanation += f"- J17 already booked at this ramp within 7-day window — grouped
-"
+                            explanation += "- J17 already booked at this ramp within 7-day window — grouped
+""
                         if len(crane_jobs_today) > 0:
-                            explanation += f"- Staggered 1 hour from other sailboat(s) at ramp
-"
+                            explanation += "- Staggered 1 hour from other sailboat(s) at ramp
+""
                     explanation += "- No conflicts with other jobs on truck
-"
+""
 
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                     st.markdown(f"**Why this slot was chosen:**
