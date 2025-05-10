@@ -97,8 +97,6 @@ if submitted:
                         "Truck": truck
                     })
                     if mast_option in ["Mast On Deck", "Mast Transport"]:
-                        if any(j[0].date() == day.date() and j[3] != ramp for j in st.session_state.CRANE_JOBS):
-                            continue  # J17 is already booked at a different ramp on this day
                         st.session_state.ALL_JOBS.append({
                             "Customer": customer, "Boat Type": "", "Boat Length": "", "Mast": mast_option,
                             "Origin": origin, "Service": "Crane Assist", "Ramp": ramp,
