@@ -14,20 +14,21 @@ RAMP_TO_STATION_ID = {
     "Hingham": "8444762", "Weymouth": "8444762"
 }
 
-RAMP_BUFFERS = {
-    "Duxbury": (60, 60), "Green Harbor": (180, 180), "Taylor": (180, 180),
-    "Safe Harbor": (60, 60), "Ferry Street": (60, 60), "Marshfield": (60, 60),
-    "South River": (60, 60), "Roht": (60, 60), "Mary": (60, 60),
-    "Scituate": (180, 180), "Cohasset": (180, 180), "Hull": (180, 180),
-    "Hingham": (180, 180), "Weymouth": (180, 180), "Sandwich": (60, 60),
-    "Plymouth": (60, 60), "Cordage": (60, 60)
+RAMP_DISTANCE_FROM_PEMBROKE = {
+    "Plymouth": 15, "Cordage": 14, "Duxbury": 12, "Green Harbor": 10, "Taylor": 10,
+    "Safe Harbor": 10, "Ferry Street": 11, "Marshfield": 11, "South River": 12,
+    "Roht": 11, "Mary": 11, "Scituate": 19, "Cohasset": 22, "Hull": 25,
+    "Hingham": 23, "Weymouth": 24, "Sandwich": 35
+}
+
+RAMP_TO_RAMP_DISTANCE = {
+    ("Scituate", "Cohasset"): 9, ("Scituate", "Plymouth"): 23,
+    ("Green Harbor", "Duxbury"): 9, ("Marshfield", "Hull"): 18,
+    ("Hull", "Weymouth"): 10, ("Scituate", "Green Harbor"): 14
 }
 
 TRUCK_LIMITS = {
-    "S20": 60,
-    "S21": 55,
-    "S23": 30,
-    "J17": 0
+    "S20": 60, "S21": 55, "S23": 30, "J17": 0
 }
 
 if "TRUCKS" not in st.session_state:
@@ -37,127 +38,22 @@ if "ALL_JOBS" not in st.session_state:
 if "CRANE_JOBS" not in st.session_state:
     st.session_state.CRANE_JOBS = []
 
-DURATION = {"Powerboat": timedelta(hours=1.5), "Sailboat": timedelta(hours=3)}
-
 def get_station_for_ramp(ramp):
     for name, sid in RAMP_TO_STATION_ID.items():
         if name.lower() in ramp.lower():
             return sid
     return "8445138"
 
-def fetch_noaa_high_tides(station_id, date):
-    url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-    params = {
-        "product": "predictions", "datum": "MLLW", "station": station_id,
-        "time_zone": "lst_ldt", "units": "english", "interval": "hilo",
-        "format": "json", "begin_date": date.strftime("%Y%m%d"), "end_date": date.strftime("%Y%m%d")
-    }
-    try:
-        r = requests.get(url, params=params)
-        r.raise_for_status()
-        data = r.json().get("predictions", [])
-        return [datetime.strptime(d["t"], "%Y-%m-%d %H:%M") for d in data if d["type"] == "H"]
-    except:
-        return []
+def is_busy_season(date):
+    return date.month in [4, 5, 6, 9, 10]
 
-def generate_valid_start_times(tides, ramp, date):
-    buffer = RAMP_BUFFERS.get(ramp, (60, 60))
-    valid_starts = []
-    for tide in tides:
-        start_window = tide - timedelta(minutes=buffer[0])
-        end_window = tide + timedelta(minutes=buffer[1])
-        t = datetime.combine(date, datetime.strptime("07:30", "%H:%M").time())
-        while t < datetime.combine(date, datetime.strptime("17:00", "%H:%M").time()):
-            if start_window <= t <= end_window:
-                valid_starts.append(t)
-            t += timedelta(minutes=15)
-    return valid_starts
+def is_too_far_from_home(ramp, date):
+    return is_busy_season(date) and RAMP_DISTANCE_FROM_PEMBROKE.get(ramp, 999) > 20
 
-def find_slot(valid_starts, truck_jobs, job_length):
-    for start in valid_starts:
-        conflict = any(start < j[1] and start + job_length > j[0] for j in truck_jobs)
-        if not conflict:
-            return start
-    return None
+def is_too_far_between_ramps(r1, r2):
+    if r1 == r2:
+        return False
+    return RAMP_TO_RAMP_DISTANCE.get((r1, r2), RAMP_TO_RAMP_DISTANCE.get((r2, r1), 999)) > 10
 
-def get_daytime_high_tides(tide_times):
-    return [t.strftime("%-I:%M %p") for t in tide_times if t.time() >= datetime.strptime("07:30", "%H:%M").time() and t.time() <= datetime.strptime("17:00", "%H:%M").time()]
+# Existing code continues below...
 
-st.set_page_config("ECM Scheduler", layout="wide")
-st.title("🚛 ECM Scheduler — NOAA + Ramp Verified")
-
-with st.sidebar:
-    show_table = st.checkbox("📋 Show All Scheduled Jobs Table")
-
-with st.form("schedule_form"):
-    col1, col2 = st.columns(2)
-    with col1:
-        customer = st.text_input("Customer Name")
-        boat_type = st.selectbox("Boat Type", ["Powerboat", "Sailboat"])
-        boat_length = st.number_input("Boat Length (ft)", min_value=10, max_value=100, step=1)
-        mast_option = st.selectbox("Sailboat Mast Handling", ["None", "Mast On Deck", "Mast Transport"])
-        service = st.selectbox("Service Type", ["Launch", "Haul"])
-    with col2:
-        ramp = st.selectbox("Ramp", list(RAMP_TO_STATION_ID.keys()))
-        start_date = st.date_input("Requested Start Date", datetime.today())
-        debug = st.checkbox("Enable Tide Debug Info")
-    submitted = st.form_submit_button("Schedule This Job")
-
-if submitted:
-    job_length = DURATION[boat_type]
-    station_id = get_station_for_ramp(ramp)
-    assigned = False
-    fallback_days = []
-
-    for offset in range(0, 45):
-        day = start_date + timedelta(days=offset)
-        if day.weekday() >= 5:
-            continue
-        tides = fetch_noaa_high_tides(station_id, day)
-        valid_slots = generate_valid_start_times(tides, ramp, day)
-        for truck, jobs in st.session_state.TRUCKS.items():
-            if boat_length > TRUCK_LIMITS[truck]:
-                continue
-            slot = find_slot(valid_slots, jobs, job_length)
-            if slot:
-                if mast_option == "Mast On Deck":
-                    if any(j[0].date() == day and j[3] != ramp for j in st.session_state.CRANE_JOBS):
-                        continue
-                    st.session_state.CRANE_JOBS.append((slot, slot + timedelta(hours=2), customer, ramp))
-                elif mast_option == "Mast Transport":
-                    st.session_state.CRANE_JOBS.append((slot - timedelta(hours=1), slot + timedelta(hours=2), customer, ramp))
-
-                st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
-                st.session_state.ALL_JOBS.append({
-                    "Customer": customer, "Boat Type": boat_type, "Boat Length": boat_length, "Mast": mast_option, "Service": service,
-                    "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
-                    "Start": slot.strftime("%I:%M %p"),
-                    "End": (slot + job_length).strftime("%I:%M %p"),
-                    "Truck": truck
-                })
-                if mast_option in ["Mast On Deck", "Mast Transport"]:
-                    st.session_state.ALL_JOBS.append({
-                        "Customer": customer, "Boat Type": "", "Boat Length": "", "Mast": "", "Service": "Crane Assist",
-                        "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
-                        "Start": slot.strftime("%I:%M %p"),
-                        "End": (slot + job_length).strftime("%I:%M %p"),
-                        "Truck": "J17"
-                    })
-                high_tide_times = get_daytime_high_tides(tides)
-                tide_str = ", ".join(high_tide_times) if high_tide_times else "No daytime high tide"
-                st.success(f"✅ Scheduled: {customer} on {day.strftime('%a %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck} — High Tide: {tide_str}")
-                assigned = True
-                break
-        if assigned:
-            break
-        fallback_days.append(day.strftime("%a %b %d"))
-
-    if not assigned:
-        st.error("❌ No slot found in 45-day tide + buffer window")
-        if debug:
-            for d in fallback_days:
-                st.text(f"Tried {d}")
-
-if show_table and st.session_state.ALL_JOBS:
-    st.markdown("### 📋 Master List: All Scheduled Jobs")
-    st.dataframe(pd.DataFrame(st.session_state.ALL_JOBS))
