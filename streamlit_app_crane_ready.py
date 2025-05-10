@@ -105,6 +105,15 @@ if submitted:
                     valid_slots.append(t)
                 t += timedelta(minutes=15)
 
+        # J17 single-ramp enforcement
+        if boat_type == "Sailboat":
+            j17_conflict = any(
+                j[0].date() == day and j[3] != ramp
+                for j in st.session_state.CRANE_JOBS
+            )
+            if j17_conflict:
+                continue
+
         for truck, jobs in st.session_state.TRUCKS.items():
             if boat_length > TRUCK_LIMITS[truck]:
                 continue
@@ -125,6 +134,8 @@ if submitted:
                         "End": (slot + job_length).strftime("%I:%M %p"),
                         "Truck": truck
                     })
+                    if boat_type == "Sailboat":
+                        st.session_state.CRANE_JOBS.append((slot, slot + job_length, customer, ramp))
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                     assigned = True
                     break
@@ -142,3 +153,9 @@ if show_table and st.session_state.ALL_JOBS:
     st.dataframe(df.style.set_table_styles([
         {'selector': 'th', 'props': [('background-color', '#000000'), ('color', 'white'), ('font-weight', 'bold')]}
     ]), use_container_width=True)
+
+if st.session_state.CRANE_JOBS:
+    st.markdown("### 🏗️ J17 Crane Assignments")
+    crane_df = pd.DataFrame(st.session_state.CRANE_JOBS, columns=["Start", "End", "Customer", "Ramp"])
+    crane_df["Date"] = crane_df["Start"].dt.strftime("%A, %B %d")
+    st.dataframe(crane_df[["Date", "Customer", "Ramp", "Start", "End"]], use_container_width=True)
