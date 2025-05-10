@@ -1,4 +1,4 @@
-# ECM Scheduler — Final Full Version
+# ECM Scheduler — Final Full Version with All Inputs Fixed
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
@@ -64,30 +64,14 @@ with st.form("schedule_form"):
         customer = st.text_input("Customer Name")
         boat_type = st.selectbox("Boat Type", ["Powerboat", "Sailboat"])
         boat_length = st.number_input("Boat Length (ft)", min_value=10, max_value=100, step=1)
-        origin = st.text_input("Origin (Pickup Address)", placeholder="e.g. 100 Prospect Street, Marshfield, MA")
         service = st.selectbox("Service Type", ["Launch", "Haul"])
+        origin = st.text_input("Origin (Pickup Address)", placeholder="e.g. 100 Prospect Street, Marshfield, MA")
+        mast_option = st.selectbox("Sailboat Mast Handling", ["None", "Mast On Deck", "Mast Transport"]) if boat_type == "Sailboat" else "None"
     with col2:
         ramp = st.selectbox("Ramp", list(RAMP_TO_STATION_ID.keys()))
         start_date = st.date_input("Requested Start Date", datetime.today())
         debug = st.checkbox("Enable Tide Debug Info")
     submitted = st.form_submit_button("Schedule This Job")
-
-
-RAMP_TO_RAMP_DISTANCE = {
-    ("Scituate", "Scituate"): 0,
-    ("Scituate", "Plymouth"): 23,
-    ("Plymouth", "Scituate"): 23,
-    ("Scituate", "Green Harbor"): 14,
-    ("Green Harbor", "Scituate"): 14,
-    ("Green Harbor", "Plymouth"): 12,
-    ("Plymouth", "Green Harbor"): 12
-}
-
-def is_too_far_between_ramps(r1, r2):
-    if r1 == r2:
-        return False
-    return RAMP_TO_RAMP_DISTANCE.get((r1, r2), 999) > 13
-
 
 if submitted:
     job_length = DURATION[boat_type]
@@ -104,10 +88,13 @@ if submitted:
                 st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
                 st.session_state.ALL_JOBS.append({
                     "Customer": customer, "Boat Type": boat_type, "Boat Length": boat_length,
+                    "Mast": mast_option, "Origin": origin,
                     "Service": service, "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
                     "Start": slot.strftime("%I:%M %p"), "End": (slot + job_length).strftime("%I:%M %p"),
                     "Truck": truck
                 })
+                if mast_option in ["Mast On Deck", "Mast Transport"]:
+                    st.session_state.CRANE_JOBS.append((slot, slot + job_length, customer, ramp))
                 st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                 assigned = True
                 break
