@@ -195,6 +195,7 @@ if submitted:
     f"- Slot is tide-aligned with high tide at {tide_str}
 "
 )
+
 if origin.strip().lower() == ECM_ADDRESS.lower():
     if service == "Launch":
         explanation += "- ECM boat launch prioritized for 8:00 AM
