@@ -174,7 +174,6 @@ if submitted:
         st.markdown(f"**Why this slot was chosen:**\n```\n{explanation}\n```")
         st.session_state.PDF_REPORT.add_job_page(job_record, explanation)
         break
-```
 
         st.session_state.PDF_REPORT.add_job_page(job_record, explanation)
         break
