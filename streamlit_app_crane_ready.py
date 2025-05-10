@@ -94,8 +94,7 @@ if submitted:
                     })
 
                    
-                    prep a patched .py
-
+                    # prep a patched .py  <-- this was a note, not actual code
 
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                     assigned = True
