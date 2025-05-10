@@ -105,6 +105,22 @@ with st.sidebar:
             mime="application/pdf"
         )
 
+# --- Show Scheduled Jobs Table ---
+if show_table:
+    st.subheader("🧾 All Scheduled Jobs")
+    if st.session_state.ALL_JOBS:
+        df = pd.DataFrame(st.session_state.ALL_JOBS)
+        st.dataframe(df)
+
+    st.subheader("🛠️ J17 Crane Jobs")
+    if st.session_state.CRANE_JOBS:
+        crane_df = pd.DataFrame(st.session_state.CRANE_JOBS, columns=["Start", "End", "Customer", "Ramp"])
+        st.dataframe(crane_df)
+if show_table and st.session_state.ALL_JOBS:
+    st.subheader("🧾 All Scheduled Jobs")
+    df = pd.DataFrame(st.session_state.ALL_JOBS)
+    st.dataframe(df)
+
 # --- Scheduler Form ---
 with st.form("schedule_form"):
     col1, col2 = st.columns(2)
