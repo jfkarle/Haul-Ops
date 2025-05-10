@@ -1,3 +1,4 @@
+
 # ECM Scheduler — NOAA + Ramp Buffers + Exportable Log
 import streamlit as st
 import requests
@@ -135,6 +136,14 @@ if submitted:
                     "End": (slot + job_length).strftime("%I:%M %p"),
                     "Truck": truck
                 })
+                if mast_option in ["Mast On Deck", "Mast Transport"]:
+                    st.session_state.ALL_JOBS.append({
+                        "Customer": customer, "Boat Type": "", "Boat Length": "", "Mast": "", "Service": "Crane Assist",
+                        "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
+                        "Start": slot.strftime("%I:%M %p"),
+                        "End": (slot + job_length).strftime("%I:%M %p"),
+                        "Truck": "J17"
+                    })
                 high_tide_times = get_daytime_high_tides(tides)
                 tide_str = ", ".join(high_tide_times) if high_tide_times else "No daytime high tide"
                 st.success(f"✅ Scheduled: {customer} on {day.strftime('%a %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck} — High Tide: {tide_str}")
