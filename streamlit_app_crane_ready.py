@@ -23,6 +23,7 @@ RAMP_TO_NOAA = {
     "Plymouth Harbor": "8446493",
     "Cohasset Harbor (Parker Ave)": "8444762",
     "Weymouth Harbor (Wessagusset)": "8444788",
+    "Green Harbor (Taylors)": "8446493"
 }
 
 ECM_ADDRESS = "43 Mattakeeset Street, Pembroke, MA"
