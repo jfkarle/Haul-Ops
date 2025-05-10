@@ -135,6 +135,19 @@ if submitted:
                         "Truck": truck
                     })
                     if boat_type == "Sailboat":
+                        st.session_state.ALL_JOBS.append({
+                            "Customer": customer,
+                            "Boat Type": boat_type,
+                            "Boat Length": boat_length,
+                            "Mast": mast_option,
+                            "Origin": origin,
+                            "Service": service,
+                            "Ramp": ramp,
+                            "Date": day.strftime("%Y-%m-%d"),
+                            "Start": slot.strftime("%I:%M %p"),
+                            "End": (slot + job_length).strftime("%I:%M %p"),
+                            "Truck": "J17"
+                        })
                         st.session_state.CRANE_JOBS.append((slot, slot + job_length, customer, ramp))
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                     assigned = True
@@ -153,9 +166,3 @@ if show_table and st.session_state.ALL_JOBS:
     st.dataframe(df.style.set_table_styles([
         {'selector': 'th', 'props': [('background-color', '#000000'), ('color', 'white'), ('font-weight', 'bold')]}
     ]), use_container_width=True)
-
-if st.session_state.CRANE_JOBS:
-    st.markdown("### 🏗️ J17 Crane Assignments")
-    crane_df = pd.DataFrame(st.session_state.CRANE_JOBS, columns=["Start", "End", "Customer", "Ramp"])
-    crane_df["Date"] = crane_df["Start"].dt.strftime("%A, %B %d")
-    st.dataframe(crane_df[["Date", "Customer", "Ramp", "Start", "End"]], use_container_width=True)
