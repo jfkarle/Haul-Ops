@@ -1,9 +1,9 @@
-# ECM Scheduler — Final Full App with Crane Reporting + Indentation Fixed + J17 Single Ramp Enforcement
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
 import pandas as pd
 
+# --- Constants ---
 RAMP_LABELS = [
     "Sandwich Basin", "Plymouth Harbor", "Cordage Park (Ply)", "Duxbury Harbor",
     "Green Harbor (Taylors)", "Safe Harbor (Green Harbor)", "Ferry Street (Marshfield Yacht Club)",
@@ -15,6 +15,15 @@ RAMP_LABELS = [
 TRUCK_LIMITS = {"S20": 60, "S21": 55, "S23": 30, "J17": 0}
 DURATION = {"Powerboat": timedelta(hours=1.5), "Sailboat": timedelta(hours=3)}
 
+RAMP_TO_NOAA = {
+    "Duxbury Harbor": "8446166",
+    "Scituate Harbor (Jericho Road)": "8445138",
+    "Plymouth Harbor": "8446493",
+    "Cohasset Harbor (Parker Ave)": "8444762",
+    "Weymouth Harbor (Wessagusset)": "8444788",
+}
+
+# --- Session State Initialization ---
 if "TRUCKS" not in st.session_state:
     st.session_state.TRUCKS = {"S20": [], "S21": [], "S23": []}
 if "ALL_JOBS" not in st.session_state:
@@ -22,12 +31,36 @@ if "ALL_JOBS" not in st.session_state:
 if "CRANE_JOBS" not in st.session_state:
     st.session_state.CRANE_JOBS = []
 
-def fetch_noaa_high_tides(station_id, date):
-    return [datetime.combine(date, datetime.strptime("09:32", "%H:%M").time())]
+# --- NOAA Tide Fetching Function ---
+def fetch_noaa_high_tides(station_id: str, date: datetime.date):
+    url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+    params = {
+        "product": "predictions",
+        "datum": "MLLW",
+        "station": station_id,
+        "time_zone": "lst_ldt",
+        "units": "english",
+        "interval": "hilo",
+        "format": "json",
+        "begin_date": date.strftime("%Y%m%d"),
+        "end_date": date.strftime("%Y%m%d")
+    }
+    try:
+        response = requests.get(url, params=params)
+        data = response.json()
+        highs = [
+            datetime.strptime(p["t"], "%Y-%m-%d %H:%M")
+            for p in data.get("predictions", [])
+            if p["type"] == "H"
+            and datetime.strptime(p["t"], "%Y-%m-%d %H:%M").time() >= datetime.strptime("07:30", "%H:%M").time()
+            and datetime.strptime(p["t"], "%Y-%m-%d %H:%M").time() <= datetime.strptime("17:00", "%H:%M").time()
+        ]
+        return highs
+    except Exception as e:
+        st.error(f"🌊 NOAA tide fetch failed: {e}")
+        return []
 
-def get_daytime_high_tides(tide_times):
-    return [t.strftime("%-I:%M %p") for t in tide_times if t.time() >= datetime.strptime("07:30", "%H:%M").time() and t.time() <= datetime.strptime("17:00", "%H:%M").time()]
-
+# --- Streamlit UI ---
 st.set_page_config("ECM Scheduler", layout="wide")
 st.title("🚛 ECM Scheduler — Final Version")
 
@@ -55,13 +88,13 @@ if submitted:
     for offset in range(45):
         day = start_date + timedelta(days=offset)
 
-        # No Sundays; Saturdays only in May and Sept
         if day.weekday() == 6:
             continue
         if day.weekday() == 5 and day.month not in [5, 9]:
             continue
 
-        tides = fetch_noaa_high_tides("8445138", day)
+        station_id = RAMP_TO_NOAA.get(ramp, "8445138")
+        tides = fetch_noaa_high_tides(station_id, day)
         valid_slots = []
         for tide in tides:
             start_window = tide - timedelta(minutes=60)
@@ -92,10 +125,6 @@ if submitted:
                         "End": (slot + job_length).strftime("%I:%M %p"),
                         "Truck": truck
                     })
-
-                   
-                    # prep a patched .py  <-- this was a note, not actual code
-
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                     assigned = True
                     break
@@ -106,9 +135,6 @@ if submitted:
 
 if show_table and st.session_state.ALL_JOBS:
     df = pd.DataFrame(st.session_state.ALL_JOBS)
-    def lookup_high_tide(row):
-        return "9:32 AM"
-    df["High Tide"] = df.apply(lookup_high_tide, axis=1)
     df["Date"] = pd.to_datetime(df["Date"]).dt.strftime("%A, %B %d")
     cols = ["Date"] + [c for c in df.columns if c != "Date"]
     df = df[cols]
