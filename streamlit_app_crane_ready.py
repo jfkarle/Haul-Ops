@@ -57,11 +57,28 @@ with st.form("schedule_form"):
         boat_type = st.selectbox("Boat Type", ["Powerboat", "Sailboat"])
         boat_length = st.number_input("Boat Length (ft)", min_value=10, max_value=100, step=1)
         service = st.selectbox("Service Type", ["Launch", "Haul"])
+        origin = st.selectbox("Origin (Pickup Location)", list(RAMP_TO_STATION_ID.keys()))
     with col2:
         ramp = st.selectbox("Ramp", list(RAMP_TO_STATION_ID.keys()))
         start_date = st.date_input("Requested Start Date", datetime.today())
         debug = st.checkbox("Enable Tide Debug Info")
     submitted = st.form_submit_button("Schedule This Job")
+
+RAMP_TO_RAMP_DISTANCE = {
+    ("Scituate", "Scituate"): 0,
+    ("Scituate", "Plymouth"): 23,
+    ("Plymouth", "Scituate"): 23,
+    ("Scituate", "Green Harbor"): 14,
+    ("Green Harbor", "Scituate"): 14,
+    ("Green Harbor", "Plymouth"): 12,
+    ("Plymouth", "Green Harbor"): 12
+}
+
+def is_too_far_between_ramps(r1, r2):
+    if r1 == r2:
+        return False
+    return RAMP_TO_RAMP_DISTANCE.get((r1, r2), 999) > 13
+
 
 if submitted:
     job_length = DURATION[boat_type]
@@ -74,10 +91,19 @@ if submitted:
             if boat_length > TRUCK_LIMITS[truck]:
                 continue
             slot = find_slot(valid_slots, jobs, job_length)
+            if jobs:
+               last_ramp = None
+               for past in reversed(st.session_state.ALL_JOBS):
+                    if past["Truck"] == truck and past["Date"] == day.strftime("%Y-%m-%d"):
+                    last_ramp = past["Ramp"]
+                    break
+    if last_ramp and is_too_far_between_ramps(last_ramp, origin):
+        continue
             if slot:
                 st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
                 st.session_state.ALL_JOBS.append({
                     "Customer": customer, "Boat Type": boat_type, "Boat Length": boat_length,
+                    "Origin": origin,
                     "Service": service, "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
                     "Start": slot.strftime("%I:%M %p"), "End": (slot + job_length).strftime("%I:%M %p"),
                     "Truck": truck
