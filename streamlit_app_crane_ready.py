@@ -120,6 +120,7 @@ if submitted:
             for slot in valid_slots:
                 conflict = any(slot < j[1] and slot + job_length > j[0] for j in jobs)
                 if not conflict:
+                    tide_str = tides[0].strftime("%I:%M %p") if tides else "N/A"
                     st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
                     st.session_state.ALL_JOBS.append({
                         "Customer": customer,
@@ -132,7 +133,8 @@ if submitted:
                         "Date": day.strftime("%Y-%m-%d"),
                         "Start": slot.strftime("%I:%M %p"),
                         "End": (slot + job_length).strftime("%I:%M %p"),
-                        "Truck": truck
+                        "Truck": truck,
+                        "High Tide": tide_str
                     })
                     if boat_type == "Sailboat":
                         st.session_state.ALL_JOBS.append({
@@ -146,7 +148,8 @@ if submitted:
                             "Date": day.strftime("%Y-%m-%d"),
                             "Start": slot.strftime("%I:%M %p"),
                             "End": (slot + job_length).strftime("%I:%M %p"),
-                            "Truck": "J17"
+                            "Truck": "J17",
+                            "High Tide": tide_str
                         })
                         st.session_state.CRANE_JOBS.append((slot, slot + job_length, customer, ramp))
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
