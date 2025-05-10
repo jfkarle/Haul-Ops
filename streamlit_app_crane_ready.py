@@ -85,11 +85,9 @@ if submitted:
         for truck, jobs in st.session_state.TRUCKS.items():
             if boat_length > TRUCK_LIMITS[truck]:
                 continue
-            
-                for slot in valid_slots:
+            for slot in valid_slots:
                     conflict = any(slot < j[1] and slot + job_length > j[0] for j in jobs)
                     if not conflict:
-                        # Log truck job
                         st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
                         st.session_state.ALL_JOBS.append({
                             "Customer": customer,
@@ -105,7 +103,6 @@ if submitted:
                             "Truck": truck
                         })
 
-                        # Optional crane assignment
                         if mast_option in ["Mast On Deck", "Mast Transport"]:
                             if any(j[0].date() == day.date() and j[3] != ramp for j in st.session_state.CRANE_JOBS):
                                 continue
