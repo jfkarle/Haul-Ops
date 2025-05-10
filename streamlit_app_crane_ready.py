@@ -96,6 +96,20 @@ if submitted:
                         "Start": slot.strftime("%I:%M %p"), "End": (slot + job_length).strftime("%I:%M %p"),
                         "Truck": truck
                     })
+                    if mast_option in ["Mast On Deck", "Mast Transport"]:
+                        if any(j[0].date() == day.date() and j[3] != ramp for j in st.session_state.CRANE_JOBS):
+                            continue  # J17 is already booked at a different ramp on this day
+                        st.session_state.ALL_JOBS.append({
+                            "Customer": customer, "Boat Type": "", "Boat Length": "", "Mast": mast_option,
+                            "Origin": origin, "Service": "Crane Assist", "Ramp": ramp,
+                            "Date": day.strftime("%Y-%m-%d"), "Start": slot.strftime("%I:%M %p"),
+                            "End": (slot + job_length).strftime("%I:%M %p"), "Truck": "J17"
+                        })
+                        "Mast": mast_option, "Origin": origin,
+                        "Service": service, "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
+                        "Start": slot.strftime("%I:%M %p"), "End": (slot + job_length).strftime("%I:%M %p"),
+                        "Truck": truck
+                    })
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                     assigned = True
                     break
