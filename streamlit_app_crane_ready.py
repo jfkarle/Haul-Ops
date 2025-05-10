@@ -93,12 +93,12 @@ def find_slot(valid_starts, truck_jobs, job_length):
 def get_daytime_high_tides(tide_times):
     return [t.strftime("%-I:%M %p") for t in tide_times if t.time() >= datetime.strptime("07:30", "%H:%M").time() and t.time() <= datetime.strptime("17:00", "%H:%M").time()]
 
-# Existing code continues below...
+with st.sidebar:
+    show_table = st.checkbox("📋 Show All Scheduled Jobs Table")
 
 if show_table and st.session_state.ALL_JOBS:
     df = pd.DataFrame(st.session_state.ALL_JOBS)
 
-    # Add high tide column
     def lookup_high_tide(row):
         try:
             tide_times = fetch_noaa_high_tides(get_station_for_ramp(row['Ramp']), datetime.strptime(row['Date'], "%Y-%m-%d"))
@@ -108,12 +108,10 @@ if show_table and st.session_state.ALL_JOBS:
 
     df['High Tide'] = df.apply(lookup_high_tide, axis=1)
 
-    # Reformat and move Date column to front
     df['Date'] = pd.to_datetime(df['Date']).dt.strftime("%A, %B %d")
     cols = ['Date'] + [c for c in df.columns if c != 'Date']
     df = df[cols]
 
-    # Render styled table
     st.markdown("### 📋 Master List: All Scheduled Jobs")
     st.dataframe(df.style.set_table_styles([
         {'selector': 'th', 'props': [('background-color', '#000000'), ('color', 'white'), ('font-weight', 'bold')]}
