@@ -4,7 +4,15 @@ import requests
 from datetime import datetime, timedelta
 import pandas as pd
 
-RAMP_TO_STATION_ID = {"Scituate": "8445138"}
+RAMP_TO_STATION_ID = {
+    "Sandwich": "8446493", "Plymouth": "8446493", "Cordage": "8446493",
+    "Duxbury": "8446166", "Green Harbor": "8446009", "Taylor": "8446009",
+    "Safe Harbor": "8446009", "Ferry Street": "8446009", "Marshfield": "8446009",
+    "South River": "8446009", "Roht": "8446009", "Mary": "8446009",
+    "Scituate": "8445138", "Cohasset": "8444762", "Hull": "8444762",
+    "Hingham": "8444762", "Weymouth": "8444762"
+}
+
 TRUCK_LIMITS = {"S20": 60, "S21": 55, "S23": 30, "J17": 0}
 DURATION = {"Powerboat": timedelta(hours=1.5), "Sailboat": timedelta(hours=3)}
 
