@@ -88,9 +88,6 @@ def get_daytime_high_tides(tide_times):
 
 st.set_page_config("ECM Scheduler", layout="wide")
 st.title("🚛 ECM Scheduler — NOAA + Ramp Verified")
-st.markdown("Use the form below to schedule your boat job. Once submitted, results will display here.")
-if not submitted:
-    st.info("Awaiting scheduling request. Fill out the form and press **Schedule This Job**.")
 
 with st.sidebar:
     show_table = st.checkbox("📋 Show All Scheduled Jobs Table")
