@@ -89,42 +89,45 @@ if submitted:
                 conflict = any(slot < j[1] and slot + job_length > j[0] for j in jobs)
                 if not conflict:
                     st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
+                    # Log main truck job
+                    st.session_state.TRUCKS[truck].append((slot, slot + job_length, customer))
                     st.session_state.ALL_JOBS.append({
-                        "Customer": customer, "Boat Type": boat_type, "Boat Length": boat_length,
-                        "Mast": mast_option, "Origin": origin,
-                        "Service": service, "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
-                        "Start": slot.strftime("%I:%M %p"), "End": (slot + job_length).strftime("%I:%M %p"),
+                        "Customer": customer,
+                        "Boat Type": boat_type,
+                        "Boat Length": boat_length,
+                        "Mast": mast_option,
+                        "Origin": origin,
+                        "Service": service,
+                        "Ramp": ramp,
+                        "Date": day.strftime("%Y-%m-%d"),
+                        "Start": slot.strftime("%I:%M %p"),
+                        "End": (slot + job_length).strftime("%I:%M %p"),
                         "Truck": truck
                     })
-                    # Add J17 if required and not at a conflicting ramp
+
+                    # J17 logic — only if not already booked at a different ramp
                     if mast_option in ["Mast On Deck", "Mast Transport"]:
                         if any(j[0].date() == day.date() and j[3] != ramp for j in st.session_state.CRANE_JOBS):
                             continue
                         st.session_state.ALL_JOBS.append({
-                            "Customer": customer, "Boat Type": "", "Boat Length": "", "Mast": mast_option,
-                            "Origin": origin, "Service": "Crane Assist", "Ramp": ramp,
-                            "Date": day.strftime("%Y-%m-%d"), "Start": slot.strftime("%I:%M %p"),
-                            "End": (slot + job_length).strftime("%I:%M %p"), "Truck": "J17"
+                            "Customer": customer,
+                            "Boat Type": "",
+                            "Boat Length": "",
+                            "Mast": mast_option,
+                            "Origin": origin,
+                            "Service": "Crane Assist",
+                            "Ramp": ramp,
+                            "Date": day.strftime("%Y-%m-%d"),
+                            "Start": slot.strftime("%I:%M %p"),
+                            "End": (slot + job_length).strftime("%I:%M %p"),
+                            "Truck": "J17"
                         })
                         st.session_state.CRANE_JOBS.append((slot, slot + job_length, customer, ramp))
-                        "Mast": mast_option, "Origin": origin,
-                        "Service": service, "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
-                        "Start": slot.strftime("%I:%M %p"), "End": (slot + job_length).strftime("%I:%M %p"),
-                        "Truck": truck
-                    })
-                    if mast_option in ["Mast On Deck", "Mast Transport"]:
-                        st.session_state.ALL_JOBS.append({
-                            "Customer": customer, "Boat Type": "", "Boat Length": "", "Mast": mast_option,
-                            "Origin": origin, "Service": "Crane Assist", "Ramp": ramp,
-                            "Date": day.strftime("%Y-%m-%d"), "Start": slot.strftime("%I:%M %p"),
-                            "End": (slot + job_length).strftime("%I:%M %p"), "Truck": "J17"
-                        })
-                        "Mast": mast_option, "Origin": origin,
-                        "Service": service, "Ramp": ramp, "Date": day.strftime("%Y-%m-%d"),
-                        "Start": slot.strftime("%I:%M %p"), "End": (slot + job_length).strftime("%I:%M %p"),
-                        "Truck": truck
-                    })
+
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
+                    assigned = True
+                    break
+st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
                     assigned = True
                     break
             if assigned:
