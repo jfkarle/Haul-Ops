@@ -95,15 +95,21 @@ st.title("🚛 ECM Scheduler — Final Version")
 
 with st.sidebar:
     show_table = st.checkbox("📋 Show All Scheduled Jobs Table")
-    if st.session_state.ALL_JOBS:
-        buffer = io.BytesIO()
-        st.session_state.PDF_REPORT.output(buffer)
-        st.download_button(
-            label="📅 Download PDF Report",
-            data=buffer.getvalue(),
-            file_name="ecm_schedule_report.pdf",
-            mime="application/pdf"
-        )
+
+    # --- PDF download ---
+    pdf_buffer = io.BytesIO()
+    pdf_ready   = bool(st.session_state.ALL_JOBS)
+
+    if pdf_ready:
+        st.session_state.PDF_REPORT.output(pdf_buffer)
+
+    st.download_button(
+        "📅 Download PDF Report",
+        data=pdf_buffer.getvalue() if pdf_ready else b"",
+        file_name="ecm_schedule_report.pdf",
+        mime="application/pdf",
+        disabled=not pdf_ready
+    )
 
 # --- Show Scheduled Jobs Table ---
 if show_table:
