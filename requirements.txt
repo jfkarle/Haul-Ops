@@ -7,3 +7,4 @@ openai
 plotly
 matplotlib
 requests
+fpdf==1.7.2
