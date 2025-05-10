@@ -88,7 +88,6 @@ if submitted:
     job_length = DURATION[boat_type]
     assigned = False
 
-    # First, try dates where J17 is already booked at this ramp (within ±7 days)
     if boat_type == "Sailboat":
         j17_dates = sorted({j[0].date() for j in st.session_state.CRANE_JOBS if j[3] == ramp})
         j17_aligned_days = [d for d in j17_dates if abs((d - start_date).days) <= 7]
@@ -164,6 +163,16 @@ if submitted:
                         })
                         st.session_state.CRANE_JOBS.append((slot, slot + crane_duration, customer, ramp))
                     st.success(f"✅ Scheduled: {customer} on {day.strftime('%A %b %d')} at {slot.strftime('%I:%M %p')} — Truck {truck}")
+                    explanation = f"- Truck {truck} fits boat length ({boat_length} ft ≤ {TRUCK_LIMITS[truck]} ft)\n"
+                    explanation += f"- Slot is tide-aligned with high tide at {tide_str}\n"
+                    if boat_type == "Sailboat":
+                        if j17_aligned_days and day in j17_aligned_days:
+                            explanation += f"- J17 is already booked at this ramp within 7 days — grouped\n"
+                        explanation += f"- Crane assigned for {crane_duration.total_seconds()/3600:.1f} hrs ({mast_option})\n"
+                        if len(crane_jobs_today) > 0:
+                            explanation += f"- Staggered 1 hour from other sailboat(s) at ramp\n"
+                    explanation += f"- No conflicts with other jobs on truck"
+                    st.markdown(f"**Why this slot was chosen:**\n```\n{explanation}\n```")
                     assigned = True
                     break
             if assigned:
