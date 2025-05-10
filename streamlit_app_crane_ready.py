@@ -1,4 +1,4 @@
-# ECM Scheduler — Final Full Version with All Inputs Fixed
+# ECM Scheduler — Final with Mast Dropdown + Weekday Rule + Origin Field
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
@@ -64,9 +64,9 @@ with st.form("schedule_form"):
         customer = st.text_input("Customer Name")
         boat_type = st.selectbox("Boat Type", ["Powerboat", "Sailboat"])
         boat_length = st.number_input("Boat Length (ft)", min_value=10, max_value=100, step=1)
-        service = st.selectbox("Service Type", ["Launch", "Haul"])
+        service = st.selectbox("Service Type", ["Launch", "Haul", "Land-Land"])
         origin = st.text_input("Origin (Pickup Address)", placeholder="e.g. 100 Prospect Street, Marshfield, MA")
-        mast_option = st.selectbox("Sailboat Mast Handling", ["None", "Mast On Deck", "Mast Transport"]) if boat_type == "Sailboat" else "None"
+        mast_option = st.selectbox("Sailboat Mast Handling", ["None", "Mast On Deck", "Mast Transport"])
     with col2:
         ramp = st.selectbox("Ramp", list(RAMP_TO_STATION_ID.keys()))
         start_date = st.date_input("Requested Start Date", datetime.today())
@@ -78,6 +78,11 @@ if submitted:
     assigned = False
     for offset in range(45):
         day = start_date + timedelta(days=offset)
+
+        # Enforce weekday rule
+        if day.weekday() >= 5 and day.month not in [5, 9]:
+            continue
+
         tides = fetch_noaa_high_tides(get_station_for_ramp(ramp), day)
         valid_slots = generate_valid_start_times(tides, ramp, day)
         for truck, jobs in st.session_state.TRUCKS.items():
