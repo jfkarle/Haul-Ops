@@ -87,9 +87,16 @@ with st.form("schedule_form"):
 if submitted:
     job_length = DURATION[boat_type]
     assigned = False
-    for offset in range(45):
-        day = start_date + timedelta(days=offset)
 
+    # First, try dates where J17 is already booked at this ramp (within ±7 days)
+    if boat_type == "Sailboat":
+        j17_dates = sorted({j[0].date() for j in st.session_state.CRANE_JOBS if j[3] == ramp})
+        j17_aligned_days = [d for d in j17_dates if abs((d - start_date).days) <= 7]
+        search_days = j17_aligned_days + [start_date + timedelta(days=o) for o in range(45)]
+    else:
+        search_days = [start_date + timedelta(days=o) for o in range(45)]
+
+    for day in search_days:
         if day.weekday() == 6:
             continue
         if day.weekday() == 5 and day.month not in [5, 9]:
@@ -107,7 +114,6 @@ if submitted:
                     valid_slots.append(t)
                 t += timedelta(minutes=15)
 
-        # J17 crane rules — max 4 jobs/day at same ramp, staggered 1 hour
         crane_jobs_today = [j for j in st.session_state.CRANE_JOBS if j[0].date() == day and j[3] == ramp]
         if boat_type == "Sailboat" and len(crane_jobs_today) >= 4:
             continue
@@ -120,7 +126,7 @@ if submitted:
             for slot in valid_slots:
                 if boat_type == "Sailboat":
                     if any(abs((slot - j[0]).total_seconds()) < 3600 for j in crane_jobs_today):
-                        continue  # enforce 1-hour staggering
+                        continue
 
                 conflict = any(slot < j[1] and slot + job_length > j[0] for j in jobs)
                 if not conflict:
