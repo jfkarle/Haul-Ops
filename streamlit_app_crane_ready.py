@@ -39,7 +39,7 @@ if "PDF_REPORT" not in st.session_state:
         def __init__(self):
             super().__init__()
             self.set_auto_page_break(auto=True, margin=15)
-            self.add_font("Arial", "", fname=None, uni=True)
+            # Removed add_font due to missing Arial font file
 
         def add_job_page(self, job, explanation):
             self.add_page()
