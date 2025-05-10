@@ -122,7 +122,6 @@ if submitted:
     for day in date_queue:
         if day.weekday() >= 5:
             continue
-        day = start_date + timedelta(days=offset)
         if day.weekday() >= 5:
             continue
         tides = fetch_noaa_high_tides(station_id, day)
