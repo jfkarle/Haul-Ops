@@ -148,18 +148,19 @@ if submitted:
         end = start + job_length
 
         if start.weekday() == 6:
-        explanation += "- Skipped scheduling on Sunday (not allowed)
-"
-        continue
-    if start.weekday() == 5:
-        if boat_type == "Sailboat":
-            explanation += "- Skipped scheduling Sailboat on Saturday (only allowed Mon–Fri)
+            explanation += "- Skipped scheduling on Sunday (not allowed)
 "
             continue
-        if start.month not in [5, 9]:
-            explanation += "- Skipped scheduling on Saturday (only allowed in May and September)
+
+        if start.weekday() == 5:
+            if boat_type == "Sailboat":
+                explanation += "- Skipped scheduling Sailboat on Saturday (only allowed Mon–Fri)
 "
-            continue
+                continue
+            if start.month not in [5, 9]:
+                explanation += "- Skipped scheduling on Saturday (only allowed in May and September)
+"
+                continue
 
         truck = "J17" if boat_type == "Sailboat" else "S20"
         job_record = {
