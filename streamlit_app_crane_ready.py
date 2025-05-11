@@ -1,3 +1,4 @@
+
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
@@ -56,8 +57,7 @@ if "PDF_REPORT" not in st.session_state:
             self.set_font("Arial", style="B", size=12)
             self.cell(200, 10, txt="Scheduling Reasoning:", ln=True)
             self.set_font("Arial", size=11)
-            for line in explanation.strip().split("
-"):
+            for line in explanation.strip().split("\n"):
                 self.multi_cell(0, 8, line)
     st.session_state.PDF_REPORT = PDFReport()
 
@@ -81,8 +81,7 @@ def fetch_noaa_high_tides(station_id: str, date: datetime.date):
         highs = [
             datetime.strptime(p["t"], "%Y-%m-%d %H:%M")
             for p in data.get("predictions", [])
-            if p["type"] == "H"
-            and datetime.strptime(p["t"], "%Y-%m-%d %H:%M").time() >= datetime.strptime("07:30", "%H:%M").time()
+            if p["type"] == "H" and datetime.strptime(p["t"], "%Y-%m-%d %H:%M").time() >= datetime.strptime("07:30", "%H:%M").time()
             and datetime.strptime(p["t"], "%Y-%m-%d %H:%M").time() <= datetime.strptime("17:00", "%H:%M").time()
         ]
         return highs
@@ -90,7 +89,7 @@ def fetch_noaa_high_tides(station_id: str, date: datetime.date):
         st.error(f"🌊 NOAA tide fetch failed: {e}")
         return []
 
-# --- Streamlit UI ---
+# --- UI ---
 st.set_page_config("ECM Scheduler", layout="wide")
 st.title("🚛 ECM Scheduler — Final Version")
 
@@ -106,21 +105,13 @@ with st.sidebar:
             mime="application/pdf"
         )
 
-# --- Show Scheduled Jobs Table ---
 if show_table:
-    st.subheader("🧾 All Scheduled Jobs")
-    if st.session_state.ALL_JOBS:
-        df = pd.DataFrame(st.session_state.ALL_JOBS)
-        st.dataframe(df)
-
-    st.subheader("🛠️ J17 Crane Jobs")
-    if st.session_state.CRANE_JOBS:
-        crane_df = pd.DataFrame(st.session_state.CRANE_JOBS, columns=["Start", "End", "Customer", "Ramp"])
-        st.dataframe(crane_df)
-if show_table and st.session_state.ALL_JOBS:
     st.subheader("🧾 All Scheduled Jobs")
     df = pd.DataFrame(st.session_state.ALL_JOBS)
     st.dataframe(df)
+    st.subheader("🛠️ J17 Crane Jobs")
+    crane_df = pd.DataFrame(st.session_state.CRANE_JOBS, columns=["Start", "End", "Customer", "Ramp"])
+    st.dataframe(crane_df)
 
 # --- Scheduler Form ---
 with st.form("schedule_form"):
@@ -138,21 +129,20 @@ with st.form("schedule_form"):
         debug = st.checkbox("Enable Tide Debug Info")
     submitted = st.form_submit_button("Schedule This Job")
 
-# --- Begin Scheduling Logic ---
+# --- Scheduling Logic ---
 if submitted:
     job_length = DURATION[boat_type]
     station_id = RAMP_TO_NOAA.get(ramp, "8445138")
     tide_times = fetch_noaa_high_tides(station_id, start_date)
-
     explanation = ""
+
     for tide in tide_times:
         start = tide - timedelta(minutes=45)
         end = start + job_length
 
         if start.weekday() == 6:
-            explanation += "- Skipped scheduling on Sunday (not allowed)\
+            explanation += "- Skipped scheduling on Sunday (not allowed)
 "
-            
             continue
 
         if start.weekday() == 5:
@@ -192,7 +182,6 @@ if submitted:
 
         st.success(f"✅ Scheduled: {customer} on {start.strftime('%A %b %d')} at {start.strftime('%I:%M %p')} — Truck {truck}")
         st.markdown("**Why this slot was chosen:**
-```
-" + explanation + "```")
+```" + explanation + "```")
         st.session_state.PDF_REPORT.add_job_page(job_record, explanation)
         break
