@@ -148,18 +148,15 @@ if submitted:
         end = start + job_length
 
         if start.weekday() == 6:
-            explanation += "- Skipped scheduling on Sunday (not allowed)
-"
+            explanation += "- Skipped scheduling on Sunday (not allowed)\n"
             continue
 
         if start.weekday() == 5:
             if boat_type == "Sailboat":
-                explanation += "- Skipped scheduling Sailboat on Saturday (only allowed Mon–Fri)
-"
+                explanation += "- Skipped scheduling Sailboat on Saturday (only allowed Mon–Fri)\n"
                 continue
             if start.month not in [5, 9]:
-                explanation += "- Skipped scheduling on Saturday (only allowed in May and September)
-"
+                explanation += "- Skipped scheduling on Saturday (only allowed in May and September)\n"
                 continue
 
         truck = "J17" if boat_type == "Sailboat" else "S20"
@@ -182,15 +179,10 @@ if submitted:
         if truck == "J17":
             st.session_state.CRANE_JOBS.append((start, end, customer, ramp))
 
-        explanation += f"- Truck {truck} assigned for {boat_type}
-"
-        explanation += f"- Job scheduled {job_length.total_seconds() / 60:.0f} minutes before high tide ({tide.strftime('%I:%M %p')})
-"
+        explanation += f"- Truck {truck} assigned for {boat_type}\n"
+        explanation += f"- Job scheduled {job_length.total_seconds() / 60:.0f} minutes before high tide ({tide.strftime('%I:%M %p')})\n"
 
         st.success(f"✅ Scheduled: {customer} on {start.strftime('%A %b %d')} at {start.strftime('%I:%M %p')} — Truck {truck}")
-        st.markdown("**Why this slot was chosen:**
-```
-" + explanation + "
-```")
+        st.markdown(f"**Why this slot was chosen:**\n```\n{explanation}\n```")
         st.session_state.PDF_REPORT.add_job_page(job_record, explanation)
         break
