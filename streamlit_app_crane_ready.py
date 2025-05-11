@@ -142,6 +142,8 @@ if submitted:
     station_id = RAMP_TO_NOAA.get(ramp, "8445138")
     tide_times = fetch_noaa_high_tides(station_id, start_date)
 
+    st.write(f"Tide times: {tide_times}")
+    
     explanation = ""
     for tide in tide_times:
         start = tide - timedelta(minutes=45)
