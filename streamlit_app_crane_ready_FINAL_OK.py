@@ -78,13 +78,12 @@ def fetch_noaa_high_tides(station_id: str, date: datetime.date):
     try:
         response = requests.get(url, params=params)
         data = response.json()
-        highs = [
-            datetime.strptime(p["t"], "%Y-%m-%d %H:%M")
-            for p in data.get("predictions", [])
-            if p["type"] == "H" and datetime.strptime(p["t"], "%Y-%m-%d %H:%M").time() >= datetime.strptime("07:30", "%H:%M").time()
-            and datetime.strptime(p["t"], "%Y-%m-%d %H:%M").time() <= datetime.strptime("17:00", "%H:%M").time()
-        ]
-        return highs
+        highs = []
+for p in data.get("predictions", []):
+    if p["type"] == "H":
+        tide_time = datetime.strptime(p["t"], "%Y-%m-%d %H:%M")
+        if datetime.strptime("07:30", "%H:%M").time() <= tide_time.time() <= datetime.strptime("17:00", "%H:%M").time():
+            highs.append(tide_time)
     except Exception as e:
         st.error(f"🌊 NOAA tide fetch failed: {e}")
         return []
