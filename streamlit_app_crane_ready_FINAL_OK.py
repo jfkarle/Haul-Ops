@@ -123,9 +123,9 @@ with st.sidebar:
     if st.session_state.ALL_JOBS:
         buffer = io.BytesIO()
         try:
-        buffer.write(st.session_state.PDF_REPORT.output(dest='S').encode('latin1'))
-    except UnicodeEncodeError:
-        st.error("❌ PDF export failed due to non-Latin characters. Please avoid emoji or special characters.")
+    buffer.write(st.session_state.PDF_REPORT.output(dest='S').encode('latin1'))
+except UnicodeEncodeError:
+    st.error("❌ PDF export failed due to non-Latin characters. Please avoid emoji or special characters.")
         st.download_button(
             label="📅 Download PDF Report",
             data=buffer.getvalue(),
