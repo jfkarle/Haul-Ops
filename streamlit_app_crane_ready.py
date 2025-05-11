@@ -137,28 +137,30 @@ with st.form("schedule_form"):
         debug = st.checkbox("Enable Tide Debug Info")
     submitted = st.form_submit_button("Schedule This Job")
 
+# --- Begin Scheduling Logic ---
 if submitted:
     job_length = DURATION[boat_type]
     station_id = RAMP_TO_NOAA.get(ramp, "8445138")
     tide_times = fetch_noaa_high_tides(station_id, start_date)
 
-    st.write(f"Tide times: {tide_times}")
-    
     explanation = ""
     for tide in tide_times:
         start = tide - timedelta(minutes=45)
         end = start + job_length
 
         if start.weekday() == 6:
-            explanation += "- Skipped scheduling on Sunday (not allowed)\n"
+            explanation += "- Skipped scheduling on Sunday (not allowed)
+"
             continue
 
         if start.weekday() == 5:
             if boat_type == "Sailboat":
-                explanation += "- Skipped scheduling Sailboat on Saturday (only allowed Mon–Fri)\n"
+                explanation += "- Skipped scheduling Sailboat on Saturday (only allowed Mon–Fri)
+"
                 continue
             if start.month not in [5, 9]:
-                explanation += "- Skipped scheduling on Saturday (only allowed in May and September)\n"
+                explanation += "- Skipped scheduling on Saturday (only allowed in May and September)
+"
                 continue
 
         truck = "J17" if boat_type == "Sailboat" else "S20"
@@ -181,10 +183,14 @@ if submitted:
         if truck == "J17":
             st.session_state.CRANE_JOBS.append((start, end, customer, ramp))
 
-        explanation += f"- Truck {truck} assigned for {boat_type}\n"
-        explanation += f"- Job scheduled {job_length.total_seconds() / 60:.0f} minutes before high tide ({tide.strftime('%I:%M %p')})\n"
+        explanation += f"- Truck {truck} assigned for {boat_type}
+"
+        explanation += f"- Job scheduled {job_length.total_seconds() / 60:.0f} minutes before high tide ({tide.strftime('%I:%M %p')})
+"
 
         st.success(f"✅ Scheduled: {customer} on {start.strftime('%A %b %d')} at {start.strftime('%I:%M %p')} — Truck {truck}")
-        st.markdown(f"**Why this slot was chosen:**\n```\n{explanation}\n```")
+        st.markdown("**Why this slot was chosen:**
+```
+" + explanation + "```")
         st.session_state.PDF_REPORT.add_job_page(job_record, explanation)
         break
