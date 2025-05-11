@@ -128,11 +128,19 @@ with st.form("schedule_form"):
         debug = st.checkbox("Enable Tide Debug Info")
     submitted = st.form_submit_button("Schedule This Job")
 
+    # Replace your current 'if submitted:' block with the following:
+
 if submitted:
     job_length = DURATION[boat_type]
     station_id = RAMP_TO_NOAA.get(ramp, "8445138")
     tide_times = fetch_noaa_high_tides(station_id, start_date)
+
+    if debug:
+        st.write("Fetched Tide Times:")
+        st.write([t.strftime("%I:%M %p") for t in tide_times])
+
     explanation = ""
+    scheduled = False  # track if we managed to schedule a job
 
     for tide in tide_times:
         start = tide - timedelta(minutes=45)
@@ -176,4 +184,10 @@ if submitted:
         st.success(f"✅ Scheduled: {customer} on {start.strftime('%A %b %d')} at {start.strftime('%I:%M %p')} — Truck {truck}")
         st.markdown("**Why this slot was chosen:**\n```\n" + explanation + "```")
         st.session_state.PDF_REPORT.add_job_page(job_record, explanation)
+        scheduled = True
         break
+
+    if not tide_times:
+        st.warning("⚠️ No valid high tide times found for this date and ramp. Please try a different date or location.")
+    elif not scheduled:
+        st.warning("⚠️ All available tide slots were rejected due to scheduling rules. Please choose a different date or ramp.")
