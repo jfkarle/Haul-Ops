@@ -88,6 +88,31 @@ def fetch_noaa_high_tides(station_id: str, date: datetime.date):
     except Exception as e:
         st.error(f"🌊 NOAA tide fetch failed: {e}")
         return []
+    url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+    params = {
+        "product": "predictions",
+        "datum": "MLLW",
+        "station": station_id,
+        "time_zone": "lst_ldt",
+        "units": "english",
+        "interval": "hilo",
+        "format": "json",
+        "begin_date": date.strftime("%Y%m%d"),
+        "end_date": date.strftime("%Y%m%d")
+    }
+    try:
+        response = requests.get(url, params=params)
+        data = response.json()
+        highs = []
+        for p in data.get("predictions", []):
+            if p["type"] == "H":
+                tide_time = datetime.strptime(p["t"], "%Y-%m-%d %H:%M")
+                if datetime.strptime("07:30", "%H:%M").time() <= tide_time.time() <= datetime.strptime("17:00", "%H:%M").time():
+                    highs.append(tide_time)
+        return highs
+    except Exception as e:
+        st.error(f"🌊 NOAA tide fetch failed: {e}")
+        return []
 
 # --- Scheduler UI and Logic ---
 st.set_page_config("ECM Scheduler", layout="wide")
@@ -97,7 +122,10 @@ with st.sidebar:
     show_table = st.checkbox("📋 Show All Scheduled Jobs Table")
     if st.session_state.ALL_JOBS:
         buffer = io.BytesIO()
-        st.session_state.PDF_REPORT.output(buffer)
+        try:
+        buffer.write(st.session_state.PDF_REPORT.output(dest='S').encode('latin1'))
+    except UnicodeEncodeError:
+        st.error("❌ PDF export failed due to non-Latin characters. Please avoid emoji or special characters.")
         st.download_button(
             label="📅 Download PDF Report",
             data=buffer.getvalue(),
