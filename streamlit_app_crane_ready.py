@@ -56,7 +56,8 @@ if "PDF_REPORT" not in st.session_state:
             self.set_font("Arial", style="B", size=12)
             self.cell(200, 10, txt="Scheduling Reasoning:", ln=True)
             self.set_font("Arial", size=11)
-            for line in explanation.strip().split("\n"):
+            for line in explanation.strip().split("
+"):
                 self.multi_cell(0, 8, line)
     st.session_state.PDF_REPORT = PDFReport()
 
@@ -149,7 +150,8 @@ if submitted:
         end = start + job_length
 
         if start.weekday() == 6:
-            explanation += "- Skipped scheduling on Sunday (not allowed)\\n"
+            explanation += "- Skipped scheduling on Sunday (not allowed)\
+"
             
             continue
 
