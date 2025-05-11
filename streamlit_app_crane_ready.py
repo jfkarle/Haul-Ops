@@ -149,8 +149,8 @@ if submitted:
         end = start + job_length
 
         if start.weekday() == 6:
-            explanation += "- Skipped scheduling on Sunday (not allowed)
-"
+            explanation += "- Skipped scheduling on Sunday (not allowed)\\n"
+            
             continue
 
         if start.weekday() == 5:
