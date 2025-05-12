@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
@@ -45,21 +44,20 @@ if "PDF_REPORT" not in st.session_state:
         def add_job_page(self, job, explanation):
             self.add_page()
             self.set_font("Arial", size=12)
-            self.cell(200, 10, txt=f"Customer: {job['Customer']}".encode("latin-1", "replace").decode("latin-1"), ln=True)
-            self.cell(200, 10, txt=f"Boat Type: {job['Boat Type']} ({job['Boat Length']} ft, {job['Mast']})".encode("latin-1", "replace").decode("latin-1"), ln=True)
-            self.cell(200, 10, txt=f"Service: {job['Service']}".encode("latin-1", "replace").decode("latin-1"), ln=True)
-            self.cell(200, 10, txt=f"Origin: {job['Origin']}".encode("latin-1", "replace").decode("latin-1"), ln=True)
-            self.cell(200, 10, txt=f"Ramp: {job['Ramp']}".encode("latin-1", "replace").decode("latin-1"), ln=True)
-            self.cell(200, 10, txt=f"Date: {job['Date']}  Time: {job['Start']}–{job['End']}".encode("latin-1", "replace").decode("latin-1"), ln=True)
-            self.cell(200, 10, txt=f"Truck: {job['Truck']}".encode("latin-1", "replace").decode("latin-1"), ln=True)
-            self.cell(200, 10, txt=f"High Tide: {job['High Tide']}".encode("latin-1", "replace").decode("latin-1"), ln=True)
+            self.cell(200, 10, txt=f"Customer: {job['Customer']}", ln=True)
+            self.cell(200, 10, txt=f"Boat Type: {job['Boat Type']} ({job['Boat Length']} ft, {job['Mast']})", ln=True)
+            self.cell(200, 10, txt=f"Service: {job['Service']}", ln=True)
+            self.cell(200, 10, txt=f"Origin: {job['Origin']}", ln=True)
+            self.cell(200, 10, txt=f"Ramp: {job['Ramp']}", ln=True)
+            self.cell(200, 10, txt=f"Date: {job['Date']}  Time: {job['Start']}–{job['End']}", ln=True)
+            self.cell(200, 10, txt=f"Truck: {job['Truck']}", ln=True)
+            self.cell(200, 10, txt=f"High Tide: {job['High Tide']}", ln=True)
             self.ln(5)
             self.set_font("Arial", style="B", size=12)
             self.cell(200, 10, txt="Scheduling Reasoning:", ln=True)
             self.set_font("Arial", size=11)
             for line in explanation.strip().split("\n"):
-                safe_line = line.encode("latin-1", "replace").decode("latin-1")
-                self.multi_cell(0, 8, safe_line)
+                self.multi_cell(0, 8, line)
     st.session_state.PDF_REPORT = PDFReport()
 
 # --- NOAA Tide Fetching Function ---
@@ -91,7 +89,7 @@ def fetch_noaa_high_tides(station_id: str, date: datetime.date):
         st.error(f"🌊 NOAA tide fetch failed: {e}")
         return []
 
-# --- UI ---
+# --- Streamlit UI ---
 st.set_page_config("ECM Scheduler", layout="wide")
 st.title("🚛 ECM Scheduler — Final Version")
 
@@ -107,14 +105,20 @@ with st.sidebar:
             mime="application/pdf"
         )
 
+# --- Show Scheduled Jobs Table ---
 if show_table:
+    st.subheader("🧾 All Scheduled Jobs")
+    if st.session_state.ALL_JOBS:
+        df = pd.DataFrame(st.session_state.ALL_JOBS)
+        st.dataframe(df)
+
+    
+if show_table and st.session_state.ALL_JOBS:
     st.subheader("🧾 All Scheduled Jobs")
     df = pd.DataFrame(st.session_state.ALL_JOBS)
     st.dataframe(df)
-    st.subheader("🛠️ J17 Crane Jobs")
-    crane_df = pd.DataFrame(st.session_state.CRANE_JOBS, columns=["Start", "End", "Customer", "Ramp"])
-    st.dataframe(crane_df)
 
+# --- Scheduler Form ---
 with st.form("schedule_form"):
     col1, col2 = st.columns(2)
     with col1:
@@ -130,26 +134,29 @@ with st.form("schedule_form"):
         debug = st.checkbox("Enable Tide Debug Info")
     submitted = st.form_submit_button("Schedule This Job")
 
-# --- Scheduling Logic ---
+# --- Begin Scheduling Logic ---
 if submitted:
     job_length = DURATION[boat_type]
     station_id = RAMP_TO_NOAA.get(ramp, "8445138")
     tide_times = fetch_noaa_high_tides(station_id, start_date)
-    explanation = ""
 
+    explanation = ""
     for tide in tide_times:
         start = tide - timedelta(minutes=45)
         end = start + job_length
 
         if start.weekday() == 6:
-            explanation += "- Skipped scheduling on Sunday (not allowed)\n"
+            explanation += "- Skipped scheduling on Sunday (not allowed)
+"
             continue
         if start.weekday() == 5:
             if boat_type == "Sailboat":
-                explanation += "- Skipped scheduling Sailboat on Saturday (only allowed Mon–Fri)\n"
+                explanation += "- Skipped scheduling Sailboat on Saturday (only allowed Mon–Fri)
+"
                 continue
             if start.month not in [5, 9]:
-                explanation += "- Skipped scheduling on Saturday (only allowed in May and September)\n"
+                explanation += "- Skipped scheduling on Saturday (only allowed in May and September)
+"
                 continue
 
         truck = "J17" if boat_type == "Sailboat" else "S20"
@@ -172,10 +179,16 @@ if submitted:
         if truck == "J17":
             st.session_state.CRANE_JOBS.append((start, end, customer, ramp))
 
-        explanation += f"- Truck {truck} assigned for {boat_type}\n"
-        explanation += f"- Job scheduled {job_length.total_seconds() / 60:.0f} minutes before high tide ({tide.strftime('%I:%M %p')})\n"
+        explanation += f"- Truck {truck} assigned for {boat_type}
+"
+        explanation += f"- Job scheduled {job_length.total_seconds() / 60:.0f} minutes before high tide ({tide.strftime('%I:%M %p')})
+"
 
         st.success(f"✅ Scheduled: {customer} on {start.strftime('%A %b %d')} at {start.strftime('%I:%M %p')} — Truck {truck}")
-        st.markdown("**Why this slot was chosen:**\n```\n" + explanation + "```")
+        st.markdown("**Why this slot was chosen:**
+```
+" + explanation + "```")
         st.session_state.PDF_REPORT.add_job_page(job_record, explanation)
         break
+    else:
+        st.warning("⚠️ No available scheduling slots matched your request. Please try another date or ramp.")
