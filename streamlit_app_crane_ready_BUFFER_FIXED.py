@@ -64,7 +64,8 @@ if "PDF_REPORT" not in st.session_state:
             self.set_font("Arial", size=11)
             for line in explanation.strip().split("\n"):
                 self.multi_cell(0, 8, line)
-    st.session_state.PDF_REPORT = PDFReport()
+    from fpdf import FPDF
+st.session_state.PDF_REPORT = PDFReport()  # Reset before each job
 
 # --- NOAA Tide Fetching Function ---
 def fetch_noaa_high_tides(station_id: str, date: datetime.date):
