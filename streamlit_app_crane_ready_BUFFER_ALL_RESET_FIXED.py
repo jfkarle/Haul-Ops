@@ -65,7 +65,7 @@ if "PDF_REPORT" not in st.session_state:
             for line in explanation.strip().split("\n"):
                 self.multi_cell(0, 8, line)
     from fpdf import FPDF
-st.session_state.PDF_REPORT = PDFReport()  # Reset before each job
+st.session_state.PDF_REPORT = FPDF()  # Reset before each job
 
 # --- NOAA Tide Fetching Function ---
 def fetch_noaa_high_tides(station_id: str, date: datetime.date):
