@@ -176,10 +176,8 @@ if submitted:
         if truck == "J17":
             st.session_state.CRANE_JOBS.append((start, end, customer, ramp))
 
-        explanation += f"- Truck {truck} assigned for {boat_type}
-"
-        explanation += f"- Job scheduled {job_length.total_seconds() / 60:.0f} minutes before high tide ({tide.strftime('%I:%M %p')})
-"
+        explanation += f"- Truck {truck} assigned for {boat_type}"
+        explanation += f"- Job scheduled {job_length.total_seconds() / 60:.0f} minutes before high tide ({tide.strftime('%I:%M %p')})"
 
         st.success(f"✅ Scheduled: {customer} on {start.strftime('%A %b %d')} at {start.strftime('%I:%M %p')} — Truck {truck}")
         st.markdown("**Why this slot was chosen:**
