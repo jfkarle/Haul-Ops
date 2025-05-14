@@ -158,8 +158,9 @@ if not match_df.empty:
 
 sel_customer = None
 if not match_df.empty:
-    idx = st.selectbox("Select a customer", match_df.index)
-    sel_customer = match_df.loc[idx]
+    match_df = match_df.reset_index(drop=True)
+    selected_label = st.selectbox("Select a customer", match_df["Customer Name"])
+    sel_customer = match_df[match_df["Customer Name"] == selected_label].iloc[0]
 
 job_type = st.selectbox("Job Type", ["Launch", "Haul", "Transport"])
 req_date = st.date_input("Preferred Date", min_value=datetime.today())
