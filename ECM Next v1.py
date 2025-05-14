@@ -171,25 +171,27 @@ if st.button("FIND DATES") and sel_customer is not None:
     boat_len = sel_customer["Length"]
     duration = JOB_DURATION_HRS[sel_customer["Boat Type"]]
     proposals = find_three_dates(req_date, ramp, boat_len, duration)
+    st.session_state["proposals"] = proposals
+    st.session_state["customer_selection"] = sel_customer
 
-    if not proposals:
-        st.error("No viable dates found within 60 days.")
-    else:
-        st.success("Select from the earliest viable dates:")
-        options = {f"{p['date'].strftime('%b %d')} at {p['time'].strftime('%I:%M %p')} (Truck {p['truck']})": i for i, p in enumerate(proposals)}
-        choice = st.radio("Proposals", list(options.keys()))
-        chosen_idx = options[choice]
+if "proposals" in st.session_state and st.session_state["proposals"]:
+    proposals = st.session_state["proposals"]
+    sel_customer = st.session_state["customer_selection"]
+    st.success("Select from the earliest viable dates:")
+    options = {f"{p['date'].strftime('%b %d')} at {p['time'].strftime('%I:%M %p')} (Truck {p['truck']})": i for i, p in enumerate(proposals)}
+    choice = st.radio("Proposals", list(options.keys()), key="proposal_choice")
+    chosen_idx = options[choice]
+    chosen = proposals[chosen_idx]
 
-        if st.button("BOOK THIS JOB"):
-            chosen = proposals[chosen_idx]
-            st.session_state["schedule"].append({
-                "customer": sel_customer["Customer Name"],
-                "truck": chosen["truck"],
-                "date": chosen["date"],
-                "time": chosen["time"],
-                "duration": duration
-            })
-            st.success(f"Booked for {chosen['date'].strftime('%B %d, %Y')} at {chosen['time'].strftime('%I:%M %p')} on Truck {chosen['truck']}")
+    if st.button("BOOK THIS JOB"):
+        st.session_state["schedule"].append({
+            "customer": sel_customer["Customer Name"],
+            "truck": chosen["truck"],
+            "date": chosen["date"],
+            "time": chosen["time"],
+            "duration": JOB_DURATION_HRS[sel_customer["Boat Type"]]
+        })
+        st.success(f"Booked for {chosen['date'].strftime('%B %d, %Y')} at {chosen['time'].strftime('%I:%M %p')} on Truck {chosen['truck']}")} at {chosen['time'].strftime('%I:%M %p')} on Truck {chosen['truck']}")
 
 # Button to view full schedule
 with st.sidebar:
