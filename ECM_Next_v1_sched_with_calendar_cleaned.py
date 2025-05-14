@@ -198,7 +198,7 @@ if "proposals" in st.session_state and st.session_state["proposals"]:
                 d = chosen["date"].strftime("%B %d, %Y")
         t = chosen["time"].strftime("%I:%M %p")
         truck = chosen["truck"]
-        st.success(f"Booked for {d} at {t} on Truck {truck}")} at {chosen['time'].strftime('%I:%M %p')} on Truck {chosen['truck']}")
+        st.success(f"Booked for {d} at {t} on Truck {truck}") at {chosen['time'].strftime('%I:%M %p')} on Truck {chosen['truck']}")
 
 # Button to view full schedule
 with st.sidebar:
