@@ -173,6 +173,7 @@ if st.button("FIND DATES") and sel_customer is not None:
     proposals = find_three_dates(req_date, ramp, boat_len, duration)
     st.session_state["proposals"] = proposals
     st.session_state["customer_selection"] = sel_customer
+    st.write("DEBUG: Proposals found =", proposals)
 
 if "proposals" in st.session_state and st.session_state["proposals"]:
     proposals = st.session_state["proposals"]
