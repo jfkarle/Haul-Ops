@@ -184,14 +184,10 @@ if "proposals" in st.session_state and st.session_state["proposals"]:
     chosen = proposals[chosen_idx]
 
     if st.button("BOOK THIS JOB"):
-    d = chosen["date"].strftime("%B %d, %Y")
-    t = chosen["time"].strftime("%I:%M %p")
-    truck = chosen["truck"]
-    st.success(f"Booked for {d} at {t} on Truck {truck}")
-    d = chosen["date"].strftime("%B %d, %Y")
-    t = chosen["time"].strftime("%I:%M %p")
-    truck = chosen["truck"]
-    st.success(f"Booked for {d} at {t} on Truck {truck}")
+        d = chosen["date"].strftime("%B %d, %Y")
+        t = chosen["time"].strftime("%I:%M %p")
+        truck = chosen["truck"]
+        st.success(f"Booked for {d} at {t} on Truck {truck}")
         st.session_state["schedule"].append({
             "customer": sel_customer["Customer Name"],
             "truck": chosen["truck"],
@@ -199,10 +195,6 @@ if "proposals" in st.session_state and st.session_state["proposals"]:
             "time": chosen["time"],
             "duration": JOB_DURATION_HRS[sel_customer["Boat Type"]]
         })
-                d = chosen["date"].strftime("%B %d, %Y")
-        t = chosen["time"].strftime("%I:%M %p")
-        truck = chosen["truck"]
-        st.success(f"Booked for {d} at {t} on Truck {truck}")
 
 # Button to view full schedule
 with st.sidebar:
