@@ -230,9 +230,12 @@ truck_colors = {
     "S23": "#2ca02c",  # green
     "J17": "#d62728"   # red
 }
+
+calendar_options = {
     "initialView": "timeGridWeek",
     "editable": False,
-    "selectable": False,
+    "selectable": False
+}
     "headerToolbar": {
         "left": "prev,next today",
         "center": "title",
