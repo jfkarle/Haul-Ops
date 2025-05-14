@@ -191,7 +191,7 @@ if "proposals" in st.session_state and st.session_state["proposals"]:
             "time": chosen["time"],
             "duration": JOB_DURATION_HRS[sel_customer["Boat Type"]]
         })
-                d = chosen["date"].strftime("%B %d, %Y")
+        d = chosen["date"].strftime("%B %d, %Y")
         t = chosen["time"].strftime("%I:%M %p")
         truck = chosen["truck"]
         st.success(f"Booked for {d} at {t} on Truck {truck}")} at {chosen['time'].strftime('%I:%M %p')} on Truck {chosen['truck']}")
