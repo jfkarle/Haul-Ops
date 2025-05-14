@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time
+import datetime
 import requests
 
 # ====================================
@@ -240,12 +241,12 @@ calendar_events = []
 schedule = st.session_state.get("schedule", [])
 if isinstance(schedule, list):
     for job in schedule:
-        if isinstance(job['date'], datetime):
+        if isinstance(job['date'], datetime.datetime):
             date_str = job['date'].strftime('%Y-%m-%d')
         else:
             date_str = str(job['date'])
         start_dt = f"{date_str}T{job['time'].strftime('%H:%M:%S')}"
-    if isinstance(job['date'], datetime):
+    if isinstance(job['date'], datetime.datetime):
         date_str = job['date'].strftime('%Y-%m-%d')
     else:
         date_str = str(job['date'])
