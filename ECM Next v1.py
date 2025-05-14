@@ -101,7 +101,7 @@ def eligible_trucks(boat_len: int):
 # Very simple conflict check (same truck, same date, overlapping) -------------
 
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
-    start_dt = datetime.combine(date.date(), start_t)
+    start_dt = datetime.combine(date, start_t)
     end_dt = start_dt + timedelta(hours=dur_hrs)
     for job in st.session_state["schedule"]:
         if job["truck"] != truck:
@@ -109,7 +109,7 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
         if job["date"].date() != date.date():
             continue
         # Overlap check
-        job_start = datetime.combine(job["date"].date(), job["time"])
+        job_start = datetime.combine(job["date"], job["time"])
         job_end = job_start + timedelta(hours=job["duration"])
         latest_start = max(start_dt, job_start)
         earliest_end = min(end_dt, job_end)
