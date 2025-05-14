@@ -103,7 +103,10 @@ def eligible_trucks(boat_len: int):
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
     start_dt = datetime.combine(date, start_t)
     end_dt = start_dt + timedelta(hours=dur_hrs)
-    for job in st.session_state["schedule"]:
+    schedule = st.session_state.get("schedule", [])
+    if isinstance(schedule, list):
+        for job in schedule:
+        ...
         if job["truck"] != truck:
             continue
         if job["date"].date() != date.date():
