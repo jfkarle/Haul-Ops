@@ -153,17 +153,15 @@ st.title("ECM Boat Hauling Scheduler")
 cust_query = st.text_input("Search by Last Name (partial accepted):")
 customer_df = load_customer_data()
 match_df = filter_customers(customer_df, cust_query) if cust_query else pd.DataFrame()
-if not match_df.empty:
-    match_df = match_df.reset_index(drop=True)
-    selected_idx = st.radio("Select a customer", match_df.index,
-                        format_func=lambda i: f"{match_df.loc[i, 'Customer Name']} — {match_df.loc[i, 'Boat Type']}, {match_df.loc[i, 'Length']} ft @ {match_df.loc[i, 'Ramp']}")
-sel_customer = match_df.loc[selected_idx]
-
 sel_customer = None
 if not match_df.empty:
     match_df = match_df.reset_index(drop=True)
-    selected_label = st.selectbox("Select a customer", match_df["Customer Name"])
-    sel_customer = match_df[match_df["Customer Name"] == selected_label].iloc[0]
+    selected_idx = st.radio("Select a customer", match_df.index,
+                            format_func=lambda i: f"{match_df.loc[i, 'Customer Name']} — "
+                                                   f"{match_df.loc[i, 'Boat Type']}, "
+                                                   f"{match_df.loc[i, 'Length']} ft @ "
+                                                   f"{match_df.loc[i, 'Ramp']}")
+    sel_customer = match_df.loc[selected_idx]
 
 job_type = st.selectbox("Job Type", ["Launch", "Haul", "Transport"])
 req_date = st.date_input("Preferred Date", min_value=datetime.today())
