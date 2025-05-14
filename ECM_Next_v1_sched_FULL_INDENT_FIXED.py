@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime, timedelta, time
 import datetime
 import requests
-from datetime import datetime
 
 # ====================================
 # ------------ CONSTANTS -------------
@@ -239,6 +238,7 @@ calendar_options = {
     "slotMinTime": "07:30:00",
     "slotMaxTime": "17:30:00"
 }
+schedule = st.session_state.get("schedule", [])
 for job in schedule:
     pass
 
