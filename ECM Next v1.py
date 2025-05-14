@@ -154,7 +154,10 @@ cust_query = st.text_input("Search by Last Name (partial accepted):")
 customer_df = load_customer_data()
 match_df = filter_customers(customer_df, cust_query) if cust_query else pd.DataFrame()
 if not match_df.empty:
-    st.dataframe(match_df[["Customer Name", "Boat Type", "Length", "Ramp"]])
+    match_df = match_df.reset_index(drop=True)
+    selected_idx = st.radio("Select a customer", match_df.index,
+                        format_func=lambda i: f"{match_df.loc[i, 'Customer Name']} — {match_df.loc[i, 'Boat Type']}, {match_df.loc[i, 'Length']} ft @ {match_df.loc[i, 'Ramp']}")
+sel_customer = match_df.loc[selected_idx]
 
 sel_customer = None
 if not match_df.empty:
