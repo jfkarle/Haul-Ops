@@ -6,7 +6,7 @@ import requests
 # ====================================
 # ------------ CONSTANTS -------------
 # ====================================
-CUSTOMER_CSV = "customers.csv"  # path or raw‑GitHub URL
+CUSTOMER_CSV = "customers.csv"  # path or raw-GitHub URL
 NOAA_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 NOAA_PARAMS_TEMPLATE = {
     "product": "predictions",
@@ -31,7 +31,7 @@ RAMP_TO_NOAA_ID = {
 TRUCK_LIMITS = {"S20": 60, "S21": 50, "S23": 30, "J17": 0}
 JOB_DURATION_HRS = {"Powerboat": 1.5, "Sailboat MD": 3.0, "Sailboat MT": 3.0}
 
-# Persistent schedule held in session (one‑page memory)
+# Persistent schedule held in session (one-page memory)
 if "schedule" not in st.session_state:
     st.session_state["schedule"] = []  # list of dicts {truck,date,time,duration,customer}
 
@@ -47,7 +47,7 @@ def filter_customers(df, query):
     return df[df["Customer Name"].str.lower().str.contains(query)]
 
 def get_tide_predictions(date: datetime, ramp: str):
-    """Return list of tuples (timestamp‑str, type 'H'/'L') or error."""
+    """Return list of tuples (timestamp-str, type 'H'/'L') or error."""
     station_id = RAMP_TO_NOAA_ID.get(ramp)
     if not station_id:
         return None, f"No NOAA station ID mapped for {ramp}"
@@ -67,7 +67,7 @@ def get_tide_predictions(date: datetime, ramp: str):
 
 def generate_slots_for_high_tide(high_tide_ts: str):
     ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
-    win_start, win_end = ht‑timedelta(hours=3), ht+timedelta(hours=3)
+    win_start, win_end = ht-timedelta(hours=3), ht+timedelta(hours=3)
     slots = []
     t = datetime.combine(ht.date(), time(8, 0))
     end_day = datetime.combine(ht.date(), time(14, 30))
@@ -113,7 +113,7 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
         job_end = job_start + timedelta(hours=job["duration"])
         latest_start = max(start_dt, job_start)
         earliest_end = min(end_dt, job_end)
-        overlap = (earliest_end‑latest_start).total_seconds() > 0
+        overlap = (earliest_end-latest_start).total_seconds() > 0
         if overlap:
             return False
     return True
@@ -127,7 +127,7 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
     if not trucks:
         return []
 
-    while len(found) < 3 and (current‑start_date).days < 60:  # 2‑month search window
+    while len(found) < 3 and (current-start_date).days < 60:  # 2-month search window
         if not is_workday(current):
             current += timedelta(days=1)
             continue
