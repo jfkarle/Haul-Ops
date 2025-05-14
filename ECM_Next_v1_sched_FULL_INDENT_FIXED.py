@@ -239,6 +239,7 @@ calendar_options = {
     "slotMaxTime": "17:30:00"
 }
 for job in schedule:
+    pass
 
 st.markdown("### Weekly Job Calendar")
 calendar(events=calendar_events, options=calendar_options)
