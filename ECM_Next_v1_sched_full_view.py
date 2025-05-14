@@ -103,7 +103,6 @@ def eligible_trucks(boat_len: int):
 
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
     start_dt = datetime.combine(date, start_t)
-    end_dt = start_dt + timedelta(hours=dur_hrs)
     for job in st.session_state["schedule"]:
         if job["truck"] != truck:
             continue
@@ -113,7 +112,6 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
         job_start = datetime.combine(job["date"], job["time"])
         job_end = job_start + timedelta(hours=job["duration"])
         latest_start = max(start_dt, job_start)
-        earliest_end = min(end_dt, job_end)
         overlap = (earliest_end-latest_start).total_seconds() > 0
         if overlap:
             return False
@@ -225,6 +223,13 @@ with st.sidebar:
 from streamlit_calendar import calendar
 
 calendar_options = {
+
+truck_colors = {
+    "S20": "#1f77b4",  # blue
+    "S21": "#ff7f0e",  # orange
+    "S23": "#2ca02c",  # green
+    "J17": "#d62728"   # red
+}
     "initialView": "timeGridWeek",
     "editable": False,
     "selectable": False,
@@ -246,14 +251,24 @@ if isinstance(schedule, list):
         else:
             date_str = str(job['date'])
         start_dt = f"{date_str}T{job['time'].strftime('%H:%M:%S')}"
+        end_dt = datetime.datetime.combine(job['date'].date(), job['time']) + timedelta(hours=job['duration'])
+        end_str = end_dt.strftime('%Y-%m-%dT%H:%M:%S')
+        truck = job['truck']
+        event_color = truck_colors.get(truck, '#888888')
+        calendar_events.append({
+            'title': f"{job['customer']} ({truck})",
+            'start': start_dt,
+            'end': end_str,
+            'color': event_color
+        })
+        if isinstance(job['date'], datetime.datetime):
+            date_str = job['date'].strftime('%Y-%m-%d')
+        else:
+            date_str = str(job['date'])
     if isinstance(job['date'], datetime.datetime):
         date_str = job['date'].strftime('%Y-%m-%d')
     else:
         date_str = str(job['date'])
-    start_dt = f"{date_str}T{job['time'].strftime('%H:%M:%S')}"
-    end_dt = datetime.combine(job['date'].date(), job['time']) + timedelta(hours=job["duration"])
-    end_str = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
-    calendar_events.append({
         "title": f"{job['customer']} ({job['truck']})",
         "start": start_dt,
         "end": end_str
