@@ -237,7 +237,9 @@ calendar_options = {
 }
 
 calendar_events = []
-for job in st.session_state.get("schedule", []):
+schedule = st.session_state.get("schedule", [])
+if isinstance(schedule, list):
+    for job in schedule:
     if isinstance(job['date'], datetime):
         date_str = job['date'].strftime('%Y-%m-%d')
     else:
@@ -252,4 +254,6 @@ for job in st.session_state.get("schedule", []):
     })
 
 st.markdown("### Weekly Job Calendar")
+calendar(events=calendar_events, options=calendar_options)
+
 calendar(events=calendar_events, options=calendar_options)
