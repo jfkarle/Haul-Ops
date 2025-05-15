@@ -1,8 +1,8 @@
 import streamlit as st
 try:
-from streamlit_calendar import calendar
+    from streamlit_calendar import calendar
 except Exception as e:
-st.error(f"Calendar import failed: {e}")
+    st.error(f"Calendar import failed: {e}")
 import pandas as pd
 from datetime import datetime, timedelta, time
 import requests
