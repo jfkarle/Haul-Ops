@@ -86,14 +86,14 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
     preds, err = get_tide_predictions(date, ramp)
     if err or not preds:
         return [], []
-    high_tides_timestamps = [t for t, typ in preds if typ == "H"]
+    high_tides_data = [(datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']) for p in preds if p['type'] == 'H']
     slots = []
     high_tide_times = []
-    for ht_ts in high_tides_timestamps:
-        ht_datetime = datetime.strptime(ht_ts, "%Y-%m-%d %H:%M")
-        high_tide_times.append(ht_datetime.strftime("%I:%M %p"))  # Format high tide time
+    for ht_datetime, _ in high_tides_data:
+        high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
+        ht_ts = ht_datetime.strftime("%Y-%m-%d %H:%M")
         slots.extend(generate_slots_for_high_tide(ht_ts))
-    return sorted(set(slots)), high_tide_times
+    return sorted(set(slots)), high_tide_times, high_tides_data
 
 
 def is_workday(date: datetime):
@@ -138,7 +138,8 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
 
     while len(found) < 3:
         if is_workday(current):
-            valid_slots, high_tide_times = get_valid_slots_with_tides(current, ramp)
+            valid_slots, high_tide_times, all_high_tides_data = get_valid_slots_with_tides(current, ramp)
+            relevant_high_tides = [ht.strftime("%I:%M %p") for ht, _ in all_high_tides_data if 6 <= ht.hour < 18]
             for slot_index, slot in enumerate(valid_slots):
                 for truck in trucks:
                     if is_truck_free(truck, current, slot, duration):
@@ -147,7 +148,7 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                             "time": slot,
                             "ramp": ramp,
                             "truck": truck,
-                            "high_tides": high_tide_times  # Store all high tides
+                            "high_tides": relevant_high_tides # Store relevant high tides
                         })
                         if len(found) >= 3:
                             return found
@@ -158,9 +159,11 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
     return found
 
 
-def format_date(date_obj):
-    return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
+def format_date_display(date_obj):
+    return date_obj.strftime("%b %d, %Y")
 
+def format_date_schedule(date_obj):
+    return date_obj.strftime("%Y-%m-%d")
 
 # ====================================
 # ------------- UI -------------------
@@ -186,13 +189,14 @@ with st.sidebar:
         st.write(f"Selected Boat Type: **{boat_type}**")
         st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
-        earliest_date = st.date_input("Earliest Date", datetime.now().date())
+        earliest_date = st.date_input("Earliest Date", datetime.now().date(), format="MMM DD, YYYY")
 
         if st.button("Find Available Dates"):
             if selected_customer:
                 duration = JOB_DURATION_HRS.get(boat_type, 1.0)
+                start_search_date = datetime(earliest_date.year, earliest_date.month, earliest_date.day)
                 available_slots = find_three_dates(
-                    datetime(earliest_date.year, earliest_date.month, earliest_date.day),
+                    start_search_date,
                     ramp_choice,
                     boat_length,
                     duration
@@ -200,12 +204,14 @@ with st.sidebar:
                 if available_slots:
                     st.subheader("Available Slots")
                     for slot in available_slots:
-                        formatted_date = format_date(slot['date'])
+                        formatted_date = format_date_display(slot['date'])
                         st.write(f"**Date:** {formatted_date}")
                         st.write(f"**Time:** {slot['time'].strftime('%H:%M')}")
-                        # Display all high tides
-                        high_tides_str = ", ".join(slot['high_tides'])
-                        st.write(f"**High Tides (approx.):** {high_tides_str}")
+                        if slot['high_tides']:
+                            high_tides_str = ", ".join(slot['high_tides'])
+                            st.write(f"**High Tides (6AM-6PM approx.):** {high_tides_str}")
+                        else:
+                            st.write("**High Tides (6AM-6PM approx.):** N/A")
                         st.write(f"**Ramp:** {slot['ramp']}, **Truck:** {slot['truck']}")
                         schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
 
@@ -231,8 +237,16 @@ with st.sidebar:
 st.header("Current Schedule")
 if st.session_state["schedule"]:
     schedule_df = pd.DataFrame(st.session_state["schedule"])
-    schedule_df["Date"] = schedule_df["date"].dt.date
+    schedule_df["Date"] = schedule_df["date"].dt.date.apply(format_date_display)
     schedule_df["Time"] = schedule_df["time"].astype(str)
-    st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
+    schedule_df["High Tide"] = schedule_df["date"].apply(lambda d: get_tide_predictions(d, st.session_state.get('last_ramp_choice', list(RAMP_TO_NOAA_ID.keys())[0]))[0])\
+        .apply(lambda preds: ", ".join([datetime.strptime(p['t'], "%Y-%m-%d %H:%M").strftime("%I:%M %p") for p in preds if p['type'] == 'H' and 6 <= datetime.strptime(p['t'], "%Y-%m-%d %H:%M").hour < 18]) if preds else "N/A")
+
+    st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration", "High Tide"]])
 else:
     st.info("The schedule is currently empty.")
+
+if 'ramp_choice' in st.session_state:
+    st.session_state['last_ramp_choice'] = st.session_state['ramp_choice']
+elif list(RAMP_TO_NOAA_ID.keys()):
+    st.session_state['last_ramp_choice'] = list(RAMP_TO_NOAA_ID.keys())[0]
