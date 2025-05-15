@@ -87,15 +87,18 @@ def generate_slots_for_high_tide(high_tide_ts: str):
     return slots
 
 
-def get_valid_slots(date: datetime, ramp: str):
+def get_valid_slots_with_tides(date: datetime, ramp: str):
     preds, err = get_tide_predictions(date, ramp)
     if err or not preds:
-        return []
-    high_tides = [t for t, typ in preds if typ == "H"]
+        return [], []
+    high_tides_timestamps = [t for t, typ in preds if typ == "H"]
     slots = []
-    for ht in high_tides:
-        slots.extend(generate_slots_for_high_tide(ht))
-    return sorted(set(slots))
+    high_tide_times = []
+    for ht_ts in high_tides_timestamps:
+        ht_datetime = datetime.strptime(ht_ts, "%Y-%m-%d %H:%M")
+        high_tide_times.append(ht_datetime.strftime("%I:%M %p")) # Format high tide time
+        slots.extend(generate_slots_for_high_tide(ht_ts))
+    return sorted(set(slots)), high_tide_times
 
 
 def is_workday(date: datetime):
@@ -140,24 +143,27 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
 
     while len(found) < 3:
         if is_workday(current):
-            slots = get_valid_slots(current, ramp)
-            for slot in slots:
+            valid_slots, high_tide_times = get_valid_slots_with_tides(current, ramp)
+            for slot_index, slot in enumerate(valid_slots):
                 for truck in trucks:
                     if is_truck_free(truck, current, slot, duration):
                         found.append({
                             "date": current.date(),
                             "time": slot,
                             "ramp": ramp,
-                            "truck": truck
+                            "truck": truck,
+                            "high_tide": high_tide_times[0] if high_tide_times else "N/A" # Simple way to attach a high tide
                         })
                         if len(found) >= 3:
                             return found
-                        break  # Move to the next slot
+                        break # Move to the next slot
                 if len(found) >= 3:
                     return found
-                current += timedelta(days=1)
+        current += timedelta(days=1)
     return found
 
+def format_date(date_obj):
+    return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
 
 # ====================================
 # ------------- UI -------------------
@@ -178,8 +184,10 @@ with st.sidebar:
 
     if selected_customer:
         customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
-        boat_type = st.selectbox("Boat Type", list(JOB_DURATION_HRS.keys()))
-        boat_length = st.number_input("Boat Length (feet)", min_value=0, max_value=100, value=20)
+        boat_type = customer_row["Boat Type"]
+        boat_length = customer_row["Boat Length"]
+        st.write(f"Selected Boat Type: **{boat_type}**")
+        st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
         earliest_date = st.date_input("Earliest Date", datetime.now().date())
 
@@ -195,15 +203,14 @@ with st.sidebar:
                 if available_slots:
                     st.subheader("Available Slots")
                     for slot in available_slots:
-                        st.write(
-                            f"- Date: {slot['date'].strftime('%Y-%m-%d')}, "
-                            f"Time: {slot['time'].strftime('%H:%M')}, "
-                            f"Ramp: {slot['ramp']}, "
-                            f"Truck: {slot['truck']}"
-                        )
+                        formatted_date = format_date(slot['date'])
+                        st.write(f"**Date:** {formatted_date}")
+                        st.write(f"**Time:** {slot['time'].strftime('%H:%M')}")
+                        st.write(f"**High Tide (approx.):** {slot['high_tide']}")
+                        st.write(f"**Ramp:** {slot['ramp']}, **Truck:** {slot['truck']}")
                         schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
 
-                        def schedule_job():  # Define a function to schedule the job
+                        def schedule_job():
                             new_schedule_item = {
                                 "truck": slot["truck"],
                                 "date": datetime.combine(slot["date"], slot["time"]),
@@ -212,11 +219,12 @@ with st.sidebar:
                                 "customer": selected_customer
                             }
                             st.session_state["schedule"].append(new_schedule_item)
-                            st.success(f"Scheduled {selected_customer} with {slot['truck']} on {slot['date'].strftime('%Y-%m-%d')} at {slot['time'].strftime('%H:%M')}.")
-                            st.rerun()  # Force rerun to update schedule display
+                            st.success(f"Scheduled {selected_customer} with {slot['truck']} on {formatted_date} at {slot['time'].strftime('%H:%M')}.")
+                            st.rerun()
 
-                        if st.button(f"Schedule on {slot['date'].strftime('%Y-%m-%d')} at {slot['time'].strftime('%H:%M')}", key=schedule_key, on_click=schedule_job):  # Use on_click
-                            pass # Nothing needed here, the function handles the logic
+                        if st.button(f"Schedule on {slot['time'].strftime('%H:%M')}", key=schedule_key, on_click=schedule_job):
+                            pass
+                        st.markdown("---")
                 else:
                     st.info("No suitable slots found for the selected criteria.")
             else:
