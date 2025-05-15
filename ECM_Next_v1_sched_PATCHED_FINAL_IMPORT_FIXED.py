@@ -185,8 +185,12 @@ if not match_df.empty and st.session_state.get("customer_selection") is None:
     options = match_df.index.tolist()
     if options:
         def format_customer(index):
-            row = match_df.loc[index]
-            return f"{row['Customer Name']} — {row['Boat Type']}, {row['Length']} ft @ {row['Ramp']}"
+          row = match_df.loc[index]
+          customer_name = row.get('Customer Name', 'Unknown Customer')  # Use .get() with defaults
+          boat_type = row.get('Boat Type', 'Unknown Boat')
+          length = row.get('Length', 'Unknown Length')
+          ramp = row.get('Ramp', 'Unknown Ramp')
+          return f"{customer_name} — {boat_type}, {length} ft @ {ramp}"
 
         selected_idx = st.radio("Select a customer", options, format_func=format_customer)
         st.session_state["customer_selection"] = match_df.loc[selected_idx]
