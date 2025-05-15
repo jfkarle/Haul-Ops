@@ -180,14 +180,21 @@ match_df = filter_customers(customer_df, cust_query) if cust_query else pd.DataF
 if "customer_selection" not in st.session_state:
     st.session_state["customer_selection"] = None
 
-if not match_df.empty and st.session_state["customer_selection"] is None:
+if not match_df.empty and st.session_state.get("customer_selection") is None:
     match_df = match_df.reset_index(drop=True)
-    selected_idx = st.radio("Select a customer", match_df.index,
-                            format_func=lambda i: f"{match_df.loc[i, 'Customer Name']} — "
-                                                 f"{match_df.loc[i, 'Boat Type']}, "
-                                                 f"{match_df.loc[i, 'Length']} ft @ "
-                                                 f"{match_df.loc[i, 'Ramp']}")
-    st.session_state["customer_selection"] = match_df.loc[selected_idx]
+    options = match_df.index.tolist()
+    if options:
+        def format_customer(index):
+            row = match_df.loc[index]
+            return f"{row['Customer Name']} — {row['Boat Type']}, {row['Length']} ft @ {row['Ramp']}"
+
+        selected_idx = st.radio("Select a customer", options, format_func=format_customer)
+        st.session_state["customer_selection"] = match_df.loc[selected_idx]
+    else:
+        st.info("No matching customers found.")
+        st.session_state["customer_selection"] = None
+elif match_df.empty and st.session_state.get("customer_selection") is None:
+    st.info("No matching customers found.")
 
 sel_customer = st.session_state["customer_selection"]
 
