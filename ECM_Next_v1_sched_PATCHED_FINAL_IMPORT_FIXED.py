@@ -35,11 +35,6 @@ JOB_DURATION_HRS = {"Powerboat": 1.5, "Sailboat MD": 3.0, "Sailboat MT": 3.0}
 if "schedule" not in st.session_state:
     st.session_state["schedule"] = []  # list of dicts {truck,date,time,duration,customer}
 
-# try:
-#     from streamlit_calendar import calendar
-# except Exception as e:
-#     st.error(f"Calendar import failed: {e}")
-
 
 # ====================================
 # ------------ HELPERS ---------------
@@ -96,7 +91,7 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
     high_tide_times = []
     for ht_ts in high_tides_timestamps:
         ht_datetime = datetime.strptime(ht_ts, "%Y-%m-%d %H:%M")
-        high_tide_times.append(ht_datetime.strftime("%I:%M %p")) # Format high tide time
+        high_tide_times.append(ht_datetime.strftime("%I:%M %p"))  # Format high tide time
         slots.extend(generate_slots_for_high_tide(ht_ts))
     return sorted(set(slots)), high_tide_times
 
@@ -152,18 +147,20 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                             "time": slot,
                             "ramp": ramp,
                             "truck": truck,
-                            "high_tide": high_tide_times[0] if high_tide_times else "N/A" # Simple way to attach a high tide
+                            "high_tides": high_tide_times  # Store all high tides
                         })
                         if len(found) >= 3:
                             return found
-                        break # Move to the next slot
+                        break  # Move to the next slot
                 if len(found) >= 3:
                     return found
         current += timedelta(days=1)
     return found
 
+
 def format_date(date_obj):
     return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
+
 
 # ====================================
 # ------------- UI -------------------
@@ -206,7 +203,9 @@ with st.sidebar:
                         formatted_date = format_date(slot['date'])
                         st.write(f"**Date:** {formatted_date}")
                         st.write(f"**Time:** {slot['time'].strftime('%H:%M')}")
-                        st.write(f"**High Tide (approx.):** {slot['high_tide']}")
+                        # Display all high tides
+                        high_tides_str = ", ".join(slot['high_tides'])
+                        st.write(f"**High Tides (approx.):** {high_tides_str}")
                         st.write(f"**Ramp:** {slot['ramp']}, **Truck:** {slot['truck']}")
                         schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
 
@@ -237,14 +236,3 @@ if st.session_state["schedule"]:
     st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
 else:
     st.info("The schedule is currently empty.")
-
-# st.subheader("Calendar View")
-# events = []
-# for item in st.session_state["schedule"]:
-#     events.append({
-#         'title': f"{item['customer']} ({item['truck']})",
-#         'start': datetime.combine(item['date'].date(), item['time']).isoformat(),
-#         'end': (datetime.combine(item['date'].date(), item['time']) + timedelta(hours=item['duration'])).isoformat(),
-#     })
-# if "calendar" in locals():
-#     calendar(events=events)
