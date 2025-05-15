@@ -35,10 +35,10 @@ JOB_DURATION_HRS = {"Powerboat": 1.5, "Sailboat MD": 3.0, "Sailboat MT": 3.0}
 if "schedule" not in st.session_state:
     st.session_state["schedule"] = []  # list of dicts {truck,date,time,duration,customer}
 
-try:
-    from streamlit_calendar import calendar
-except Exception as e:
-    st.error(f"Calendar import failed: {e}")
+# try:
+#     from streamlit_calendar import calendar
+# except Exception as e:
+#     st.error(f"Calendar import failed: {e}")
 
 
 # ====================================
@@ -228,3 +228,16 @@ if st.session_state["schedule"]:
     schedule_df["Date"] = schedule_df["date"].dt.date
     schedule_df["Time"] = schedule_df["time"].astype(str)
     st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
+else:
+    st.info("The schedule is currently empty.")
+
+# st.subheader("Calendar View")
+# events = []
+# for item in st.session_state["schedule"]:
+#     events.append({
+#         'title': f"{item['customer']} ({item['truck']})",
+#         'start': datetime.combine(item['date'].date(), item['time']).isoformat(),
+#         'end': (datetime.combine(item['date'].date(), item['time']) + timedelta(hours=item['duration'])).isoformat(),
+#     })
+# if "calendar" in locals():
+#     calendar(events=events)
