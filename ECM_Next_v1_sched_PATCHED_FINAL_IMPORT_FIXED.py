@@ -152,11 +152,12 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                         })
                         if len(found) >= 3:
                             return found
-                        break # Move to the next slot
+                        break  # Move to the next slot
                 if len(found) >= 3:
                     return found
-        current += timedelta(days=1)
+                current += timedelta(days=1)
     return found
+
 
 # ====================================
 # ------------- UI -------------------
@@ -201,7 +202,8 @@ with st.sidebar:
                             f"Truck: {slot['truck']}"
                         )
                         schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
-                        if st.button(f"Schedule on {slot['date'].strftime('%Y-%m-%d')} at {slot['time'].strftime('%H:%M')}", key=schedule_key):
+
+                        def schedule_job():  # Define a function to schedule the job
                             new_schedule_item = {
                                 "truck": slot["truck"],
                                 "date": datetime.combine(slot["date"], slot["time"]),
@@ -211,7 +213,10 @@ with st.sidebar:
                             }
                             st.session_state["schedule"].append(new_schedule_item)
                             st.success(f"Scheduled {selected_customer} with {slot['truck']} on {slot['date'].strftime('%Y-%m-%d')} at {slot['time'].strftime('%H:%M')}.")
-                            st.rerun() # Force rerun to update schedule display
+                            st.rerun()  # Force rerun to update schedule display
+
+                        if st.button(f"Schedule on {slot['date'].strftime('%Y-%m-%d')} at {slot['time'].strftime('%H:%M')}", key=schedule_key, on_click=schedule_job):  # Use on_click
+                            pass # Nothing needed here, the function handles the logic
                 else:
                     st.info("No suitable slots found for the selected criteria.")
             else:
@@ -223,16 +228,3 @@ if st.session_state["schedule"]:
     schedule_df["Date"] = schedule_df["date"].dt.date
     schedule_df["Time"] = schedule_df["time"].astype(str)
     st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
-else:
-    st.info("The schedule is currently empty.")
-
-st.subheader("Calendar View")
-events = []
-for item in st.session_state["schedule"]:
-    events.append({
-        'title': f"{item['customer']} ({item['truck']})",
-        'start': datetime.combine(item['date'].date(), item['time']).isoformat(),
-        'end': (datetime.combine(item['date'].date(), item['time']) + timedelta(hours=item['duration'])).isoformat(),
-    })
-if "calendar" in locals():
-    calendar(events=events)
