@@ -246,4 +246,21 @@ for job in schedule:
     pass
 
 st.markdown("### Weekly Job Calendar")
+
+# --- Generate events for calendar view ---
+calendar_events = []
+for job in schedule:
+    start_dt = datetime.combine(job["date"], job["time"])
+    end_dt = start_dt + timedelta(hours=job["duration"])
+    event = {
+        "title": f"{job['customer']} (Truck {job['truck']})",
+        "start": start_dt.isoformat(),
+        "end": end_dt.isoformat(),
+        "color": truck_colors.get(job["truck"], "#000000")
+    }
+    
+    calendar_events.append(event)
+
+
+
 calendar(events=calendar_events, options=calendar_options)
