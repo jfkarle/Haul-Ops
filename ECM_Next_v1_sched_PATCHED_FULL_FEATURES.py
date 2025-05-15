@@ -171,7 +171,7 @@ if not match_df.empty and st.session_state["customer_selection"] is None:
 
 sel_customer = st.session_state["customer_selection"]
 
-if sel_customer:
+if sel_customer is not None:
     st.markdown(f"**Selected Customer:** {sel_customer['Customer Name']} — {sel_customer['Boat Type']}, "
                 f"{sel_customer['Length']} ft @ {sel_customer['Ramp']}")
     if st.button("🔄 Reset Customer Selection"):
