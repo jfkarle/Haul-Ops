@@ -138,4 +138,100 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
     if not trucks:
         return []
 
-    while len(found)
+    while len(found) < 3:
+        if is_workday(current):
+            slots = get_valid_slots(current, ramp)
+            for slot in slots:
+                for truck in trucks:
+                    if is_truck_free(truck, current, slot, duration):
+                        found.append({
+                            "date": current.date(),
+                            "time": slot,
+                            "ramp": ramp,
+                            "truck": truck
+                        })
+                        if len(found) >= 3:
+                            return found
+                        break # Move to the next slot
+                if len(found) >= 3:
+                    return found
+        current += timedelta(days=1)
+    return found
+
+# ====================================
+# ------------- UI -------------------
+# ====================================
+st.title("Boat Ramp Scheduling")
+
+customers_df = load_customer_data()
+
+with st.sidebar:
+    st.header("New Job")
+    customer_query = st.text_input("Find Customer:", "")
+    filtered_customers = filter_customers(customers_df, customer_query)
+    if not filtered_customers.empty:
+        selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
+    else:
+        selected_customer = None
+        st.info("No matching customers found.")
+
+    if selected_customer:
+        customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
+        boat_type = st.selectbox("Boat Type", list(JOB_DURATION_HRS.keys()))
+        boat_length = st.number_input("Boat Length (feet)", min_value=0, max_value=100, value=20)
+        ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
+        earliest_date = st.date_input("Earliest Date", datetime.now().date())
+
+        if st.button("Find Available Dates"):
+            if selected_customer:
+                duration = JOB_DURATION_HRS.get(boat_type, 1.0)
+                available_slots = find_three_dates(
+                    datetime(earliest_date.year, earliest_date.month, earliest_date.day),
+                    ramp_choice,
+                    boat_length,
+                    duration
+                )
+                if available_slots:
+                    st.subheader("Available Slots")
+                    for slot in available_slots:
+                        st.write(
+                            f"- Date: {slot['date'].strftime('%Y-%m-%d')}, "
+                            f"Time: {slot['time'].strftime('%H:%M')}, "
+                            f"Ramp: {slot['ramp']}, "
+                            f"Truck: {slot['truck']}"
+                        )
+                        if st.button(f"Schedule on {slot['date'].strftime('%Y-%m-%d')} at {slot['time'].strftime('%H:%M')}", key=f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"):
+                            st.session_state["schedule"].append({
+                                "truck": slot["truck"],
+                                "date": datetime.combine(slot["date"], slot["time"]),
+                                "time": slot["time"],
+                                "duration": duration,
+                                "customer": selected_customer
+                            })
+                            st.success(f"Scheduled {selected_customer} with {slot['truck']} on {slot['date'].strftime('%Y-%m-%d')} at {slot['time'].strftime('%H:%M')}.")
+                            # Force a rerun to update the calendar
+                            st.rerun()
+                else:
+                    st.info("No suitable slots found for the selected criteria.")
+            else:
+                st.warning("Please select a customer first.")
+
+st.header("Current Schedule")
+if st.session_state["schedule"]:
+    schedule_df = pd.DataFrame(st.session_state["schedule"])
+    schedule_df["Date"] = schedule_df["date"].dt.date
+    schedule_df["Time"] = schedule_df["time"].astype(str)
+    st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
+else:
+    st.info("The schedule is currently empty.")
+
+if "calendar" in locals():
+    st.subheader("Calendar View")
+    events = []
+    for item in st.session_state["schedule"]:
+        events.append({
+            'title': f"{item['customer']} ({item['truck']})",
+            'start': datetime.combine(item['date'].date(), item['time']).isoformat(),
+            'end': (datetime.combine(item['date'].date(), item['time']) + timedelta(hours=item['duration'])).isoformat(),
+        })
+    calendar(events=events)
