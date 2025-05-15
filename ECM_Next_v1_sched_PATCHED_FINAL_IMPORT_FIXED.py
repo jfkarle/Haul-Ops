@@ -200,17 +200,18 @@ with st.sidebar:
                             f"Ramp: {slot['ramp']}, "
                             f"Truck: {slot['truck']}"
                         )
-                        if st.button(f"Schedule on {slot['date'].strftime('%Y-%m-%d')} at {slot['time'].strftime('%H:%M')}", key=f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"):
-                            st.session_state["schedule"].append({
+                        schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
+                        if st.button(f"Schedule on {slot['date'].strftime('%Y-%m-%d')} at {slot['time'].strftime('%H:%M')}", key=schedule_key):
+                            new_schedule_item = {
                                 "truck": slot["truck"],
                                 "date": datetime.combine(slot["date"], slot["time"]),
                                 "time": slot["time"],
                                 "duration": duration,
                                 "customer": selected_customer
-                            })
+                            }
+                            st.session_state["schedule"].append(new_schedule_item)
                             st.success(f"Scheduled {selected_customer} with {slot['truck']} on {slot['date'].strftime('%Y-%m-%d')} at {slot['time'].strftime('%H:%M')}.")
-                            # Force a rerun to update the calendar
-                            st.rerun()
+                            st.rerun() # Force rerun to update schedule display
                 else:
                     st.info("No suitable slots found for the selected criteria.")
             else:
@@ -225,13 +226,13 @@ if st.session_state["schedule"]:
 else:
     st.info("The schedule is currently empty.")
 
+st.subheader("Calendar View")
+events = []
+for item in st.session_state["schedule"]:
+    events.append({
+        'title': f"{item['customer']} ({item['truck']})",
+        'start': datetime.combine(item['date'].date(), item['time']).isoformat(),
+        'end': (datetime.combine(item['date'].date(), item['time']) + timedelta(hours=item['duration'])).isoformat(),
+    })
 if "calendar" in locals():
-    st.subheader("Calendar View")
-    events = []
-    for item in st.session_state["schedule"]:
-        events.append({
-            'title': f"{item['customer']} ({item['truck']})",
-            'start': datetime.combine(item['date'].date(), item['time']).isoformat(),
-            'end': (datetime.combine(item['date'].date(), item['time']) + timedelta(hours=item['duration'])).isoformat(),
-        })
     calendar(events=events)
