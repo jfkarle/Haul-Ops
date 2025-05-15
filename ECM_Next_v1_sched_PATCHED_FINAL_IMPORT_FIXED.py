@@ -220,8 +220,7 @@ with st.sidebar:
                             }
                             st.session_state["schedule"].append(new_schedule_item)
                             st.success(f"Scheduled {selected_customer} with {slot['truck']} on {formatted_date} at {slot['time'].strftime('%H:%M')}.")
-                            st.rerun()
-
+                            
                         if st.button(f"Schedule on {slot['time'].strftime('%H:%M')}", key=schedule_key, on_click=schedule_job):
                             pass
                         st.markdown("---")
