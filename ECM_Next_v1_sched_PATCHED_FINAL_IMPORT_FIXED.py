@@ -51,12 +51,11 @@ def load_customer_data():
 
 def filter_customers(df, query):
     query = query.lower()
-    return df["Customer Name"].str.lower().str.contains(query)
+    return df[df["Customer Name"].str.lower().str.contains(query)]
 
 
 def get_tide_predictions(date: datetime, ramp: str):
     """Return list of tuples (timestamp-str, type 'H'/'L') or error."""
-
     station_id = RAMP_TO_NOAA_ID.get(ramp)
     if not station_id:
         return None, f"No NOAA station ID mapped for {ramp}"
@@ -101,10 +100,10 @@ def get_valid_slots(date: datetime, ramp: str):
 
 def is_workday(date: datetime):
     wk = date.weekday()
-    if wk == 6:  # Sunday
-        return False
+    if wk == 6:
+        return False  # Sunday
     if wk == 5:  # Saturday
-        return date.month in (5, 9)  # Only May and September Saturdays
+        return date.month in (5, 9)
     return True
 
 
@@ -139,187 +138,4 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
     if not trucks:
         return []
 
-    while len(found) < 3 and (current - start_date).days < 60:  # 2-month search window
-        if not is_workday(current):
-            current += timedelta(days=1)
-            continue
-        slots = get_valid_slots(current, ramp)
-        if not slots:
-            current += timedelta(days=1)
-            continue
-        for slot in slots:
-            for truck in trucks:
-                if is_truck_free(truck, current, slot, duration):
-                    found.append({"date": current, "time": slot, "truck": truck})
-                    if len(found) >= 3:
-                        break
-            if len(found) >= 3:
-                break
-        current += timedelta(days=1)
-    return found
-
-
-# Function to display job details and high tides (reusable)
-def display_job_info(date: datetime, truck: str, time: time, ramp: str):
-    st.markdown(f"### 📅 Job: {date.strftime('%A, %B %d, %Y')} — Truck {truck} — {time.strftime('%I:%M %p')}")
-    ht_preds, _ = get_tide_predictions(date, ramp)
-    high_tides = [t for t, typ in ht_preds if typ == "H"]
-    tide_str = ", ".join(high_tides) if high_tides else "No high tides found"
-    st.markdown(f"High Tides: {tide_str}")
-
-
-# ====================================
-# -------- STREAMLIT  UI  ------------
-# ====================================
-st.title("ECM Boat Hauling Scheduler")
-
-cust_query = st.text_input("Search by Last Name (partial accepted):")
-customer_df = load_customer_data()
-match_df = filter_customers(customer_df, cust_query) if cust_query else pd.DataFrame()
-
-if "customer_selection" not in st.session_state:
-    st.session_state["customer_selection"] = None
-
-if not match_df.empty and st.session_state.get("customer_selection") is None:
-    match_df = match_df.reset_index(drop=True)
-    if not match_df.empty:
-        if options:  # This line should also be indented under the previous if
-            def format_customer(index):
-                row = match_df.loc[index]
-                customer_name = row.get('Customer Name', 'Unknown Customer') # Use .get() with defaults
-                boat_type = row.get('Boat Type', 'Unknown Boat')
-                length = row.get('Length', 'Unknown Length')
-                ramp = row.get('Ramp', 'Unknown Ramp')
-                return f"{customer_name} — {boat_type}, {length} ft @ {ramp}"
-
-            options = match_df.index.tolist()
-            selected_idx = st.radio("Select a customer", options, format_func=format_customer)
-            st.session_state["customer_selection"] = match_df.loc[selected_idx]
-        else:
-            st.info("No matching customers found.")
-            st.session_state["customer_selection"] = None
-    else:
-        st.info("No matching customers found.")
-elif match_df.empty and st.session_state.get("customer_selection") is None:
-    st.info("No matching customers found.")
-        st.session_state["customer_selection"] = None
-elif match_df.empty and st.session_state.get("customer_selection") is None:
-    st.info("No matching customers found.")
-
-        selected_idx = st.radio("Select a customer", options, format_func=format_customer)
-        st.session_state["customer_selection"] = match_df.loc[selected_idx]
-    else:
-        st.info("No matching customers found.")
-        st.session_state["customer_selection"] = None
-elif match_df.empty and st.session_state.get("customer_selection") is None:
-    st.info("No matching customers found.")
-
-sel_customer = st.session_state["customer_selection"]
-
-if sel_customer:
-    st.markdown(f"**Selected Customer:** {sel_customer['Customer Name']} — {sel_customer['Boat Type']}, "
-                f"{sel_customer['Length']} ft @ {sel_customer['Ramp']}")
-if st.button("🔄 Reset Customer Selection"):
-    st.session_state["customer_selection"] = None
-
-job_type = st.selectbox("Job Type", ["Launch", "Haul", "Transport"])
-req_date = st.date_input("Preferred Date", min_value=datetime.today())
-
-if st.button("FIND DATES") and sel_customer is not None:
-    ramp = sel_customer["Ramp"]
-    boat_len = sel_customer["Length"]
-    duration = JOB_DURATION_HRS[sel_customer["Boat Type"]]
-    proposals = find_three_dates(req_date, ramp, boat_len, duration)
-    st.session_state["proposals"] = proposals
-    st.session_state["customer_selection"] = sel_customer
-    st.write("DEBUG: Proposals found =", proposals)
-
-if "proposals" in st.session_state and st.session_state["proposals"]:
-    chosen = st.session_state["proposals"][0]
-    if chosen:  # Add a check to make sure chosen is not None
-        d = chosen["date"].strftime("%B %d, %Y")
-        t = chosen["time"].strftime("%I:%M %p")
-        truck = chosen["truck"]
-        st.success(f"Booked for {d} at {t} on Truck {truck}")
-        st.session_state["schedule"].append({
-            "customer": sel_customer["Customer Name"],
-            "truck": chosen["truck"],
-            "date": chosen["date"],
-            "time": chosen["time"],
-            "duration": JOB_DURATION_HRS[sel_customer["Boat Type"]]
-        })
-    else:
-        st.warning("No suitable dates found.")
-
-# Button to view full schedule
-with st.sidebar:
-    if st.button("Show Scheduled Jobs Table"):
-        sched_df = pd.DataFrame(st.session_state["schedule"])
-        if sched_df.empty:
-            st.info("No jobs scheduled yet.")
-        else:
-            sched_df = sched_df.sort_values(by=["date", "time"])
-            sched_df["Start"] = sched_df.apply(lambda r: datetime.combine(r["date"], r["time"]), axis=1)
-            sched_df["End"] = sched_df["Start"] + sched_df["duration"].apply(lambda h: timedelta(hours=h))
-            sched_df_display = sched_df[["customer", "truck", "Start", "End"]]
-            st.dataframe(sched_df_display)
-
-    st.sidebar.header("Schedule Details")
-    sched_df = pd.DataFrame(st.session_state["schedule"])
-    if sched_df.empty:
-        st.sidebar.info("No jobs scheduled yet.")
-    else:
-        sched_df = sched_df.sort_values(by=["date", "time"])  # order
-        st.sidebar.dataframe(sched_df)
-
-# ===============================
-
-truck_colors = {
-    "S20": "#1f77b4",  # blue
-    "S21": "#ff7f0e",  # orange
-    "S23": "#2ca02c",  # green
-    "J17": "#d62728"  # red
-}
-
-calendar_options = {
-    "initialView": "timeGridWeek",
-    "editable": False,
-    "selectable": False,
-    "headerToolbar": {
-        "left": "prev,next today",
-        "center": "title",
-        "right": "dayGridMonth,timeGridWeek,timeGridDay"
-    },
-    "slotMinTime": "07:30:00",
-    "slotMaxTime": "17:30:00",
-    "initialDate": st.session_state["proposals"][0]["date"].strftime(
-        "%Y-%m-%d") if "proposals" in st.session_state and st.session_state["proposals"] else datetime.today().strftime(
-        "%Y-%m-%d")
-}
-
-st.markdown("### Weekly Job Calendar")
-
-if "proposals" in st.session_state and st.session_state["proposals"]:
-    chosen = st.session_state["proposals"][0]
-    if chosen:  # Add a check to make sure chosen is not None
-        display_job_info(chosen["date"], chosen["truck"], chosen["time"],
-                         st.session_state["customer_selection"]["Ramp"])
-        calendar_options["initialDate"] = chosen["date"].strftime("%Y-%m-%d")
-
-    schedule = st.session_state.get("schedule", [])
-
-    if schedule:
-        calendar_events = []
-        for job in schedule:
-            start_dt = datetime.combine(job["date"], job["time"])
-            end_dt = start_dt + timedelta(hours=job["duration"])
-            event = {
-                "title": f"{job['customer']} (Truck {job['truck']})",
-                "start": start_dt.isoformat(),
-                "end": end_dt.isoformat(),
-                "color": truck_colors.get(job["truck"], "#000000")
-            }
-            calendar_events.append(event)
-
-        st.write("🛠 DEBUG: Current schedule", st.session_state["schedule"])
-        calendar(events=calendar_events, options=calendar_options)
+    while len(found)
