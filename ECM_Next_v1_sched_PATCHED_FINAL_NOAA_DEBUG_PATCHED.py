@@ -91,7 +91,15 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
     preds, err = get_tide_predictions(date, ramp)
     if err or not preds:
         return [], [], []
-    high_tides_data = [(datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']) for p in preds if p['type'] == 'H']
+    high_tides_data = []
+    for p in preds:
+        if isinstance(p, dict) and p.get('type') == 'H':
+            try:
+                ht = datetime.strptime(p['t'], "%Y-%m-%d %H:%M")
+                high_tides_data.append((ht, 'H'))
+            except Exception as e:
+                st.warning(f"Tide parsing error: {e}")
+
     slots = []
     high_tide_times = []
     for ht_datetime, _ in high_tides_data:
