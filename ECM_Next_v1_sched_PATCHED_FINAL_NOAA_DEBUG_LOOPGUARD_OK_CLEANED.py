@@ -264,16 +264,30 @@ if st.button("Find Available Dates"):
                 st.warning("Please select a customer first.")
 
 st.header("Current Schedule")
+
 if st.session_state["schedule"]:
     schedule_df = pd.DataFrame(st.session_state["schedule"])
     schedule_df["Date"] = schedule_df["date"].dt.date.apply(format_date_display)
     schedule_df["Time"] = schedule_df["time"].astype(str)
-    schedule_df["High Tide"] = schedule_df["date"].apply(lambda d: get_tide_predictions(d, st.session_state.get('last_ramp_choice', list(RAMP_TO_NOAA_ID.keys())[0]))[0])\
-        .apply(lambda preds: ", ".join([datetime.strptime(p['t'], "%Y-%m-%d %H:%M").strftime("%I:%M %p") for p in preds if p['type'] == 'H' and 6 <= datetime.strptime(p['t'], "%Y-%m-%d %H:%M").hour < 18]) if preds else "N/A")
+
+    schedule_df["High Tide"] = schedule_df["date"].apply(
+        lambda d: get_tide_predictions(
+            d,
+            st.session_state.get('last_ramp_choice', list(RAMP_TO_NOAA_ID.keys())[0])
+        )[0]
+    ).apply(
+        lambda preds: ", ".join([
+            datetime.strptime(t_str, "%Y-%m-%d %H:%M").strftime("%I:%M %p")
+            for (t_str, tide_type) in preds
+            if tide_type == 'H' and 6 <= datetime.strptime(t_str, "%Y-%m-%d %H:%M").hour < 18
+        ]) if preds else "N/A"
+    )
 
     st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration", "High Tide"]])
 else:
     st.info("The schedule is currently empty.")
+
+
 
 if 'ramp_choice' in st.session_state:
     st.session_state['last_ramp_choice'] = st.session_state['ramp_choice']
