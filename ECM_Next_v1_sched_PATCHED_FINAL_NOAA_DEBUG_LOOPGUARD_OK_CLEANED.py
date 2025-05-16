@@ -89,18 +89,28 @@ def generate_slots_for_high_tide(high_tide_ts: str):
     return slots
 
 
+from datetime import datetime
+
 def get_valid_slots_with_tides(date: datetime, ramp: str):
     preds, err = get_tide_predictions(date, ramp)
     if err or not preds:
-    return [], [], []
-    high_tides_data = [(datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']) for p in preds if p['type'] == 'H']
+        return [], [], []
+
+    high_tides_data = [
+        (datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']) 
+        for p in preds if p['type'] == 'H'
+    ]
+
     slots = []
     high_tide_times = []
+
     for ht_datetime, _ in high_tides_data:
         high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
         ht_ts = ht_datetime.strftime("%Y-%m-%d %H:%M")
         slots.extend(generate_slots_for_high_tide(ht_ts))
-    return sorted(set(slots)), high_tide_times, high_tides_data
+
+    return sorted(set(slots)), high_tide_times,
+
 
 
 def is_workday(date: datetime):
