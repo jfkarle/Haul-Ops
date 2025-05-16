@@ -163,28 +163,32 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
     while len(found) < 3:
         if is_workday(current):
             valid_slots, high_tide_times, all_high_tides_data = get_valid_slots_with_tides(current, ramp)
-            relevant_high_tides = [ht.strftime("%I:%M %p") for ht, _ in all_high_tides_data if 6 <= ht.hour < 18]
-            for slot_index, slot in enumerate(valid_slots):
-                for truck in trucks:
-                    if is_truck_free(truck, current, slot, duration):
-                        found.append({
-                            "date": current.date(),
-                            "time": slot,
-                            "ramp": ramp,
-                            "truck": truck,
-                            "high_tides": relevant_high_tides # Store relevant high tides
-                        })
-                        if len(found) >= 3:
-                            return found
-                        break  # Move to the next slot
-                if len(found) >= 3:
-                    return found
-        current += timedelta(days=1)
-        searched_days += 1
-        if searched_days == search_limit:
-            st.warning("Stopped searching after 30 days with no results.")
-            break
-    return found
+            while len(found) < 3:
+    if is_workday(current):
+        valid_slots, high_tide_times, all_high_tides_data = get_valid_slots_with_tides(current, ramp)
+        relevant_high_tides = [ht.strftime("%I:%M %p") for ht, _ in all_high_tides_data if 6 <= ht.hour < 18]
+        
+        for slot_index, slot in enumerate(valid_slots):   # <--- SLOT LOOP BEGINS HERE
+            for truck in trucks:
+                if is_truck_free(truck, current, slot, duration):
+                    found.append({
+                        "date": current.date(),
+                        "time": slot,
+                        "ramp": ramp,
+                        "truck": truck,
+                        "high_tides": relevant_high_tides
+                    })
+                    if len(found) >= 3:
+                        return found
+                    break  # Move to the next slot
+            if len(found) >= 3:
+                return found
+    current += timedelta(days=1)
+    searched_days += 1
+    if searched_days == search_limit:
+        st.warning("Stopped searching after 30 days with no results.")
+        break
+
 
 
 def format_date_display(date_obj):
