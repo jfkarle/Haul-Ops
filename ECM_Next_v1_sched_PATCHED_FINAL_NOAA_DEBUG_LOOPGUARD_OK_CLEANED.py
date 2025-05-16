@@ -267,25 +267,39 @@ st.header("Current Schedule")
 
 if st.session_state["schedule"]:
     schedule_df = pd.DataFrame(st.session_state["schedule"])
-    schedule_df["Date"] = schedule_df["date"].dt.date.apply(format_date_display)
-    schedule_df["Time"] = schedule_df["time"].astype(str)
 
+    # Format columns
+    schedule_df["Date"] = schedule_df["date"].dt.date.apply(format_date_display)
+    schedule_df["Time"] = schedule_df["time"].apply(lambda t: t.strftime("%I:%M %p"))  # 12-hour, no seconds
+
+    # High tide lookup, formatting and markdown coloring
     schedule_df["High Tide"] = schedule_df["date"].apply(
         lambda d: get_tide_predictions(
             d,
             st.session_state.get('last_ramp_choice', list(RAMP_TO_NOAA_ID.keys())[0])
         )[0]
     ).apply(
-        lambda preds: ", ".join([
-            datetime.strptime(t_str, "%Y-%m-%d %H:%M").strftime("%I:%M %p")
+        lambda preds: ", ".join(sorted([
+            f"**:blue[{datetime.strptime(t_str, '%Y-%m-%d %H:%M').strftime('%I:%M %p')}]**"
             for (t_str, tide_type) in preds
             if tide_type == 'H' and 6 <= datetime.strptime(t_str, "%Y-%m-%d %H:%M").hour < 18
-        ]) if preds else "N/A"
+        ])) if preds else "N/A"
     )
 
-    st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration", "High Tide"]])
+    # Display as markdown per job
+    for _, row in schedule_df.iterrows():
+        st.markdown(f"""
+        #### 🗓️ {row['Date']}
+        - **Time:** {row['Time']}  
+        - **Customer:** {row['customer']}  
+        - **Truck:** {row['truck']}  
+        - **Duration:** {row['duration']} hrs  
+        - **High Tides (6AM–6PM):** {row['High Tide']}
+        ---
+        """)
 else:
     st.info("The schedule is currently empty.")
+
 
 
 
