@@ -65,15 +65,15 @@ def get_tide_predictions(date: datetime, ramp: str):
     }
     try:
         resp = requests.get(NOAA_API_URL, params=params, timeout=10)
+        resp.raise_for_status()  # Always raise errors if bad status
         if st.session_state.get("debug_mode", False):
             st.write("NOAA Request URL:", resp.url)
-            resp.raise_for_status()
-        if st.session_state.get("debug_mode", False):
             st.write("NOAA Raw Response:", resp.text)
-            data = resp.json().get("predictions", [])
-            return [(d["t"], d["type"]) for d in data], None
+        data = resp.json().get("predictions", [])
+        return [(d["t"], d["type"]) for d in data], None
     except Exception as e:
         return None, str(e)
+
 
 
 def generate_slots_for_high_tide(high_tide_ts: str):
