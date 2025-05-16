@@ -55,22 +55,29 @@ def get_tide_predictions(date: datetime, ramp: str):
     if not station_id:
         st.warning(f"No NOAA station ID for ramp '{ramp}' — check RAMP_TO_NOAA_ID mapping.")
         return None, f"No station ID"
-    if not station_id:
-        return None, f"No NOAA station ID mapped for {ramp}"
 
     params = NOAA_PARAMS_TEMPLATE | {
         "station": station_id,
         "begin_date": date.strftime("%Y%m%d"),
         "end_date": date.strftime("%Y%m%d")
     }
+
     try:
         resp = requests.get(NOAA_API_URL, params=params, timeout=10)
-        resp.raise_for_status()  # Always raise errors if bad status
+        resp.raise_for_status()  # Always raise if status code is error
+
         if st.session_state.get("debug_mode", False):
             st.write("NOAA Request URL:", resp.url)
             st.write("NOAA Raw Response:", resp.text)
+
         data = resp.json().get("predictions", [])
+
+        # Ensure data is a list of dicts
+        if not isinstance(data, list) or not all(isinstance(d, dict) for d in data):
+            return None, "Invalid data structure returned from NOAA API"
+
         return [(d["t"], d["type"]) for d in data], None
+
     except Exception as e:
         return None, str(e)
 
