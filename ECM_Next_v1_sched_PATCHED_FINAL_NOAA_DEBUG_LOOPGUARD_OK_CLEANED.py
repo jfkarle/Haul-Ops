@@ -109,9 +109,7 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
         ht_ts = ht_datetime.strftime("%Y-%m-%d %H:%M")
         slots.extend(generate_slots_for_high_tide(ht_ts))
 
-    return sorted(set(slots)), high_tide_times,
-
-
+    return sorted(set(slots)), high_tide_times, high_tides_data
 
 def is_workday(date: datetime):
     wk = date.weekday()
