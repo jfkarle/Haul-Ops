@@ -104,8 +104,8 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
         return [], [], []
 
     high_tides_data = [
-        (datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']) 
-        for p in preds if p['type'] == 'H'
+    (datetime.strptime(t_str, "%Y-%m-%d %H:%M"), tide_type)
+    for (t_str, tide_type) in preds if tide_type == 'H'
     ]
 
     slots = []
