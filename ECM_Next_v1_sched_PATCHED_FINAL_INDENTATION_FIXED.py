@@ -190,7 +190,7 @@ with st.sidebar:
         st.write(f"Selected Boat Type: **{boat_type}**")
         st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
-        earliest_date = st.date_input("Earliest Date", datetime.now().date())  # Removed format parameter
+        earliest_date = st.date_input("Earliest Date", datetime.now().date())
 
         if st.button("Find Available Dates"):
             if selected_customer:
