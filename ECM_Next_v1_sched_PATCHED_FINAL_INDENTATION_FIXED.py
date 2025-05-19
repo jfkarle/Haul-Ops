@@ -33,20 +33,20 @@ RAMP_TO_NOAA_ID = {
     "Sandwich Basin": None # No NOAA ID provided
 }
 RAMP_TIDE_WINDOWS = {
-    "Plymouth Harbor": (3, 3),  # 3 hrs before and after
-    "Duxbury Harbor": (1, 1),  # 1 hr before or after
-    "Green Harbor (Taylors)": (3, 3),  # 3 hrs before and after
-    "Safe Harbor (Green Harbor)": (1, 1),  # 1 hr before and after
-    "Ferry Street (Marshfield Yacht Club)": (3, 3),  # 3 hrs before and after
-    "South River Yacht Yard": (2, 2),  # 2 hrs before or after
-    "Roht (A to Z/ Mary's)": (1, 1),  # 1 hr before or after
-    "Scituate Harbor (Jericho Road)": None,  # Any tide, special rule for 5' draft
-    "Harbor Cohasset (Parker Ave)": (3, 3),  # 3 hrs before or after
-    "Hull (A St, Sunset, Steamboat)": (3, 1.5),  # 3 hrs before, 1.5 hrs after for 6'+ draft
-    "Hull (X Y Z St) (Goodwiny st)": (1, 1),  # 1 hr before or after
-    "Hingham Harbor": (3, 3),  # 3 hrs before and after
-    "Weymouth Harbor (Wessagusset)": (3, 3),  # 3 hrs before and after
-    "Sandwich Basin": None # Any tide
+    "Plymouth Harbor": (3, 3),  # 3 hrs before and after [cite: 1]
+    "Duxbury Harbor": (1, 1),  # 1 hr before or after [cite: 1]
+    "Green Harbor (Taylors)": (3, 3),  # 3 hrs before and after [cite: 1]
+    "Safe Harbor (Green Harbor)": (1, 1),  # 1 hr before and after [cite: 1]
+    "Ferry Street (Marshfield Yacht Club)": (3, 3),  # 3 hrs before and after [cite: 1]
+    "South River Yacht Yard": (2, 2),  # 2 hrs before or after [cite: 1]
+    "Roht (A to Z/ Mary's)": (1, 1),  # 1 hr before or after [cite: 1]
+    "Scituate Harbor (Jericho Road)": None,  # Any tide, special rule for 5' draft [cite: 1]
+    "Harbor Cohasset (Parker Ave)": (3, 3),  # 3 hrs before or after [cite: 1]
+    "Hull (A St, Sunset, Steamboat)": (3, 1.5),  # 3 hrs before, 1.5 hrs after for 6'+ draft [cite: 1]
+    "Hull (X Y Z St) (Goodwiny st)": (1, 1),  # 1 hr before or after [cite: 1]
+    "Hingham Harbor": (3, 3),  # 3 hrs before and after [cite: 1]
+    "Weymouth Harbor (Wessagusset)": (3, 3),  # 3 hrs before and after [cite: 1]
+    "Sandwich Basin": None # Any tide [cite: 1]
 }
 TRUCK_LIMITS = {"S20": 60, "S21": 50, "S23": 30, "J17": 0}
 JOB_DURATION_HRS = {"Powerboat": 1.5, "Sailboat MD": 3.0, "Sailboat MT": 3.0}
@@ -111,8 +111,8 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
     high_tide_time = None
     tide_window = RAMP_TIDE_WINDOWS.get(ramp)
 
-    if ramp == "Scituate Harbor (Jericho Road)" and boat_draft and boat_draft > 5:  #
-        tide_window = (3, 3)  # Special rule for Scituate with draft > 5'
+    if ramp == "Scituate Harbor (Jericho Road)" and boat_draft and boat_draft > 5:  # [cite: 1]
+        tide_window = (3, 3)  # Special rule for Scituate with draft > 5' [cite: 1]
 
     if tide_window:
         #  Use only the first high tide of the day
@@ -122,74 +122,12 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
             high_tide_time = ht_datetime.strftime("%I:%M %p")
             valid_slots = generate_slots_for_high_tide(first_high_tide[0], tide_window[0], tide_window[1])
     elif ramp == "Sandwich Basin":
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3) # "Any tide" - provide middle of the day window
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3) # "Any tide" - provide middle of the day window [cite: 1]
     else:
         # If no tide window is specified, return all slots (or a reasonable default)
         valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3) # Default to 3 hours before/after 10:00 AM
 
     return sorted(set(valid_slots)), high_tide_time
-
-
-def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
-    """
-    Finds the three earliest available dates for boat ramp scheduling.
-
-    Args:
-        start_date (datetime): The earliest date to start the search.
-        ramp (str): The name of the launch ramp.
-        boat_len (int): The length of the boat.
-        duration (float): The estimated duration of the job in hours.
-        boat_draft (float, optional): The boat's draft (for ramps with draft restrictions). Defaults to None.
-        search_days_limit (int, optional): The maximum number of days to search from start_date. Defaults to 7.
-
-    Returns:
-        list: A list of dictionaries, where each dictionary represents an available slot
-              (date, time, ramp, truck, high_tide).  The list is sorted by date and time.
-    """
-
-    found = []
-    current = start_date
-    trucks = eligible_trucks(boat_len)
-    if not trucks:
-        return []
-
-    days_searched = 0
-    while len(found) < 3 and days_searched < search_days_limit:
-        if is_workday(current):
-            valid_slots, high_tide_time = get_valid_slots_with_tides(current, ramp, boat_draft)
-
-            for truck in trucks:
-                first_job_today = not has_truck_scheduled(truck, current)
-                relevant_slots_for_truck = []
-                if first_job_today:
-                    for slot in valid_slots:
-                        if slot.hour == 8 and slot.minute == 0:
-                            relevant_slots_for_truck.append(slot)
-                            break
-                else:
-                    relevant_slots_for_truck = valid_slots
-
-                for slot in relevant_slots_for_truck:
-                    if is_truck_free(truck, current, slot, duration):
-                        found.append({
-                            "date": current.date(),
-                            "time": slot,
-                            "ramp": ramp,
-                            "truck": truck,
-                            "high_tide": high_tide_time
-                        })
-
-            # Sort the 'found' list by date and then time to prioritize earlier slots
-            found.sort(key=lambda x: (x["date"], x["time"]))
-
-            # If we've found 3, we can stop searching
-            if len(found) >= 3:
-                break
-
-        current += timedelta(days=1)
-        days_searched += 1
-
-    return found[:3]  # Return at most the first 3 slots (or fewer if we didn't find 3)
 
 
 def is_workday(date: datetime):
@@ -228,6 +166,43 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
         if overlap:
             return False
     return True
+
+
+def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None):
+    found = []
+    current = start_date
+    trucks = eligible_trucks(boat_len)
+    if not trucks:
+        return []
+
+    while len(found) < 3:
+        if is_workday(current):
+            valid_slots, high_tide_time = get_valid_slots_with_tides(current, ramp, boat_draft)
+            for truck in trucks:
+                first_job_today = not has_truck_scheduled(truck, current)
+                relevant_slots_for_truck = []
+                if first_job_today:
+                    for slot in valid_slots:
+                        if slot.hour == 8 and slot.minute == 0:
+                            relevant_slots_for_truck.append(slot)
+                            break
+                else:
+                    relevant_slots_for_truck = valid_slots
+                for slot in relevant_slots_for_truck:
+                    if is_truck_free(truck, current, slot, duration):
+                        found.append({
+                            "date": current.date(),
+                            "time": slot,
+                            "ramp": ramp,
+                            "truck": truck,
+                            "high_tide": high_tide_time
+                        })
+                        if len(found) >= 3:
+                            return found
+            if len(found) >= 3:
+                return found
+        current += timedelta(days=1)
+    return found
 
 
 def format_date(date_obj):
@@ -315,4 +290,10 @@ if 'find_slots_button' in locals() and find_slots_button:
         st.warning("Please select a customer first.")
 
 st.header("Current Schedule")
-if st.session_
+if st.session_state["schedule"]:
+    schedule_df = pd.DataFrame(st.session_state["schedule"])
+    schedule_df["Date"] = schedule_df["date"].dt.date
+    schedule_df["Time"] = schedule_df["time"].astype(str)
+    st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
+else:
+    st.info("The schedule is currently empty.")
