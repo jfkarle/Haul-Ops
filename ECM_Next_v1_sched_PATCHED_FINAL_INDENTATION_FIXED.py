@@ -244,7 +244,7 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
     high_tides_data = []
     for p in preds:
         if isinstance(p, dict):
-            if p.get('type') == 'H' and 't' in p:
+            if 't' in p and 'type' in p and p.get('type') == 'H':
                 try:
                     high_tides_data.append((datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']))
                 except ValueError as e:
