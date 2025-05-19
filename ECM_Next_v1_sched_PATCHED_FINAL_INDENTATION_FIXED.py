@@ -62,11 +62,9 @@ if "schedule" not in st.session_state:
 def load_customer_data():
     return pd.read_csv(CUSTOMER_CSV)
 
-
 def filter_customers(df, query):
     query = query.lower()
     return df[df["Customer Name"].str.lower().str.contains(query)]
-
 
 def get_tide_predictions(date: datetime, ramp: str):
     station_id = RAMP_TO_NOAA_ID.get(ramp)
@@ -86,7 +84,6 @@ def get_tide_predictions(date: datetime, ramp: str):
     except Exception as e:
         return None, [], str(e)
 
-
 def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_hours: float):
     ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
     win_start = ht - timedelta(hours=before_hours)
@@ -100,7 +97,6 @@ def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_h
             slots.append(t.time())
         t += timedelta(minutes=30)
     return slots
-
 
 def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = None):
     preds, high_tides_data, err = get_tide_predictions(date, ramp)
@@ -129,6 +125,8 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
 
     return sorted(set(valid_slots)), high_tide_time
 
+def format_date(date_obj):
+    return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
 
 def is_workday(date: datetime):
     wk = date.weekday()
@@ -141,13 +139,11 @@ def is_workday(date: datetime):
 def eligible_trucks(boat_len: int):
     return [t for t, lim in TRUCK_LIMITS.items() if (lim == 0 or boat_len <= lim) and t != "J17"]
 
-
 def has_truck_scheduled(truck: str, date: datetime):
     for job in st.session_state["schedule"]:
         if job["truck"] == truck and job["date"].date() == date.date():
             return True
     return False
-
 
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
     start_dt = datetime.combine(date, start_t)
@@ -166,26 +162,7 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
             return False
     return True
 
-
-# ... (Your existing code before the find_three_dates function)
-
 def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
-    """
-    Finds the three earliest available dates for boat ramp scheduling.
-
-    Args:
-        start_date (datetime): The earliest date to start the search.
-        ramp (str): The name of the launch ramp.
-        boat_len (int): The length of the boat.
-        duration (float): The estimated duration of the job in hours.
-        boat_draft (float, optional): The boat's draft (for ramps with draft restrictions). Defaults to None.
-        search_days_limit (int, optional): The maximum number of days to search from start_date. Defaults to 7.
-
-    Returns:
-        list: A list of dictionaries, where each dictionary represents an available slot
-              (date, time, ramp, truck, high_tide).  The list is sorted by date and time.
-    """
-
     found = []
     current = start_date
     trucks = eligible_trucks(boat_len)
@@ -229,9 +206,6 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
         days_searched += 1
 
     return found[:3]  # Return at most the first 3 slots (or fewer if we didn't find 3)
-
-# ... (Your existing code after the find_three_dates function)
-
 
 # ====================================
 # ------------- UI -------------------
