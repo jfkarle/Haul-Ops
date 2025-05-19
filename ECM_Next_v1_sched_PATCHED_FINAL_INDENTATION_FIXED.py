@@ -162,3 +162,101 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                             "high_tides": relevant_high_tides  # Store relevant high tides
                         })
                         if len(found) >= 3:
+                            return found
+                    break  # Move to the next slot
+                if len(found) >= 3:
+                    return found
+        current += timedelta(days=1)
+    return found
+
+
+def format_date_display(date_obj):
+    return date_obj.strftime("%b %d, %Y")
+
+
+def format_date_schedule(date_obj):
+    return date_obj.strftime("%Y-%m-%d")
+
+
+# ====================================
+# ------------- UI -------------------
+# ====================================
+st.title("Boat Ramp Scheduling")
+
+customers_df = load_customer_data()
+
+with st.sidebar:
+    st.header("New Job")
+    customer_query = st.text_input("Find Customer:", "")
+    filtered_customers = filter_customers(customers_df, customer_query)
+    if not filtered_customers.empty:
+        selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
+    else:
+        selected_customer = None
+        st.info("No matching customers found.")
+
+    if selected_customer:
+        customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
+        boat_type = customer_row["Boat Type"]
+        boat_length = customer_row["Boat Length"]
+        st.write(f"Selected Boat Type: **{boat_type}**")
+        st.write(f"Selected Boat Length: **{boat_length} feet**")
+        ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
+        earliest_date = st.date_input("Earliest Date", datetime.now().date())
+
+        if st.button("Find Available Dates"):
+            if selected_customer:
+                duration = JOB_DURATION_HRS.get(boat_type, 1.0)
+                start_search_date = datetime(earliest_date.year, earliest_date.month, earliest_date.day)
+                available_slots = find_three_dates(
+                    start_search_date,
+                    ramp_choice,
+                    boat_length,
+                    duration
+                )
+                if available_slots:
+                    st.subheader("Available Slots")
+                    for slot in available_slots:
+                        formatted_date = format_date_display(slot['date'])
+                        st.write(f"**Date:** {formatted_date}")
+                        st.write(f"**Time:** {slot['time'].strftime('%H:%M')}")
+                        if slot['high_tides']:
+                            high_tides_str = ", ".join(slot['high_tides'])
+                            st.write(f"**High Tides (6AM-6PM approx.):** {high_tides_str}")
+                        else:
+                            st.write("**High Tides (6AM-6PM approx.):** N/A")
+                        st.write(f"**Ramp:** {slot['ramp']}, **Truck:** {slot['truck']}")
+                        schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
+
+                        def schedule_job():
+                            new_schedule_item = {
+                                "truck": slot["truck"],
+                                "date": datetime.combine(slot["date"], slot["time"]),
+                                "time": slot["time"],
+                                "duration": duration,
+                                "customer": selected_customer
+                            }
+                            st.session_state["schedule"].append(new_schedule_item)
+                            st.success(f"Scheduled {selected_customer} with {slot['truck']} on {formatted_date} at {slot['time'].strftime('%H:%M')}.")
+
+                        if st.button(f"Schedule on {slot['time'].strftime('%H:%M')}", key=schedule_key, on_click=schedule_job):
+                            pass
+                        st.markdown("---")
+                else:
+                    st.info("No suitable slots found for the selected criteria.")
+            else:
+                st.warning("Please select a customer first.")
+
+st.header("Current Schedule")
+if st.session_state["schedule"]:
+    schedule_df = pd.DataFrame(st.session_state["schedule"])
+    schedule_df["Date"] = schedule_df["date"].dt.date
+    schedule_df["Time"] = schedule_df["time"].astype(str)
+    st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
+else:
+    st.info("The schedule is currently empty.")
+
+if 'ramp_choice' in st.session_state:
+    st.session_state['last_ramp_choice'] = st.session_state['ramp_choice']
+elif list(RAMP_TO_NOAA_ID.keys()):
+    st.session_state['last_ramp_choice'] = list(RAMP_TO_NOAA_ID.keys())[0]
