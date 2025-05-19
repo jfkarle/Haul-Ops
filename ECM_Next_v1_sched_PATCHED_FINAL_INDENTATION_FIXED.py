@@ -177,10 +177,12 @@ st.title("Boat Ramp Scheduling")
 
 customers_df = load_customer_data()
 
+# --- Sidebar for Input ---
 with st.sidebar:
     st.header("New Job")
     customer_query = st.text_input("Find Customer:", "")
     filtered_customers = filter_customers(customers_df, customer_query)
+
     if not filtered_customers.empty:
         selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
     else:
@@ -195,49 +197,52 @@ with st.sidebar:
         st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
         earliest_date = st.date_input("Earliest Date", datetime.now().date())
+        find_slots_button = st.button("Find Available Dates")
 
-        if st.button("Find Available Dates"):
-            if selected_customer:
-                duration = JOB_DURATION_HRS.get(boat_type, 1.0)
-                available_slots = find_three_dates(
-                    datetime(earliest_date.year, earliest_date.month, earliest_date.day),
-                    ramp_choice,
-                    boat_length,
-                    duration
-                )
-                if available_slots:
-                    st.subheader("Available Slots")
-                    high_tide_shown = False  # Track if high tide is displayed
+# --- Main Page for Results ---
+st.header("Available Slots")
+if 'find_slots_button' in locals() and find_slots_button:
+    if selected_customer:
+        duration = JOB_DURATION_HRS.get(boat_type, 1.0)
+        available_slots = find_three_dates(
+            datetime(earliest_date.year, earliest_date.month, earliest_date.day),
+            ramp_choice,
+            boat_length,
+            duration
+        )
 
-                    cols = st.columns(len(available_slots))  # Create columns
-                    for i, slot in enumerate(available_slots):
-                        with cols[i]:  # Work within each column
-                            formatted_date = format_date(slot['date'])
-                            st.info(f"Date: {formatted_date}")
-                            st.metric("Time", slot['time'].strftime('%H:%M'))
-                            if not high_tide_shown and slot['high_tide'] != "N/A":
-                                st.success(f"High Tide: {slot['high_tide']}")
-                                high_tide_shown = True  # Ensure it's only shown once
-                            st.write(f"Ramp: {slot['ramp']}, Truck: {slot['truck']}")
-                            schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
+        if available_slots:
+            high_tide_shown = False
+            cols = st.columns(len(available_slots))
 
-                            def schedule_job():
-                                new_schedule_item = {
-                                    "truck": slot["truck"],
-                                    "date": datetime.combine(slot["date"], slot["time"]),
-                                    "time": slot["time"],
-                                    "duration": duration,
-                                    "customer": selected_customer
-                                }
-                                st.session_state["schedule"].append(new_schedule_item)
-                                st.success(f"Scheduled {selected_customer} with {slot['truck']} on {formatted_date} at {slot['time'].strftime('%H:%M')}.")
+            for i, slot in enumerate(available_slots):
+                with cols[i]:
+                    formatted_date = format_date(slot['date'])
+                    st.info(f"Date: {formatted_date}")
+                    st.metric("Time", slot['time'].strftime('%H:%M'))
+                    if not high_tide_shown and slot['high_tide'] != "N/A":
+                        st.success(f"High Tide: {slot['high_tide']}")
+                        high_tide_shown = True
+                    st.write(f"Ramp: {slot['ramp']}, Truck: {slot['truck']}")
+                    schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
 
-                            st.button(f"Schedule on {slot['time'].strftime('%H:%M')}", key=schedule_key, on_click=schedule_job)
-                            st.markdown("---")
-                else:
-                    st.info("No suitable slots found for the selected criteria.")
-            else:
-                st.warning("Please select a customer first.")
+                    def schedule_job():
+                        new_schedule_item = {
+                            "truck": slot["truck"],
+                            "date": datetime.combine(slot["date"], slot["time"]),
+                            "time": slot["time"],
+                            "duration": duration,
+                            "customer": selected_customer
+                        }
+                        st.session_state["schedule"].append(new_schedule_item)
+                        st.success(f"Scheduled {selected_customer} with {slot['truck']} on {formatted_date} at {slot['time'].strftime('%H:%M')}.")
+
+                    st.button(f"Schedule on {slot['time'].strftime('%H:%M')}", key=schedule_key, on_click=schedule_job)
+                    st.markdown("---")
+        else:
+            st.info("No suitable slots found for the selected criteria.")
+    else:
+        st.warning("Please select a customer first.")
 
 st.header("Current Schedule")
 if st.session_state["schedule"]:
