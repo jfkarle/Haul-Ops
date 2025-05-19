@@ -97,3 +97,37 @@ def generate_slots_for_high_tide_with_buffer(high_tide_ts: str, ramp: str, job_d
             slots.append(t.time())
         t += timedelta(minutes=30)
     return slots
+
+st.title("🚤 ECM Scheduler: Ramp Tide Buffer Viewer")
+
+# UI: Customer search and ramp/date selection
+with st.sidebar:
+    selected_ramp = st.selectbox("Select Ramp", list(RAMP_TO_NOAA_ID.keys()))
+    selected_date = st.date_input("Select Date", datetime.now().date())
+    selected_job_type = st.selectbox("Job Type", list(JOB_DURATION_HRS.keys()))
+    if st.button("Find Time Slots"):
+        st.session_state["run_query"] = True
+
+if st.session_state.get("run_query"):
+    st.subheader(f"Tide Slots for {selected_ramp} on {selected_date.strftime('%B %d, %Y')}")
+
+    predictions, error = get_tide_predictions(selected_date, selected_ramp)
+    if error:
+        st.error(f"Tide fetch error: {error}")
+    elif not predictions:
+        st.warning("No tide predictions available for this date.")
+    else:
+        high_tides = [t for t, kind in predictions if kind == "H"]
+        if not high_tides:
+            st.info("No high tides found.")
+        else:
+            for ht in high_tides:
+                slots = generate_slots_for_high_tide_with_buffer(ht, selected_ramp, JOB_DURATION_HRS[selected_job_type])
+                if slots:
+                    st.markdown(f"**High Tide: {ht}**")
+                    st.markdown(f"Viable start slots:")
+                    st.write([t.strftime('%I:%M %p') for t in slots])
+                else:
+                    st.markdown(f"**High Tide: {ht}** — No viable slots based on buffer/job type.")
+    st.session_state["run_query"] = False
+
