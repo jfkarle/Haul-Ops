@@ -2,11 +2,10 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time
 import requests
-import json  # Ensure json is imported if you don't have it already
 
 # ====================================
-# ------------ CONSTANTS -------------\
-# ====================================\
+# ------------ CONSTANTS -------------
+# ====================================
 CUSTOMER_CSV = "customers.csv"  # path or raw-GitHub URL
 NOAA_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 NOAA_PARAMS_TEMPLATE = {
@@ -32,9 +31,9 @@ RAMP_TO_NOAA_ID = {
 TRUCK_LIMITS = {"S20": 60, "S21": 50, "S23": 30, "J17": 0}
 JOB_DURATION_HRS = {"Powerboat": 1.5, "Sailboat MD": 3.0, "Sailboat MT": 3.0}
 
-# Persistent schedule held in session (one-page memory...)
+# Persistent schedule held in session (one-page memory)
 if "schedule" not in st.session_state:
-    st.session_state["schedule"] = []
+    st.session_state["schedule"] = []  # list of dicts {truck,date,time,duration,customer}
 
 # ====================================
 # ------------ HELPERS ---------------
@@ -43,81 +42,58 @@ if "schedule" not in st.session_state:
 def load_customer_data():
     return pd.read_csv(CUSTOMER_CSV)
 
+
 def filter_customers(df, query):
     query = query.lower()
     return df[df["Customer Name"].str.lower().str.contains(query)]
 
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta, time
-import requests
-import json  # Ensure json is imported if you don't have it already
 
-# ... (Constants and helper functions from your code)
+def get_tide_predictions(date: datetime, ramp: str):
+    """Return list of tuples (timestamp-str, type 'H'/'L') or error."""
+    station_id = RAMP_TO_NOAA_ID.get(ramp)
+    if not station_id:
+        return None, f"No NOAA station ID mapped for {ramp}"
 
-def get_tide_predictions(date: datetime, station_id: str):
-    params = NOAA_PARAMS_TEMPLATE.copy()
-    params["station"] = station_id
-    params["begin_date"] = date.strftime("%Y%m%d")
-    params["end_date"] = date.strftime("%Y%m%d")
-    response = requests.get(NOAA_API_URL, params=params)
-    if response.status_code == 200:
-        try:
-            data = response.json()
-            st.write("Raw NOAA API Response:", data)  # Add this line for debugging
-            if "predictions" in data:
-                preds = data["predictions"]
-                st.write("Type of preds:", type(preds))  # Debug: Type of preds
+    params = NOAA_PARAMS_TEMPLATE | {
+        "station": station_id,
+        "begin_date": date.strftime("%Y%m%d"),
+        "end_date": date.strftime("%Y%m%d")
+    }
+    try:
+        resp = requests.get(NOAA_API_URL, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json().get("predictions", [])
+        return [(d["t"], d["type"]) for d in data], None
+    except Exception as e:
+        return None, str(e)
 
-                for i, p in enumerate(preds):
-                    st.write(f"--- Processing preds[{i}] ---")
-                    st.write(f"Type: {type(p)}")
-                    st.write(f"Value: {p}")
 
-                    if isinstance(p, dict):
-                        st.write("Keys:", p.keys())  # If it's a dict, show keys
-                        if 't' in p:
-                            st.write(f"p['t'] type: {type(p['t'])}")
-                            st.write(f"p['t'] value: {p['t']}")
-                        if 'type' in p:
-                            st.write(f"p['type'] type: {type(p['type'])}")
-                            st.write(f"p['type'] value: {p['type']}")
-                    elif isinstance(p, (list, tuple)):
-                        st.write("Length:", len(p))  # If it's a list/tuple, show length
-                        for j, val in enumerate(p):
-                            st.write(f"p[{j}] type: {type(val)}")
-                            st.write(f"p[{j}] value: {val}")
-            
-                return preds, None
-            else:
-                return [], "No predictions found in NOAA API response"
-        except json.JSONDecodeError:
-            return [], "Error decoding JSON from NOAA API"
-    else:
-        return [], f"Error from NOAA API: {response.status_code}"
-
-# ... (Rest of your code)
-
-def generate_slots_for_high_tide(high_tide_time_str: str):
-    high_tide_time = datetime.strptime(high_tide_time_str, "%Y-%m-%d %H:%M")
-    slot_start = high_tide_time - timedelta(hours=2)
+def generate_slots_for_high_tide(high_tide_ts: str):
+    ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
+    win_start, win_end = ht - timedelta(hours=3), ht + timedelta(hours=3)
     slots = []
-    for i in range(5):  # 4-hour window
-        slots.append(slot_start.time())
-        slot_start += timedelta(hours=1)
+    t = datetime.combine(ht.date(), time(8, 0))
+    end_day = datetime.combine(ht.date(), time(14, 30))
+    while t <= end_day:
+        if win_start <= t <= win_end:
+            slots.append(t.time())
+        t += timedelta(minutes=30)
     return slots
 
-def find_next_workday(start_date: datetime):
-    next_day = start_date + timedelta(days=1)
-    while not is_workday(next_day):
-        next_day += timedelta(days=1)
-    return next_day
 
-def find_previous_workday(start_date: datetime):
-    prev_day = start_date - timedelta(days=1)
-    while not is_workday(prev_day):
-        prev_day -= timedelta(days=1)
-    return prev_day
+def get_valid_slots_with_tides(date: datetime, ramp: str):
+    preds, err = get_tide_predictions(date, ramp)
+    if err or not preds:
+        return [], []
+    high_tides_timestamps = [t for t, typ in preds if typ == "H"]
+    slots = []
+    high_tide_times = []
+    for ht_ts in high_tides_timestamps:
+        ht_datetime = datetime.strptime(ht_ts, "%Y-%m-%d %H:%M")
+        high_tide_times.append(ht_datetime.strftime("%I:%M %p")) # Format high tide time
+        slots.extend(generate_slots_for_high_tide(ht_ts))
+    return sorted(set(slots)), high_tide_times
+
 
 def is_workday(date: datetime):
     wk = date.weekday()
@@ -127,9 +103,12 @@ def is_workday(date: datetime):
         return date.month in (5, 9)
     return True
 
+
 def eligible_trucks(boat_len: int):
     return [t for t, lim in TRUCK_LIMITS.items() if (lim == 0 or boat_len <= lim) and t != "J17"]
 
+
+# Very simple conflict check (same truck, same date, overlapping) -------------
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
     start_dt = datetime.combine(date, start_t)
     end_dt = start_dt + timedelta(hours=dur_hrs)
@@ -147,6 +126,8 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
             return False
     return True
 
+
+# Main search for three dates -----------------------------------------------
 def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float):
     found = []
     current = start_date
@@ -156,8 +137,7 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
 
     while len(found) < 3:
         if is_workday(current):
-            valid_slots, high_tide_times, all_high_tides_data = get_valid_slots_with_tides(current, ramp)
-            relevant_high_tides = [ht.strftime("%I:%M %p") for ht, _ in all_high_tides_data if 6 <= ht.hour < 18]
+            valid_slots, high_tide_times = get_valid_slots_with_tides(current, ramp)
             for slot_index, slot in enumerate(valid_slots):
                 for truck in trucks:
                     if is_truck_free(truck, current, slot, duration):
@@ -166,21 +146,18 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                             "time": slot,
                             "ramp": ramp,
                             "truck": truck,
-                            "high_tides": relevant_high_tides  # Store relevant high tides
+                            "high_tide": high_tide_times[0] if high_tide_times else "N/A" # Simple way to attach a high tide
                         })
                         if len(found) >= 3:
                             return found
-                    break  # Move to the next slot
+                        break # Move to the next slot
                 if len(found) >= 3:
                     return found
-            current += timedelta(days=1)
+        current += timedelta(days=1)
     return found
 
-def format_date_display(date_obj):
-    return date_obj.strftime("%b %d, %Y")
-
-def format_date_schedule(date_obj):
-    return date_obj.strftime("%Y-%m-%d")
+def format_date(date_obj):
+    return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
 
 # ====================================
 # ------------- UI -------------------
@@ -211,9 +188,8 @@ with st.sidebar:
         if st.button("Find Available Dates"):
             if selected_customer:
                 duration = JOB_DURATION_HRS.get(boat_type, 1.0)
-                start_search_date = datetime(earliest_date.year, earliest_date.month, earliest_date.day)
                 available_slots = find_three_dates(
-                    start_search_date,
+                    datetime(earliest_date.year, earliest_date.month, earliest_date.day),
                     ramp_choice,
                     boat_length,
                     duration
@@ -221,14 +197,10 @@ with st.sidebar:
                 if available_slots:
                     st.subheader("Available Slots")
                     for slot in available_slots:
-                        formatted_date = format_date_display(slot['date'])
+                        formatted_date = format_date(slot['date'])
                         st.write(f"**Date:** {formatted_date}")
                         st.write(f"**Time:** {slot['time'].strftime('%H:%M')}")
-                        if slot['high_tides']:
-                            high_tides_str = ", ".join(slot['high_tides'])
-                            st.write(f"**High Tides (6AM-6PM approx.):** {high_tides_str}")
-                        else:
-                            st.write("**High Tides (6AM-6PM approx.):** N/A")
+                        st.write(f"**High Tide (approx.):** {slot['high_tide']}")
                         st.write(f"**Ramp:** {slot['ramp']}, **Truck:** {slot['truck']}")
                         schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
 
@@ -259,45 +231,3 @@ if st.session_state["schedule"]:
     st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
 else:
     st.info("The schedule is currently empty.")
-
-if 'ramp_choice' in st.session_state:
-    st.session_state['last_ramp_choice'] = st.session_state['ramp_choice']
-elif list(RAMP_TO_NOAA_ID.keys()):
-    st.session_state['last_ramp_choice'] = list(RAMP_TO_NOAA_ID.keys())[0]
-
-
-def get_valid_slots_with_tides(date: datetime, ramp: str):
-    preds, err = get_tide_predictions(date, ramp)
-    if err or not preds:
-        return [], []
-
-    st.write("First few 'preds':", preds[:5])  # Enhanced debug
-
-    high_tides_data = []
-    for p in preds:
-        if isinstance(p, dict):
-            if 't' in p and 'type' in p and p.get('type') == 'H':
-                try:
-                    high_tides_data.append((datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']))
-                except ValueError as e:
-                    st.error(f"Error parsing time from dict: {p}, Error: {e}")
-            else:
-                st.warning(f"Skipping unexpected dict format: {p}")
-        elif isinstance(p, (list, tuple)) and len(p) >= 2:
-            if p[1] == 'H':
-                try:
-                    high_tides_data.append((datetime.strptime(p[0], "%Y-%m-%d %H:%M"), p[1]))
-                except ValueError as e:
-                    st.error(f"Error parsing time from tuple/list: {p}, Error: {e}")
-            else:
-                st.warning(f"Skipping unexpected tuple/list format: {p}")
-        else:
-            st.error(f"Unexpected data format: {p}, Type: {type(p)}")
-
-    slots = []
-    high_tide_times = []
-    for ht_datetime, _ in high_tides_data:
-        high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
-        slots.extend(generate_slots_for_high_tide(ht_datetime.strftime("%Y-%m-%d %H:%M")))
-
-    return sorted(set(slots)), high_tide_times
