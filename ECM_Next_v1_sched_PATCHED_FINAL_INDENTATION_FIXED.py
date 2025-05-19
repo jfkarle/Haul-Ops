@@ -86,24 +86,29 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
     preds, err = get_tide_predictions(date, ramp)
     if err or not preds:
         return [], []
-    print("Type of 'preds':", type(preds))
-    if isinstance(preds, list) and len(preds) > 0:
-        print("First element of 'preds':", preds[0])
-    else:
-        print("'preds' is empty or not a list:", preds)
+    st.write("First few 'preds':", preds[:2])  # Debugging line
+    
     high_tides_data = []
-    if preds:
-        high_tides_data = [(p[0], p[1]) for p in preds if p[1] == 'H']
+    for p in preds:
+        st.write("Type of p:", type(p))  # Add this line
+        if isinstance(p, dict):
+            if 't' in p and 'type' in p and p.get('type') == 'H':
+                try:
+                    high_tides_data.append((datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']))
+                except ValueError as e:
+                    st.error(f"Error parsing timestamp {p['t']}: {e}")
+        elif isinstance(p, (list, tuple)) and len(p) >= 2:
+            if p[1] == 'H':
+                try:
+                    high_tides_data.append((datetime.strptime(p[0], "%Y-%m-%d %H:%M"), p[1]))
+                except ValueError as e:
+                    st.error(f"Error parsing timestamp {p[0]}: {e}")
+    
     slots = []
     high_tide_times = []
-    for ht_ts, _ in high_tides_data:
-        try:
-            ht_datetime = datetime.strptime(ht_ts, "%Y-%m-%d %H:%M")
-            high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
-            slots.extend(generate_slots_for_high_tide(ht_ts))
-        except ValueError as e:
-            print(f"Timestamp parsing error: {e} for {ht_ts}")
-            continue
+    for ht_datetime, _ in high_tides_data:
+        high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
+        slots.extend(generate_slots_for_high_tide(ht_datetime.strftime("%Y-%m-%d %H:%M")))  # Pass the formatted string
     return sorted(set(slots)), high_tide_times
 
 
