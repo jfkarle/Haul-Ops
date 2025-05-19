@@ -138,7 +138,6 @@ def is_workday(date: datetime):
         return date.month in (5, 9)
     return True
 
-
 def eligible_trucks(boat_len: int):
     return [t for t, lim in TRUCK_LIMITS.items() if (lim == 0 or boat_len <= lim) and t != "J17"]
 
