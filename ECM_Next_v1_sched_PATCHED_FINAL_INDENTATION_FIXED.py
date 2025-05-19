@@ -49,7 +49,7 @@ def filter_customers(df, query):
 def get_tide_predictions(date: datetime, ramp: str):
     station_id = RAMP_TO_NOAA_ID.get(ramp)
     if not station_id:
-        return None, f"No NOAA station ID mapped for {ramp}"
+        return None, None, f"No NOAA station ID mapped for {ramp}"
     params = NOAA_PARAMS_TEMPLATE | {
         "station": station_id,
         "begin_date": date.strftime("%Y%m%d"),
@@ -59,9 +59,10 @@ def get_tide_predictions(date: datetime, ramp: str):
         resp = requests.get(NOAA_API_URL, params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json().get("predictions", [])
-        return [(d["t"], d["type"]) for d in data], None
+        high_tides = [(d["t"], d["v"]) for d in data if d["type"] == "H"]
+        return [(d["t"], d["type"]) for d in data], high_tides, None
     except Exception as e:
-        return None, str(e)
+        return None, None, str(e)
 
 
 def generate_slots_for_high_tide(high_tide_ts: str):
@@ -78,17 +79,18 @@ def generate_slots_for_high_tide(high_tide_ts: str):
 
 
 def get_valid_slots_with_tides(date: datetime, ramp: str):
-    preds, err = get_tide_predictions(date, ramp)
+    preds, high_tides_data, err = get_tide_predictions(date, ramp)
     if err or not preds:
-        return [], []
-    high_tides_timestamps = [t for t, typ in preds if typ == "H"]
-    slots = []
+        return [], None
     high_tide_times = []
-    for ht_ts in high_tides_timestamps:
-        ht_datetime = datetime.strptime(ht_ts, "%Y-%m-%d %H:%M")
+    if high_tides_data:
+        # Only take the first high tide of the day
+        first_high_tide = high_tides_data[0]
+        ht_datetime = datetime.strptime(first_high_tide[0], "%Y-%m-%d %H:%M")
         high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
-        slots.extend(generate_slots_for_high_tide(ht_ts))
-    return sorted(set(slots)), high_tide_times
+        slots = generate_slots_for_high_tide(first_high_tide[0])
+        return sorted(set(slots)), high_tide_times[0] if high_tide_times else None
+    return [], None
 
 
 def is_workday(date: datetime):
@@ -138,7 +140,7 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
 
     while len(found) < 3:
         if is_workday(current):
-            valid_slots, high_tide_times = get_valid_slots_with_tides(current, ramp)
+            valid_slots, high_tide_time = get_valid_slots_with_tides(current, ramp)
             for truck in trucks:
                 first_job_today = not has_truck_scheduled(truck, current)
                 relevant_slots_for_truck = []
@@ -156,12 +158,12 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                             "time": slot,
                             "ramp": ramp,
                             "truck": truck,
-                            "high_tide": high_tide_times[0] if high_tide_times else "N/A"
+                            "high_tide": high_tide_time
                         })
                         if len(found) >= 3:
                             return found
-                if len(found) >= 3:
-                    return found
+            if len(found) >= 3:
+                return found
         current += timedelta(days=1)
     return found
 
@@ -212,18 +214,19 @@ if 'find_slots_button' in locals() and find_slots_button:
         )
 
         if available_slots:
-            high_tide_shown = False
-            cols = st.columns(len(available_slots))
+            # Display the first high tide prominently once
+            first_high_tide = available_slots[0].get('high_tide') if available_slots else None
+            if first_high_tide:
+                st.subheader(f"High Tide: {first_high_tide}")
 
+            cols = st.columns(len(available_slots))
             for i, slot in enumerate(available_slots):
                 with cols[i]:
                     formatted_date = format_date(slot['date'])
                     st.info(f"Date: {formatted_date}")
-                    st.metric("Time", slot['time'].strftime('%H:%M'))
-                    if not high_tide_shown and slot['high_tide'] != "N/A":
-                        st.success(f"High Tide: {slot['high_tide']}")
-                        high_tide_shown = True
-                    st.write(f"Ramp: {slot['ramp']}, Truck: {slot['truck']}")
+                    st.markdown(f"<span style='font-size: 0.8em;'>Time: {slot['time'].strftime('%H:%M')}</span>", unsafe_allow_html=True)
+                    st.markdown(f"**Ramp:** {slot['ramp']}")
+                    st.markdown(f"**Truck:** {slot['truck']}")
                     schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
 
                     def schedule_job():
