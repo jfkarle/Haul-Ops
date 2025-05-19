@@ -189,7 +189,7 @@ with st.sidebar:
         st.write(f"Selected Boat Type: **{boat_type}**")
         st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
-        earliest_date = st.date_input("Earliest Date", datetime.now().date(), format="%b %d, %Y")
+        earliest_date = st.date_input("Earliest Date", datetime.now().date())  # Removed format parameter
 
         if st.button("Find Available Dates"):
             if selected_customer:
@@ -236,7 +236,7 @@ with st.sidebar:
 
 st.header("Current Schedule")
 if st.session_state["schedule"]:
-    schedule_df = pd.DataFrame(st.session_state["schedule"])
+    schedule_df["Date"] = schedule_df["date"].dt.date.apply(format_date_display)
     schedule_df["Date"] = schedule_df["date"].dt.date.apply(format_date_display)
     schedule_df["Time"] = schedule_df["time"].astype(str)
     schedule_df["High Tide"] = schedule_df["date"].apply(lambda d: get_tide_predictions(d, st.session_state.get('last_ramp_choice', list(RAMP_TO_NOAA_ID.keys())[0]))[0])\
