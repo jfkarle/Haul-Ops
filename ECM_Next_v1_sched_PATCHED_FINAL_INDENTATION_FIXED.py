@@ -138,10 +138,10 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                         })
                         if len(found) >= 3:
                             return found
-                break  # Move to the next slot
-            if len(found) >= 3:
-                return found
-        current += timedelta(days=1)
+                    break  # Move to the next slot
+                if len(found) >= 3:
+                    return found
+            current += timedelta(days=1)
     return found
 
 def format_date_display(date_obj):
@@ -232,3 +232,41 @@ if 'ramp_choice' in st.session_state:
     st.session_state['last_ramp_choice'] = st.session_state['ramp_choice']
 elif list(RAMP_TO_NOAA_ID.keys()):
     st.session_state['last_ramp_choice'] = list(RAMP_TO_NOAA_ID.keys())[0]
+
+
+def get_valid_slots_with_tides(date: datetime, ramp: str):
+    preds, err = get_tide_predictions(date, ramp)
+    if err or not preds:
+        return [], []
+
+    st.write("First few 'preds':", preds[:5])  # Enhanced debug: Show up to 5 elements
+
+    high_tides_data = []
+    for i, p in enumerate(preds):
+        st.write(f"Processing preds[{i}]: {p}, Type: {type(p)}, Value: {p}")  # Detailed debug
+
+        try:
+            if isinstance(p, dict):
+                # Handle dictionary case
+                if 't' in p and 'type' in p and p.get('type') == 'H':
+                    high_tides_data.append((datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']))
+                else:
+                    st.warning(f"Unexpected dict format in preds[{i}]: {p}")
+            elif isinstance(p, (list, tuple)) and len(p) >= 2:
+                # Handle tuple/list case
+                if p[1] == 'H':
+                    high_tides_data.append((datetime.strptime(p[0], "%Y-%m-%d %H:%M"), p[1]))
+                else:
+                    st.warning(f"Unexpected tuple/list format in preds[{i}]: {p}")
+            else:
+                st.error(f"Unexpected data type in preds[{i}]: {p}, Type: {type(p)}")
+        except (ValueError, KeyError, IndexError) as e:
+            st.error(f"Error processing preds[{i}]: {p}, Error: {e}")
+
+    slots = []
+    high_tide_times = []
+    for ht_datetime, _ in high_tides_data:
+        high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
+        slots.extend(generate_slots_for_high_tide(ht_datetime.strftime("%Y-%m-%d %H:%M")))
+
+    return sorted(set(slots)), high_tide_times
