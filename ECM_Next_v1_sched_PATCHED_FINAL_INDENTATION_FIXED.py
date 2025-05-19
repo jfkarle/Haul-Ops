@@ -56,6 +56,7 @@ def get_tide_predictions(date: datetime, station_id: str):
     if response.status_code == 200:
         try:
             data = response.json()
+            st.write("Raw NOAA API Response:", data)  # Add this line for debugging
             if "predictions" in data:
                 return data["predictions"], None
             else:
