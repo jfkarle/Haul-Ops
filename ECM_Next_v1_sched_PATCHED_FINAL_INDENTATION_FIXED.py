@@ -86,18 +86,28 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
     preds, err = get_tide_predictions(date, ramp)
     if err or not preds:
         return [], []
-    print("Type of 'preds':", type(preds))
-    if isinstance(preds, list) and len(preds) > 0:
-        print("First element of 'preds':", preds[0])
-    else:
-        print("'preds' is empty or not a list:", preds)
-    high_tides_data = [(datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']) for p in preds if p['type'] == 'H']
+
+    high_tides_timestamps = []
+    if preds and isinstance(preds, list):
+        if isinstance(preds[0], dict):  # List of dictionaries
+            high_tides_timestamps = [p['t'] for p in preds if p['type'] == 'H']
+        elif isinstance(preds[0], (list, tuple)) and len(preds[0]) >= 2:  # List of tuples/lists
+            high_tides_timestamps = [p[0] for p in preds if p[1] == 'H']
+        else:
+            print("Unexpected NOAA API response format:", preds[:5]) # Log unexpected format
+            return [], []  # Or handle differently
+
     slots = []
     high_tide_times = []
-    for ht_datetime, _ in high_tides_data:
-        high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
-        ht_ts = ht_datetime.strftime("%Y-%m-%d %H:%M")
-        slots.extend(generate_slots_for_high_tide(ht_ts))
+    for ht_ts in high_tides_timestamps:
+        try:
+            ht_datetime = datetime.strptime(ht_ts, "%Y-%m-%d %H:%M")
+            high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
+            slots.extend(generate_slots_for_high_tide(ht_ts))
+        except ValueError:
+            print(f"Warning: Could not parse timestamp: {ht_ts}")
+            continue  # Skip if timestamp is not in expected format
+
     return sorted(set(slots)), high_tide_times
 
 
