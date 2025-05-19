@@ -119,8 +119,14 @@ def format_date_schedule(date_obj):
 # ====================================
 st.title("Boat Ramp Scheduling")
 
-customers_df = load_customer_data()
-
+def load_customer_data():
+    # Replace this with your actual implementation of load_customer_data
+    # For example, if it's in a CSV:
+    try:
+        return pd.read_csv(CUSTOMER_CSV)
+    except FileNotFoundError:
+        st.error(f"Error: Customer data file '{CUSTOMER_CSV}' not found.")
+        return pd.DataFrame()  # Return an empty DataFrame to avoid errors later
 with st.sidebar:
     st.header("New Job")
     customer_query = st.text_input("Find Customer:", "")
