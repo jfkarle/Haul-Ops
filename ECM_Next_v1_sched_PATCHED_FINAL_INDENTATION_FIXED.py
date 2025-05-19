@@ -93,7 +93,7 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
         print("'preds' is empty or not a list:", preds)
     high_tides_data = []
     if preds:
-        high_tides_data = [(p['t'], p['type']) for p in preds if p.get('type') == 'H']  # Use .get()
+        high_tides_data = [(p[0], p[1]) for p in preds if p[1] == 'H']
     slots = []
     high_tide_times = []
     for ht_ts, _ in high_tides_data:
