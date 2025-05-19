@@ -3,45 +3,87 @@ import pandas as pd
 from datetime import datetime, timedelta, time
 import requests
 
-# ... (Constants and helper functions from your code)
+# ====================================
+# ------------ CONSTANTS -------------\
+# ====================================\
+CUSTOMER_CSV = "customers.csv"  # path or raw-GitHub URL
+NOAA_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+NOAA_PARAMS_TEMPLATE = {
+    "product": "predictions",
+    "datum": "MLLW",
+    "units": "english",
+    "time_zone": "lst_ldt",
+    "format": "json",
+    "interval": "hilo"
+}
 
-def get_valid_slots_with_tides(date: datetime, ramp: str):
-    preds, err = get_tide_predictions(date, ramp)
-    if err or not preds:
-        return [], []
+RAMP_TO_NOAA_ID = {
+    "Plymouth Harbor": "8446493",
+    "Duxbury Harbor": "8446166",
+    "Green Harbor": "8443970",
+    "Scituate Harbor": "8445138",
+    "Cohasset Harbor": "8444762",
+    "Hingham Harbor": "8444841",
+    "Hull (A St)": "8445247",
+    "Weymouth Harbor": "8444788"
+}
 
-    st.write("First few 'preds':", preds[:5])  # Enhanced debug: Show up to 5 elements
+TRUCK_LIMITS = {"S20": 60, "S21": 50, "S23": 30, "J17": 0}
+JOB_DURATION_HRS = {"Powerboat": 1.5, "Sailboat MD": 3.0, "Sailboat MT": 3.0}
 
-    high_tides_data = []
-    for i, p in enumerate(preds):
-        st.write(f"Processing preds[{i}]: {p}, Type: {type(p)}")  # Detailed debug
+# Persistent schedule held in session (one-page memory...)
+if "schedule" not in st.session_state:
+    st.session_state["schedule"] = []
 
+# ====================================
+# ------------ HELPERS ---------------
+# ====================================
+@st.cache_data
+def load_customer_data():
+    return pd.read_csv(CUSTOMER_CSV)
+
+def filter_customers(df, query):
+    query = query.lower()
+    return df[df["Customer Name"].str.lower().str.contains(query)]
+
+def get_tide_predictions(date: datetime, station_id: str):
+    params = NOAA_PARAMS_TEMPLATE.copy()
+    params["station"] = station_id
+    params["begin_date"] = date.strftime("%Y%m%d")
+    params["end_date"] = date.strftime("%Y%m%d")
+    response = requests.get(NOAA_API_URL, params=params)
+    if response.status_code == 200:
         try:
-            if isinstance(p, dict):
-                if 't' in p and 'type' in p and p.get('type') == 'H':
-                    high_tides_data.append((datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']))
-                else:
-                    st.warning(f"Unexpected dict format in preds[{i}]: {p}")
-            elif isinstance(p, (list, tuple)) and len(p) >= 2:
-                if p[1] == 'H':
-                    high_tides_data.append((datetime.strptime(p[0], "%Y-%m-%d %H:%M"), p[1]))
-                else:
-                    st.warning(f"Unexpected tuple/list format in preds[{i}]: {p}")
+            data = response.json()
+            if "predictions" in data:
+                return data["predictions"], None
             else:
-                st.error(f"Unexpected data type in preds[{i}]: {p}, Type: {type(p)}")
-        except (ValueError, KeyError) as e:
-            st.error(f"Error processing preds[{i}]: {p}, Error: {e}")
+                return [], "No predictions found in NOAA API response"
+        except json.JSONDecodeError:
+            return [], "Error decoding JSON from NOAA API"
+    else:
+        return [], f"Error from NOAA API: {response.status_code}"
 
+def generate_slots_for_high_tide(high_tide_time_str: str):
+    high_tide_time = datetime.strptime(high_tide_time_str, "%Y-%m-%d %H:%M")
+    slot_start = high_tide_time - timedelta(hours=2)
     slots = []
-    high_tide_times = []
-    for ht_datetime, _ in high_tides_data:
-        high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
-        slots.extend(generate_slots_for_high_tide(ht_datetime.strftime("%Y-%m-%d %H:%M")))
+    for i in range(5):  # 4-hour window
+        slots.append(slot_start.time())
+        slot_start += timedelta(hours=1)
+    return slots
 
-    return sorted(set(slots)), high_tide_times
+def find_next_workday(start_date: datetime):
+    next_day = start_date + timedelta(days=1)
+    while not is_workday(next_day):
+        next_day += timedelta(days=1)
+    return next_day
 
-# ... (Rest of your code)
-
+def find_previous_workday(start_date: datetime):
+    prev_day = start_date - timedelta(days=1)
+    while not is_workday(prev_day):
+        prev_day -= timedelta(days=1)
+    return prev_day
 
 def is_workday(date: datetime):
     wk = date.weekday()
@@ -51,12 +93,9 @@ def is_workday(date: datetime):
         return date.month in (5, 9)
     return True
 
-
 def eligible_trucks(boat_len: int):
     return [t for t, lim in TRUCK_LIMITS.items() if (lim == 0 or boat_len <= lim) and t != "J17"]
 
-
-# Very simple conflict check (same truck, same date, overlapping) -------------
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
     start_dt = datetime.combine(date, start_t)
     end_dt = start_dt + timedelta(hours=dur_hrs)
@@ -74,8 +113,6 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
             return False
     return True
 
-
-# Main search for three dates -----------------------------------------------
 def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float):
     found = []
     current = start_date
@@ -99,34 +136,25 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                         })
                         if len(found) >= 3:
                             return found
-                    break  # Move to the next slot
-                if len(found) >= 3:
-                    return found
+                break  # Move to the next slot
+            if len(found) >= 3:
+                return found
         current += timedelta(days=1)
     return found
-
 
 def format_date_display(date_obj):
     return date_obj.strftime("%b %d, %Y")
 
-
 def format_date_schedule(date_obj):
     return date_obj.strftime("%Y-%m-%d")
-
 
 # ====================================
 # ------------- UI -------------------
 # ====================================
 st.title("Boat Ramp Scheduling")
 
-def load_customer_data():
-    # Replace this with your actual implementation of load_customer_data
-    # For example, if it's in a CSV:
-    try:
-        return pd.read_csv(CUSTOMER_CSV)
-    except FileNotFoundError:
-        st.error(f"Error: Customer data file '{CUSTOMER_CSV}' not found.")
-        return pd.DataFrame()  # Return an empty DataFrame to avoid errors later
+customers_df = load_customer_data()
+
 with st.sidebar:
     st.header("New Job")
     customer_query = st.text_input("Find Customer:", "")
