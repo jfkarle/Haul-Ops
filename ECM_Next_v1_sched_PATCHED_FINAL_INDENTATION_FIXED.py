@@ -239,16 +239,28 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
     if err or not preds:
         return [], []
 
-    st.write("First few 'preds':", preds[:5])  # Enhanced debug: Show up to 5 elements
+    st.write("First few 'preds':", preds[:5])  # Enhanced debug
 
-    high_tides_data = [
-        (
-            datetime.strptime(p['t'], "%Y-%m-%d %H:%M") if isinstance(p, dict) else datetime.strptime(p[0], "%Y-%m-%d %H:%M"),
-            p['type'] if isinstance(p, dict) else p[1]
-        )
-        for p in preds
-        if (isinstance(p, dict) and p.get('type') == 'H') or (isinstance(p, (list, tuple)) and len(p) >= 2 and p[1] == 'H')
-    ]
+    high_tides_data = []
+    for p in preds:
+        if isinstance(p, dict):
+            if p.get('type') == 'H' and 't' in p:
+                try:
+                    high_tides_data.append((datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']))
+                except ValueError as e:
+                    st.error(f"Error parsing time from dict: {p}, Error: {e}")
+            else:
+                st.warning(f"Skipping unexpected dict format: {p}")
+        elif isinstance(p, (list, tuple)) and len(p) >= 2:
+            if p[1] == 'H':
+                try:
+                    high_tides_data.append((datetime.strptime(p[0], "%Y-%m-%d %H:%M"), p[1]))
+                except ValueError as e:
+                    st.error(f"Error parsing time from tuple/list: {p}, Error: {e}")
+            else:
+                st.warning(f"Skipping unexpected tuple/list format: {p}")
+        else:
+            st.error(f"Unexpected data format: {p}, Type: {type(p)}")
 
     slots = []
     high_tide_times = []
