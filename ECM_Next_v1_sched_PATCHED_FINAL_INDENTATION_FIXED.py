@@ -108,6 +108,14 @@ def eligible_trucks(boat_len: int):
     return [t for t, lim in TRUCK_LIMITS.items() if (lim == 0 or boat_len <= lim) and t != "J17"]
 
 
+# Check if a truck has any jobs scheduled on a given date
+def has_truck_scheduled(truck: str, date: datetime):
+    for job in st.session_state["schedule"]:
+        if job["truck"] == truck and job["date"].date() == date.date():
+            return True
+    return False
+
+
 # Very simple conflict check (same truck, same date, overlapping) -------------
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
     start_dt = datetime.combine(date, start_t)
@@ -138,8 +146,22 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
     while len(found) < 3:
         if is_workday(current):
             valid_slots, high_tide_times = get_valid_slots_with_tides(current, ramp)
-            for slot_index, slot in enumerate(valid_slots):
-                for truck in trucks:
+            for truck in trucks:
+                # Check if this truck has any jobs today
+                first_job_today = not has_truck_scheduled(truck, current)
+
+                relevant_slots_for_truck = []
+                if first_job_today:
+                    # Only consider 8:00 AM for the first job
+                    for slot in valid_slots:
+                        if slot.hour == 8 and slot.minute == 0:
+                            relevant_slots_for_truck.append(slot)
+                            break # Only need to check 8:00 AM once
+                else:
+                    # Offer all valid slots for subsequent jobs
+                    relevant_slots_for_truck = valid_slots
+
+                for slot in relevant_slots_for_truck:
                     if is_truck_free(truck, current, slot, duration):
                         found.append({
                             "date": current.date(),
@@ -150,7 +172,6 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                         })
                         if len(found) >= 3:
                             return found
-                        break # Move to the next slot
                 if len(found) >= 3:
                     return found
         current += timedelta(days=1)
