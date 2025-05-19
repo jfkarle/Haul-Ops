@@ -223,6 +223,10 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
 st.title("Boat Ramp Scheduling")
 
 customers_df = load_customer_data()
+print("DataFrame Info after load:")
+print(customers_df.info())
+print("\nFirst 5 rows:")
+print(customers_df.head())
 
 # --- Sidebar for Input ---
 with st.sidebar:
