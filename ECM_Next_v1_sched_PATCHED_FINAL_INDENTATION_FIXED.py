@@ -47,6 +47,14 @@ def filter_customers(df, query):
     query = query.lower()
     return df[df["Customer Name"].str.lower().str.contains(query)]
 
+import streamlit as st
+import pandas as pd
+from datetime import datetime, timedelta, time
+import requests
+import json  # Ensure json is imported if you don't have it already
+
+# ... (Constants and helper functions from your code)
+
 def get_tide_predictions(date: datetime, station_id: str):
     params = NOAA_PARAMS_TEMPLATE.copy()
     params["station"] = station_id
@@ -58,13 +66,37 @@ def get_tide_predictions(date: datetime, station_id: str):
             data = response.json()
             st.write("Raw NOAA API Response:", data)  # Add this line for debugging
             if "predictions" in data:
-                return data["predictions"], None
+                preds = data["predictions"]
+                st.write("Type of preds:", type(preds))  # Debug: Type of preds
+
+                for i, p in enumerate(preds):
+                    st.write(f"--- Processing preds[{i}] ---")
+                    st.write(f"Type: {type(p)}")
+                    st.write(f"Value: {p}")
+
+                    if isinstance(p, dict):
+                        st.write("Keys:", p.keys())  # If it's a dict, show keys
+                        if 't' in p:
+                            st.write(f"p['t'] type: {type(p['t'])}")
+                            st.write(f"p['t'] value: {p['t']}")
+                        if 'type' in p:
+                            st.write(f"p['type'] type: {type(p['type'])}")
+                            st.write(f"p['type'] value: {p['type']}")
+                    elif isinstance(p, (list, tuple)):
+                        st.write("Length:", len(p))  # If it's a list/tuple, show length
+                        for j, val in enumerate(p):
+                            st.write(f"p[{j}] type: {type(val)}")
+                            st.write(f"p[{j}] value: {val}")
+            
+                return preds, None
             else:
                 return [], "No predictions found in NOAA API response"
         except json.JSONDecodeError:
             return [], "Error decoding JSON from NOAA API"
     else:
         return [], f"Error from NOAA API: {response.status_code}"
+
+# ... (Rest of your code)
 
 def generate_slots_for_high_tide(high_tide_time_str: str):
     high_tide_time = datetime.strptime(high_tide_time_str, "%Y-%m-%d %H:%M")
