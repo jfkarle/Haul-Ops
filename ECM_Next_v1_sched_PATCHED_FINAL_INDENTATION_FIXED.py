@@ -62,9 +62,11 @@ if "schedule" not in st.session_state:
 def load_customer_data():
     return pd.read_csv(CUSTOMER_CSV)
 
+
 def filter_customers(df, query):
     query = query.lower()
-    return df[df["Customer Name"].str.lower().str.contains(query)]
+    return df[df["Customer Name"].str.lower().str().contains(query)]
+
 
 def get_tide_predictions(date: datetime, ramp: str):
     station_id = RAMP_TO_NOAA_ID.get(ramp)
@@ -84,6 +86,7 @@ def get_tide_predictions(date: datetime, ramp: str):
     except Exception as e:
         return None, [], str(e)
 
+
 def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_hours: float):
     ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
     win_start = ht - timedelta(hours=before_hours)
@@ -97,6 +100,7 @@ def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_h
             slots.append(t.time())
         t += timedelta(minutes=30)
     return slots
+
 
 def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = None):
     preds, high_tides_data, err = get_tide_predictions(date, ramp)
@@ -125,8 +129,6 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
 
     return sorted(set(valid_slots)), high_tide_time
 
-def format_date(date_obj):
-    return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
 
 def is_workday(date: datetime):
     wk = date.weekday()
@@ -139,11 +141,13 @@ def is_workday(date: datetime):
 def eligible_trucks(boat_len: int):
     return [t for t, lim in TRUCK_LIMITS.items() if (lim == 0 or boat_len <= lim) and t != "J17"]
 
+
 def has_truck_scheduled(truck: str, date: datetime):
     for job in st.session_state["schedule"]:
         if job["truck"] == truck and job["date"].date() == date.date():
             return True
     return False
+
 
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
     start_dt = datetime.combine(date, start_t)
@@ -161,6 +165,11 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
         if overlap:
             return False
     return True
+
+
+def format_date(date_obj):
+    return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
+
 
 def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
     found = []
@@ -206,6 +215,7 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
         days_searched += 1
 
     return found[:3]  # Return at most the first 3 slots (or fewer if we didn't find 3)
+
 
 # ====================================
 # ------------- UI -------------------
@@ -264,9 +274,9 @@ if 'find_slots_button' in locals() and find_slots_button:
                 with cols[i]:
                     formatted_date = format_date(slot['date'])
                     st.info(f"Date: {formatted_date}")
+                    st.markdown(f"<span style='font-size: 0.8em;'>**Truck:** {slot['truck']}</span>", unsafe_allow_html=True)
                     st.markdown(f"<span style='font-size: 0.8em;'>Time: {slot['time'].strftime('%H:%M')}</span>", unsafe_allow_html=True)
-                    st.markdown(f"**Ramp:** {slot['ramp']}")
-                    st.markdown(f"**Truck:** {slot['truck']}")
+                    st.markdown(f"<span style='font-size: 0.8em;'>**Ramp:** {slot['ramp']}</span>", unsafe_allow_html=True)
                     schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
 
                     def schedule_job():
