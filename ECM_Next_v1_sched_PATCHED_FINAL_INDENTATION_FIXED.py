@@ -241,27 +241,14 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
 
     st.write("First few 'preds':", preds[:5])  # Enhanced debug: Show up to 5 elements
 
-    high_tides_data = []
-    for i, p in enumerate(preds):
-        st.write(f"Processing preds[{i}]: {p}, Type: {type(p)}, Value: {p}")  # Detailed debug
-
-        try:
-            if isinstance(p, dict):
-                # Handle dictionary case
-                if 't' in p and 'type' in p and p.get('type') == 'H':
-                    high_tides_data.append((datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']))
-                else:
-                    st.warning(f"Unexpected dict format in preds[{i}]: {p}")
-            elif isinstance(p, (list, tuple)) and len(p) >= 2:
-                # Handle tuple/list case
-                if p[1] == 'H':
-                    high_tides_data.append((datetime.strptime(p[0], "%Y-%m-%d %H:%M"), p[1]))
-                else:
-                    st.warning(f"Unexpected tuple/list format in preds[{i}]: {p}")
-            else:
-                st.error(f"Unexpected data type in preds[{i}]: {p}, Type: {type(p)}")
-        except (ValueError, KeyError, IndexError) as e:
-            st.error(f"Error processing preds[{i}]: {p}, Error: {e}")
+    high_tides_data = [
+        (
+            datetime.strptime(p['t'], "%Y-%m-%d %H:%M") if isinstance(p, dict) else datetime.strptime(p[0], "%Y-%m-%d %H:%M"),
+            p['type'] if isinstance(p, dict) else p[1]
+        )
+        for p in preds
+        if (isinstance(p, dict) and p.get('type') == 'H') or (isinstance(p, (list, tuple)) and len(p) >= 2 and p[1] == 'H')
+    ]
 
     slots = []
     high_tide_times = []
