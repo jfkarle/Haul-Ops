@@ -65,7 +65,7 @@ def load_customer_data():
 
 def filter_customers(df, query):
     query = query.lower()
-    return df[df["Customer Name"].str.lower().str().contains(query)]
+    return df[df["Customer Name"].str.lower().contains(query)] # Removed extra '()'
 
 
 def get_tide_predictions(date: datetime, ramp: str):
