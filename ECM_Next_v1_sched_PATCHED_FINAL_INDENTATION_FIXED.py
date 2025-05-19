@@ -85,9 +85,10 @@ def generate_slots_for_high_tide(high_tide_ts: str):
 def get_valid_slots_with_tides(date: datetime, ramp: str):
     preds, err = get_tide_predictions(date, ramp)
     if err or not preds:
-        return [], []
+        return [], [], []
+    st.write("First few 'preds':", preds[:2])  # Debugging line
     high_tides_data = [(datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']) for p in preds if p['type'] == 'H']
-    slots = []
+      slots = []
     high_tide_times = []
     for ht_datetime, _ in high_tides_data:
         high_tide_times.append(ht_datetime.strftime("%I:%M %p"))
