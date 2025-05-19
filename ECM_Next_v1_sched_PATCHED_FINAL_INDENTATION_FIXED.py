@@ -49,57 +49,6 @@ def filter_customers(df, query):
     return df[df["Customer Name"].str.lower().str.contains(query)]
 
 
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta, time
-import requests
-
-# ====================================
-# ------------ CONSTANTS -------------
-# ====================================
-CUSTOMER_CSV = "customers.csv"  # path or raw-GitHub URL
-NOAA_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-NOAA_PARAMS_TEMPLATE = {
-    "product": "predictions",
-    "datum": "MLLW",
-    "units": "english",
-    "time_zone": "lst_ldt",
-    "format": "json",
-    "interval": "hilo"
-}
-
-RAMP_TO_NOAA_ID = {
-    "Plymouth Harbor": "8446493",
-    "Duxbury Harbor": "8446166",
-    "Green Harbor": "8443970",
-    "Scituate Harbor": "8445138",
-    "Cohasset Harbor": "8444762",
-    "Hingham Harbor": "8444841",
-    "Hull (A St)": "8445247",
-    "Weymouth Harbor": "8444788"
-}
-
-TRUCK_LIMITS = {"S20": 60, "S21": 50, "S23": 30, "J17": 0}
-JOB_DURATION_HRS = {"Powerboat": 1.5, "Sailboat MD": 3.0, "Sailboat MT": 3.0}
-
-# Persistent schedule held in session (one-page memory)
-if "schedule" not in st.session_state:
-    st.session_state["schedule"] = []  # list of dicts {truck,date,time,duration,customer}
-
-
-# ====================================
-# ------------ HELPERS ---------------
-# ====================================
-@st.cache_data
-def load_customer_data():
-    return pd.read_csv(CUSTOMER_CSV)
-
-
-def filter_customers(df, query):
-    query = query.lower()
-    return df[df["Customer Name"].str.lower().str.contains(query)]
-
-
 def get_tide_predictions(date: datetime, ramp: str):
     """Return list of tuples (timestamp-str, type 'H'/'L') or error."""
     station_id = RAMP_TO_NOAA_ID.get(ramp)
