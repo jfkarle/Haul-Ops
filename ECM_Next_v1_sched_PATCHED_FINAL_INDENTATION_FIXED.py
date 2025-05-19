@@ -86,7 +86,11 @@ def get_valid_slots_with_tides(date: datetime, ramp: str):
     preds, err = get_tide_predictions(date, ramp)
     if err or not preds:
         return [], []
-    st.write("First few 'preds':", preds[:2])  # Debugging line
+    print("Type of 'preds':", type(preds))
+    if isinstance(preds, list) and len(preds) > 0:
+        print("First element of 'preds':", preds[0])
+    else:
+        print("'preds' is empty or not a list:", preds)
     high_tides_data = [(datetime.strptime(p['t'], "%Y-%m-%d %H:%M"), p['type']) for p in preds if p['type'] == 'H']
     slots = []
     high_tide_times = []
