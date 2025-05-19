@@ -130,54 +130,36 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
     return sorted(set(valid_slots)), high_tide_time
 
 
-def is_workday(date: datetime):
-    wk = date.weekday()
-    if wk == 6:
-        return False
-    if wk == 5:
-        return date.month in (5, 9)
-    return True
+# ... (Your existing code before the find_three_dates function)
 
+def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
+    """
+    Finds the three earliest available dates for boat ramp scheduling.
 
-def eligible_trucks(boat_len: int):
-    return [t for t, lim in TRUCK_LIMITS.items() if (lim == 0 or boat_len <= lim) and t != "J17"]
+    Args:
+        start_date (datetime): The earliest date to start the search.
+        ramp (str): The name of the launch ramp.
+        boat_len (int): The length of the boat.
+        duration (float): The estimated duration of the job in hours.
+        boat_draft (float, optional): The boat's draft (for ramps with draft restrictions). Defaults to None.
+        search_days_limit (int, optional): The maximum number of days to search from start_date. Defaults to 7.
 
+    Returns:
+        list: A list of dictionaries, where each dictionary represents an available slot
+              (date, time, ramp, truck, high_tide).  The list is sorted by date and time.
+    """
 
-def has_truck_scheduled(truck: str, date: datetime):
-    for job in st.session_state["schedule"]:
-        if job["truck"] == truck and job["date"].date() == date.date():
-            return True
-    return False
-
-
-def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
-    start_dt = datetime.combine(date, start_t)
-    end_dt = start_dt + timedelta(hours=dur_hrs)
-    for job in st.session_state["schedule"]:
-        if job["truck"] != truck:
-            continue
-        if job["date"].date() != date.date():
-            continue
-        job_start = datetime.combine(job["date"], job["time"])
-        job_end = job_start + timedelta(hours=job["duration"])
-        latest_start = max(start_dt, job_start)
-        earliest_end = min(end_dt, job_end)
-        overlap = (earliest_end - latest_start).total_seconds() > 0
-        if overlap:
-            return False
-    return True
-
-
-def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None):
     found = []
     current = start_date
     trucks = eligible_trucks(boat_len)
     if not trucks:
         return []
 
-    while len(found) < 3:
+    days_searched = 0
+    while len(found) < 3 and days_searched < search_days_limit:
         if is_workday(current):
             valid_slots, high_tide_time = get_valid_slots_with_tides(current, ramp, boat_draft)
+
             for truck in trucks:
                 first_job_today = not has_truck_scheduled(truck, current)
                 relevant_slots_for_truck = []
@@ -188,6 +170,7 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                             break
                 else:
                     relevant_slots_for_truck = valid_slots
+
                 for slot in relevant_slots_for_truck:
                     if is_truck_free(truck, current, slot, duration):
                         found.append({
@@ -197,16 +180,20 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                             "truck": truck,
                             "high_tide": high_tide_time
                         })
-                        if len(found) >= 3:
-                            return found
+
+            # Sort the 'found' list by date and then time to prioritize earlier slots
+            found.sort(key=lambda x: (x["date"], x["time"]))
+
+            # If we've found 3, we can stop searching
             if len(found) >= 3:
-                return found
+                break
+
         current += timedelta(days=1)
-    return found
+        days_searched += 1
 
+    return found[:3]  # Return at most the first 3 slots (or fewer if we didn't find 3)
 
-def format_date(date_obj):
-    return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
+# ... (Your existing code after the find_three_dates function)
 
 
 # ====================================
