@@ -181,7 +181,6 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
     while len(found) < 3 and days_searched < search_days_limit:
         if is_workday(current_date):
             valid_slots, high_tide_time = get_valid_slots_with_tides(current_date, ramp, boat_draft)
-
             for truck in trucks:
     first_job_today = not has_truck_scheduled(truck, current_date)
     if first_job_today:
