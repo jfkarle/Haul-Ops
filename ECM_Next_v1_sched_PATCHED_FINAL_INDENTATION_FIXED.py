@@ -54,13 +54,15 @@ JOB_DURATION_HRS = {"Powerboat": 1.5, "Sailboat MD": 3.0, "Sailboat MT": 3.0}
 if "schedule" not in st.session_state:
     st.session_state["schedule"] = []
 
-
 # ====================================
 # ------------ HELPERS ---------------
 # ====================================
 @st.cache_data
 def load_customer_data():
-    return pd.read_csv(CUSTOMER_CSV)
+    df = pd.read_csv(CUSTOMER_CSV)
+    # Store a copy in session state to ensure persistence
+    st.session_state['customers_df_loaded'] = df.copy()
+    return df
 
 def filter_customers(df, query):
     query = query.lower()
@@ -125,10 +127,6 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
 
     return sorted(set(valid_slots)), high_tide_time
 
-def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
-    # ... (The find_three_dates function you have) ...
-    pass # Placeholder - your function should be here
-
 def is_workday(date: datetime):
     wk = date.weekday()
     if wk == 6:
@@ -166,17 +164,79 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
 def format_date(date_obj):
     return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
 
+def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
+    found = []
+    current = start_date
+    trucks = eligible_trucks(boat_len)
+    if not trucks:
+        return []
+
+    days_searched = 0
+    while len(found) < 3 and days_searched < search_days_limit:
+        if is_workday(current):
+            valid_slots, high_tide_time = get_valid_slots_with_tides(current, ramp, boat_draft)
+
+            for truck in trucks:
+                first_job_today = not has_truck_scheduled(truck, current)
+                relevant_slots_for_truck = []
+                if first_job_today:
+                    for slot in valid_slots:
+                        if slot.hour == 8 and slot.minute == 0:
+                            relevant_slots_for_truck.append(slot)
+                            break
+                else:
+                    relevant_slots_for_truck = valid_slots
+
+                for slot in relevant_slots_for_truck:
+                    if is_truck_free(truck, current, slot, duration):
+                        found.append({
+                            "date": current.date(),
+                            "time": slot,
+                            "ramp": ramp,
+                            "truck": truck,
+                            "high_tide": high_tide_time
+                        })
+
+            # Sort the 'found' list by date and then time to prioritize earlier slots
+            found.sort(key=lambda x: (x["date"], x["time"]))
+
+            # If we've found 3, we can stop searching
+            if len(found) >= 3:
+                break
+
+        current += timedelta(days=1)
+        days_searched += 1
+
+    return found[:3]  # Return at most the first 3 slots (or fewer if we didn't find 3)
+
+
 # ====================================
 # ------------- UI -------------------
 # ====================================
 st.title("Boat Ramp Scheduling")
 
-customers_df = load_customer_data()
+# Load customers_df, checking session state first
+if 'customers_df_loaded' not in st.session_state:
+    customers_df = load_customer_data()
+else:
+    customers_df = st.session_state['customers_df_loaded']
+
+print("DataFrame Info after load/session state:")
+print(customers_df.info())
+print("\nFirst 5 rows:")
+print(customers_df.head())
 
 # --- Sidebar for Input ---
 with st.sidebar:
     st.header("New Job")
     customer_query = st.text_input("Find Customer:", "")
+
+    # Print DataFrame info just before calling filter_customers
+    print("\n--- DataFrame Info BEFORE filter_customers call ---")
+    print(customers_df.info())
+    print("\n--- First 5 rows BEFORE filter_customers call ---")
+    print(customers_df.head())
+
     filtered_customers = filter_customers(customers_df, customer_query)
 
     if not filtered_customers.empty:
@@ -247,6 +307,10 @@ if 'find_slots_button' in locals() and find_slots_button:
         st.warning("Please select a customer first.")
 
 st.header("Current Schedule")
-if st.session_
-
-
+if st.session_state["schedule"]: # Corrected syntax error here
+    schedule_df = pd.DataFrame(st.session_state["schedule"])
+    schedule_df["Date"] = schedule_df["date"].dt.date
+    schedule_df["Time"] = schedule_df["time"].astype(str)
+    st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
+else:
+    st.info("The schedule is currently empty.")
