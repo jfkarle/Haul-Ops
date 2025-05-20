@@ -203,7 +203,6 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
             if len(found) >= 3:
                 return found  # ✅ Immediately return if 3 are found
 
-
             found.sort(key=lambda x: (x["date"], x["time"]))
 
             if len(found) >= 3:
