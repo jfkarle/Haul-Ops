@@ -162,10 +162,10 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
             return False
     return True
 
-
 def format_date_display(date_obj):
+    """Formats a date object to 'Month Day, Year' (e.g., July 5, 2025)."""
     if isinstance(date_obj, datetime):
-        return date_obj.strftime("%B %d, %Y")  # e.g., July 5, 2025
+        return date_obj.strftime("%B %d, %Y")
     elif isinstance(date_obj, date):
         return date_obj.strftime("%B %d, %Y")
     return str(date_obj)
@@ -181,26 +181,27 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
     while len(found) < 3 and days_searched < search_days_limit:
         if is_workday(current_date):
             valid_slots, high_tide_time = get_valid_slots_with_tides(current_date, ramp, boat_draft)
-            for truck in trucks:
-    first_job_today = not has_truck_scheduled(truck, current_date)
-    if first_job_today:
-        relevant_slots_for_truck = [
-            slot for slot in valid_slots if slot.hour == 8 and slot.minute == 0
-        ]
-    else:
-        relevant_slots_for_truck = valid_slots
 
-    for slot in relevant_slots_for_truck:
-        if is_truck_free(truck, current_date, slot, duration):
-            found.append({
-                "date": current_date.date(),
-                "time": slot,
-                "ramp": ramp,
-                "truck": truck,
-                "high_tide": high_tide_time
-            })
-            if len(found) >= 3:
-                return found  # ✅ Immediately return if 3 are found
+            for truck in trucks:
+                first_job_today = not has_truck_scheduled(truck, current_date)
+                relevant_slots_for_truck = []
+                if first_job_today:
+                    for slot in valid_slots:
+                        if slot.hour == 8 and slot.minute == 0:
+                            relevant_slots_for_truck.append(slot)
+                            break
+                else:
+                    relevant_slots_for_truck = valid_slots
+
+                for slot in relevant_slots_for_truck:
+                    if is_truck_free(truck, current_date, slot, duration):
+                        found.append({
+                            "date": current_date.date(), # Store as date object
+                            "time": slot,
+                            "ramp": ramp,
+                            "truck": truck,
+                            "high_tide": high_tide_time
+                        })
 
             found.sort(key=lambda x: (x["date"], x["time"]))
 
@@ -269,19 +270,19 @@ if 'find_slots_button' in locals() and find_slots_button:
         if available_slots:
             first_high_tide = available_slots[0].get('high_tide') if available_slots else None
             if first_high_tide:
-                st.subheader(f"High Tide on {format_date_mmddyy(available_slots[0]['date'])}: {first_high_tide}")
+                st.subheader(f"High Tide on {format_date_display(available_slots[0]['date'])}: {first_high_tide}")
 
 
             cols = st.columns(len(available_slots))
             for i, slot in enumerate(available_slots):
                 with cols[i]:
                     # slot['date'] is a date object here
-                    formatted_date_display = format_date_mmddyy(slot['date'])
+                    formatted_date_display = format_date_display(slot['date'])
                     st.info(f"Date: {formatted_date_display}")
                     st.markdown(f"<span style='font-size: 0.8em;'>Time: {slot['time'].strftime('%H:%M')}</span>", unsafe_allow_html=True)
                     st.markdown(f"**Ramp:** {slot['ramp']}")
                     st.markdown(f"**Truck:** {slot['truck']}")
-                    schedule_key = f"schedule_{format_date_mmddyy(slot['date'])}_{slot['time'].strftime('%H%M')}_{slot['truck']}" # Ensure key is unique
+                    schedule_key = f"schedule_{format_date_display(slot['date'])}_{slot['time'].strftime('%H%M')}_{slot['truck']}" # Ensure key is unique
 
                     def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
                         def schedule_job_callback():
@@ -317,7 +318,7 @@ if st.session_state["schedule"]:
     for job in st.session_state["schedule"]:
         display_schedule_list.append({
             "Customer": job["customer"],
-            "Date": format_date_mmddyy(job["date"]), # Format for display
+            "Date": format_date_display(job["date"]), # Format for display
             "Time": job["time"].strftime('%H:%M'),
             "Truck": job["truck"],
             "Duration (hrs)": job["duration"]
