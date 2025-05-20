@@ -33,20 +33,20 @@ RAMP_TO_NOAA_ID = {
     "Sandwich Basin": None # No NOAA ID provided
 }
 RAMP_TIDE_WINDOWS = {
-    "Plymouth Harbor": (3, 3),  # 3 hrs before and after [cite: 1]
-    "Duxbury Harbor": (1, 1),  # 1 hr before or after [cite: 1]
-    "Green Harbor (Taylors)": (3, 3),  # 3 hrs before and after [cite: 1]
-    "Safe Harbor (Green Harbor)": (1, 1),  # 1 hr before and after [cite: 1]
-    "Ferry Street (Marshfield Yacht Club)": (3, 3),  # 3 hrs before and after [cite: 1]
-    "South River Yacht Yard": (2, 2),  # 2 hrs before or after [cite: 1]
-    "Roht (A to Z/ Mary's)": (1, 1),  # 1 hr before or after [cite: 1]
-    "Scituate Harbor (Jericho Road)": None,  # Any tide, special rule for 5' draft [cite: 1]
-    "Harbor Cohasset (Parker Ave)": (3, 3),  # 3 hrs before or after [cite: 1]
-    "Hull (A St, Sunset, Steamboat)": (3, 1.5),  # 3 hrs before, 1.5 hrs after for 6'+ draft [cite: 1]
-    "Hull (X Y Z St) (Goodwiny st)": (1, 1),  # 1 hr before or after [cite: 1]
-    "Hingham Harbor": (3, 3),  # 3 hrs before and after [cite: 1]
-    "Weymouth Harbor (Wessagusset)": (3, 3),  # 3 hrs before and after [cite: 1]
-    "Sandwich Basin": None # Any tide [cite: 1]
+    "Plymouth Harbor": (3, 3),  # 3 hrs before and after
+    "Duxbury Harbor": (1, 1),  # 1 hr before or after
+    "Green Harbor (Taylors)": (3, 3),  # 3 hrs before and after
+    "Safe Harbor (Green Harbor)": (1, 1),  # 1 hr before and after
+    "Ferry Street (Marshfield Yacht Club)": (3, 3),  # 3 hrs before and after
+    "South River Yacht Yard": (2, 2),  # 2 hrs before or after
+    "Roht (A to Z/ Mary's)": (1, 1),  # 1 hr before or after
+    "Scituate Harbor (Jericho Road)": None,  # Any tide, special rule for 5' draft
+    "Harbor Cohasset (Parker Ave)": (3, 3),  # 3 hrs before or after
+    "Hull (A St, Sunset, Steamboat)": (3, 1.5),  # 3 hrs before, 1.5 hrs after for 6'+ draft
+    "Hull (X Y Z St) (Goodwiny st)": (1, 1),  # 1 hr before or after
+    "Hingham Harbor": (3, 3),  # 3 hrs before and after
+    "Weymouth Harbor (Wessagusset)": (3, 3),  # 3 hrs before and after
+    "Sandwich Basin": None # Any tide
 }
 TRUCK_LIMITS = {"S20": 60, "S21": 50, "S23": 30, "J17": 0}
 JOB_DURATION_HRS = {"Powerboat": 1.5, "Sailboat MD": 3.0, "Sailboat MT": 3.0}
@@ -111,8 +111,8 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
     high_tide_time = None
     tide_window = RAMP_TIDE_WINDOWS.get(ramp)
 
-    if ramp == "Scituate Harbor (Jericho Road)" and boat_draft and boat_draft > 5:  # [cite: 1]
-        tide_window = (3, 3)  # Special rule for Scituate with draft > 5' [cite: 1]
+    if ramp == "Scituate Harbor (Jericho Road)" and boat_draft and boat_draft > 5:  #
+        tide_window = (3, 3)  # Special rule for Scituate with draft > 5'
 
     if tide_window:
         #  Use only the first high tide of the day
@@ -122,7 +122,7 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
             high_tide_time = ht_datetime.strftime("%I:%M %p")
             valid_slots = generate_slots_for_high_tide(first_high_tide[0], tide_window[0], tide_window[1])
     elif ramp == "Sandwich Basin":
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3) # "Any tide" - provide middle of the day window [cite: 1]
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3) # "Any tide" - provide middle of the day window
     else:
         # If no tide window is specified, return all slots (or a reasonable default)
         valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3) # Default to 3 hours before/after 10:00 AM
@@ -306,6 +306,4 @@ if st.session_state["schedule"]:
     schedule_df = pd.DataFrame(st.session_state["schedule"])
     schedule_df["Date"] = schedule_df["date"].dt.date
     schedule_df["Time"] = schedule_df["time"].astype(str)
-    st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
-else:
-    st.info("The schedule is currently empty.")
+    st
