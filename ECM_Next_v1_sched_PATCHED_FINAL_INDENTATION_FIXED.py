@@ -140,19 +140,20 @@ def eligible_trucks(boat_len: int):
 
 def has_truck_scheduled(truck: str, date: datetime):
     for job in st.session_state["schedule"]:
-        if job["truck"] == truck and job["date"].date() == date.date():
+        if job["truck"] == truck and job["date"].date() == date.date(): # Ensure comparing date objects
             return True
     return False
 
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
-    start_dt = datetime.combine(date, start_t)
+    start_dt = datetime.combine(date, start_t) # date is already a datetime object here
     end_dt = start_dt + timedelta(hours=dur_hrs)
     for job in st.session_state["schedule"]:
         if job["truck"] != truck:
             continue
-        if job["date"].date() != date.date():
+        # job["date"] is a datetime object from scheduling
+        if job["date"].date() != date.date(): # Compare date parts
             continue
-        job_start = datetime.combine(job["date"], job["time"])
+        job_start = datetime.combine(job["date"].date(), job["time"]) # Use job["date"].date()
         job_end = job_start + timedelta(hours=job["duration"])
         latest_start = max(start_dt, job_start)
         earliest_end = min(end_dt, job_end)
@@ -161,23 +162,28 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
             return False
     return True
 
-def format_date(date_obj):
-    return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
+def format_date_mmddyy(date_obj):
+    """Formats a date object (date or datetime) to MM/DD/YY string."""
+    if isinstance(date_obj, datetime):
+        return date_obj.strftime("%m/%d/%y")
+    elif isinstance(date_obj, date): # Handle date objects too
+        return date_obj.strftime("%m/%d/%y")
+    return str(date_obj) # Fallback
 
 def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
     found = []
-    current = start_date
+    current_date = start_date # start_date is already a datetime object
     trucks = eligible_trucks(boat_len)
     if not trucks:
         return []
 
     days_searched = 0
     while len(found) < 3 and days_searched < search_days_limit:
-        if is_workday(current):
-            valid_slots, high_tide_time = get_valid_slots_with_tides(current, ramp, boat_draft)
+        if is_workday(current_date):
+            valid_slots, high_tide_time = get_valid_slots_with_tides(current_date, ramp, boat_draft)
 
             for truck in trucks:
-                first_job_today = not has_truck_scheduled(truck, current)
+                first_job_today = not has_truck_scheduled(truck, current_date)
                 relevant_slots_for_truck = []
                 if first_job_today:
                     for slot in valid_slots:
@@ -188,26 +194,24 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
                     relevant_slots_for_truck = valid_slots
 
                 for slot in relevant_slots_for_truck:
-                    if is_truck_free(truck, current, slot, duration):
+                    if is_truck_free(truck, current_date, slot, duration):
                         found.append({
-                            "date": current.date(),
+                            "date": current_date.date(), # Store as date object
                             "time": slot,
                             "ramp": ramp,
                             "truck": truck,
                             "high_tide": high_tide_time
                         })
 
-            # Sort the 'found' list by date and then time to prioritize earlier slots
             found.sort(key=lambda x: (x["date"], x["time"]))
 
-            # If we've found 3, we can stop searching
             if len(found) >= 3:
                 break
 
-        current += timedelta(days=1)
+        current_date += timedelta(days=1)
         days_searched += 1
 
-    return found[:3]  # Return at most the first 3 slots (or fewer if we didn't find 3)
+    return found[:3]
 
 
 # ====================================
@@ -215,28 +219,15 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
 # ====================================
 st.title("Boat Ramp Scheduling")
 
-# Load customers_df, checking session state first
 if 'customers_df_loaded' not in st.session_state:
     customers_df = load_customer_data()
 else:
     customers_df = st.session_state['customers_df_loaded']
 
-print("DataFrame Info after load/session state:")
-print(customers_df.info())
-print("\nFirst 5 rows:")
-print(customers_df.head())
-
 # --- Sidebar for Input ---
 with st.sidebar:
     st.header("New Job")
     customer_query = st.text_input("Find Customer:", "")
-
-    # Print DataFrame info just before calling filter_customers
-    print("\n--- DataFrame Info BEFORE filter_customers call ---")
-    print(customers_df.info())
-    print("\n--- First 5 rows BEFORE filter_customers call ---")
-    print(customers_df.head())
-
     filtered_customers = filter_customers(customers_df, customer_query)
 
     if not filtered_customers.empty:
@@ -256,7 +247,8 @@ with st.sidebar:
             boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
         else:
             boat_draft = None
-        earliest_date = st.date_input("Earliest Date", datetime.now().date())
+        # st.date_input returns a datetime.date object
+        earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
         find_slots_button = st.button("Find Available Dates")
 
 # --- Main Page for Results ---
@@ -264,8 +256,11 @@ st.header("Available Slots")
 if 'find_slots_button' in locals() and find_slots_button:
     if selected_customer:
         duration = JOB_DURATION_HRS.get(boat_type, 1.0)
+        # Convert earliest_date_input (date) to datetime for find_three_dates
+        earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
+
         available_slots = find_three_dates(
-            datetime(earliest_date.year, earliest_date.month, earliest_date.day),
+            earliest_datetime,
             ramp_choice,
             boat_length,
             duration,
@@ -273,33 +268,43 @@ if 'find_slots_button' in locals() and find_slots_button:
         )
 
         if available_slots:
-            # Display the first high tide prominently once
             first_high_tide = available_slots[0].get('high_tide') if available_slots else None
             if first_high_tide:
-                st.subheader(f"High Tide: {first_high_tide}")
+                st.subheader(f"High Tide on {format_date_mmddyy(available_slots[0]['date'])}: {first_high_tide}")
+
 
             cols = st.columns(len(available_slots))
             for i, slot in enumerate(available_slots):
                 with cols[i]:
-                    formatted_date = format_date(slot['date'])
-                    st.info(f"Date: {formatted_date}")
+                    # slot['date'] is a date object here
+                    formatted_date_display = format_date_mmddyy(slot['date'])
+                    st.info(f"Date: {formatted_date_display}")
                     st.markdown(f"<span style='font-size: 0.8em;'>Time: {slot['time'].strftime('%H:%M')}</span>", unsafe_allow_html=True)
                     st.markdown(f"**Ramp:** {slot['ramp']}")
                     st.markdown(f"**Truck:** {slot['truck']}")
-                    schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
+                    schedule_key = f"schedule_{format_date_mmddyy(slot['date'])}_{slot['time'].strftime('%H%M')}_{slot['truck']}" # Ensure key is unique
 
-                    def schedule_job():
-                        new_schedule_item = {
-                            "truck": slot["truck"],
-                            "date": datetime.combine(slot["date"], slot["time"]),
-                            "time": slot["time"],
-                            "duration": duration,
-                            "customer": selected_customer
-                        }
-                        st.session_state["schedule"].append(new_schedule_item)
-                        st.success(f"Scheduled {selected_customer} with {slot['truck']} on {formatted_date} at {slot['time'].strftime('%H:%M')}.")
+                    def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
+                        def schedule_job_callback():
+                            new_schedule_item = {
+                                "truck": current_slot["truck"],
+                                # Store as datetime object in schedule
+                                "date": datetime.combine(current_slot["date"], current_slot["time"]),
+                                "time": current_slot["time"], # time object
+                                "duration": current_duration,
+                                "customer": current_customer
+                            }
+                            st.session_state["schedule"].append(new_schedule_item)
+                            st.success(f"Scheduled {current_customer} with {current_slot['truck']} on {current_formatted_date} at {current_slot['time'].strftime('%H:%M')}.")
+                            # Optionally, rerun to update UI or disable button
+                            # st.experimental_rerun()
+                        return schedule_job_callback
 
-                    st.button(f"Schedule on {slot['time'].strftime('%H:%M')}", key=schedule_key, on_click=schedule_job)
+                    st.button(
+                        f"Schedule on {slot['time'].strftime('%H:%M')}",
+                        key=schedule_key,
+                        on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
+                    )
                     st.markdown("---")
         else:
             st.info("No suitable slots found for the selected criteria.")
@@ -307,10 +312,18 @@ if 'find_slots_button' in locals() and find_slots_button:
         st.warning("Please select a customer first.")
 
 st.header("Current Schedule")
-if st.session_state["schedule"]: # Corrected syntax error here
-    schedule_df = pd.DataFrame(st.session_state["schedule"])
-    schedule_df["Date"] = schedule_df["date"].dt.date
-    schedule_df["Time"] = schedule_df["time"].astype(str)
-    st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
+if st.session_state["schedule"]:
+    # Create a DataFrame for display, formatting the date here
+    display_schedule_list = []
+    for job in st.session_state["schedule"]:
+        display_schedule_list.append({
+            "Customer": job["customer"],
+            "Date": format_date_mmddyy(job["date"]), # Format for display
+            "Time": job["time"].strftime('%H:%M'),
+            "Truck": job["truck"],
+            "Duration (hrs)": job["duration"]
+        })
+    schedule_df_display = pd.DataFrame(display_schedule_list)
+    st.dataframe(schedule_df_display[["Customer", "Date", "Time", "Truck", "Duration (hrs)"]])
 else:
     st.info("The schedule is currently empty.")
