@@ -191,7 +191,7 @@ def format_date_display(date_obj):
 
 def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
     found = []
-    current_date = start_date # start_date is already a datetime object
+    current_date = start_date
     trucks = eligible_trucks(boat_len, boat_type)
     if not trucks:
         return []
@@ -200,35 +200,20 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
     while len(found) < 3 and days_searched < search_days_limit:
         if is_workday(current_date):
             valid_slots, high_tide_time = get_valid_slots_with_tides(current_date, ramp, boat_draft)
-
             for truck in trucks:
-                first_job_today = not has_truck_scheduled(truck, current_date)
-                relevant_slots_for_truck = []
-                if first_job_today:
-                    for slot in valid_slots:
-                        if slot.hour == 8 and slot.minute == 0:
-                            relevant_slots_for_truck.append(slot)
-                            break
-                else:
-                    relevant_slots_for_truck = valid_slots
-
-                for slot in relevant_slots_for_truck:
+                for slot in valid_slots:
                     if is_truck_free(truck, current_date, slot, duration):
                         found.append({
-                            "date": current_date.date(), # Store as date object
+                            "date": current_date.date(),
                             "time": slot,
                             "ramp": ramp,
                             "truck": truck,
                             "high_tide": high_tide_time
                         })
-
-            found.sort(key=lambda x: (x["date"], x["time"]))
-
-            if len(found) >= 3:
-                break
-
-    current_date += timedelta(days=1)
-    days_searched += 1
+                        if len(found) >= 3:
+                            return found[:3]
+        current_date += timedelta(days=1)
+        days_searched += 1
 
     return found[:3]
 
