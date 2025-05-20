@@ -55,182 +55,246 @@ if "schedule" not in st.session_state:
     st.session_state["schedule"] = []
 
 
-# ====================================
+## ====================================
 # ------------ HELPERS ---------------
 # ====================================
 @st.cache_data
 def load_customer_data():
-    return pd.read_csv(CUSTOMER_CSV)
-
+    return pd.read_csv(CUSTOMER_CSV)
 
 def filter_customers(df, query):
-    query = query.lower()
-    return df[df["Customer Name"].str.lower().str.contains(query)]
-
+    query = query.lower()
+    return df[df["Customer Name"].str.lower().str.contains(query)]
 
 def get_tide_predictions(date: datetime, ramp: str):
-    station_id = RAMP_TO_NOAA_ID.get(ramp)
-    if not station_id:
-        return None, [], f"No NOAA station ID mapped for {ramp}"
-    params = NOAA_PARAMS_TEMPLATE | {
-        "station": station_id,
-        "begin_date": date.strftime("%Y%m%d"),
-        "end_date": date.strftime("%Y%m%d")
-    }
-    try:
-        resp = requests.get(NOAA_API_URL, params=params, timeout=10)
-        resp.raise_for_status()
-        data = resp.json().get("predictions", [])
-        high_tides = [(d["t"], d["v"]) for d in data if d["type"] == "H"]
-        return [(d["t"], d["type"]) for d in data], high_tides, None
-    except Exception as e:
-        return None, [], str(e)
-
+    station_id = RAMP_TO_NOAA_ID.get(ramp)
+    if not station_id:
+        return None, [], f"No NOAA station ID mapped for {ramp}"
+    params = NOAA_PARAMS_TEMPLATE | {
+        "station": station_id,
+        "begin_date": date.strftime("%Y%m%d"),
+        "end_date": date.strftime("%Y%m%d")
+    }
+    try:
+        resp = requests.get(NOAA_API_URL, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json().get("predictions", [])
+        high_tides = [(d["t"], d["v"]) for d in data if d["type"] == "H"]
+        return [(d["t"], d["type"]) for d in data], high_tides, None
+    except Exception as e:
+        return None, [], str(e)
 
 def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_hours: float):
-    ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
-    win_start = ht - timedelta(hours=before_hours)
-    win_end = ht + timedelta(hours=after_hours)
-    slots = []
-    t = datetime.combine(ht.date(), time(8, 0))  # Start checking from 8:00 AM
-    end_day = datetime.combine(ht.date(), time(14, 30)) # Check until 2:30 PM
+    ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
+    win_start = ht - timedelta(hours=before_hours)
+    win_end = ht + timedelta(hours=after_hours)
+    slots = []
+    t = datetime.combine(ht.date(), time(8, 0))  # Start checking from 8:00 AM
+    end_day = datetime.combine(ht.date(), time(14, 30)) # Check until 2:30 PM
 
-    while t <= end_day:
-        if win_start <= t <= win_end:
-            slots.append(t.time())
-        t += timedelta(minutes=30)
-    return slots
-
+    while t <= end_day:
+        if win_start <= t <= win_end:
+            slots.append(t.time())
+        t += timedelta(minutes=30)
+    return slots
 
 def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = None):
-    preds, high_tides_data, err = get_tide_predictions(date, ramp)
-    if err or not preds:
-        return [], None
+    preds, high_tides_data, err = get_tide_predictions(date, ramp)
+    if err or not preds:
+        return [], None
 
-    valid_slots = []
-    high_tide_time = None
-    tide_window = RAMP_TIDE_WINDOWS.get(ramp)
+    valid_slots = []
+    high_tide_time = None
+    tide_window = RAMP_TIDE_WINDOWS.get(ramp)
 
-    if ramp == "Scituate Harbor (Jericho Road)" and boat_draft and boat_draft > 5:  # [cite: 1]
-        tide_window = (3, 3)  # Special rule for Scituate with draft > 5' [cite: 1]
+    if ramp == "Scituate Harbor (Jericho Road)" and boat_draft and boat_draft > 5:  #
+        tide_window = (3, 3)  # Special rule for Scituate with draft > 5'
 
-    if tide_window:
-        #  Use only the first high tide of the day
-        first_high_tide = high_tides_data[0] if high_tides_data else None
-        if first_high_tide:
-            ht_datetime = datetime.strptime(first_high_tide[0], "%Y-%m-%d %H:%M")
-            high_tide_time = ht_datetime.strftime("%I:%M %p")
-            valid_slots = generate_slots_for_high_tide(first_high_tide[0], tide_window[0], tide_window[1])
-    elif ramp == "Sandwich Basin":
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3) # "Any tide" - provide middle of the day window [cite: 1]
-    else:
-        # If no tide window is specified, return all slots (or a reasonable default)
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3) # Default to 3 hours before/after 10:00 AM
+    if tide_window:
+        #  Use only the first high tide of the day
+        first_high_tide = high_tides_data[0] if high_tides_data else None
+        if first_high_tide:
+            ht_datetime = datetime.strptime(first_high_tide[0], "%Y-%m-%d %H:%M")
+            high_tide_time = ht_datetime.strftime("%I:%M %p")
+            valid_slots = generate_slots_for_high_tide(first_high_tide[0], tide_window[0], tide_window[1])
+    elif ramp == "Sandwich Basin":
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3) # "Any tide" - provide middle of the day window
+    else:
+        # If no tide window is specified, return all slots (or a reasonable default)
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3) # Default to 3 hours before/after 10:00 AM
 
-    return sorted(set(valid_slots)), high_tide_time
+    return sorted(set(valid_slots)), high_tide_time
 
+def format_date(date_obj):
+    return date_obj.strftime("%B %d") + ("th" if 11 <= date_obj.day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(date_obj.day % 10, 'th')) + f", {date_obj.year}"
 
 def is_workday(date: datetime):
-    wk = date.weekday()
-    if wk == 6:
-        return False
-    if wk == 5:
-        return date.month in (5, 9)
-    return True
+    wk = date.weekday()
+    if wk == 6:
+        return False
+    if wk == 5:
+        return date.month in (5, 9)
+    return True
 
 def eligible_trucks(boat_len: int):
-    return [t for t, lim in TRUCK_LIMITS.items() if (lim == 0 or boat_len <= lim) and t != "J17"]
-
+    return [t for t, lim in TRUCK_LIMITS.items() if (lim == 0 or boat_len <= lim) and t != "J17"]
 
 def has_truck_scheduled(truck: str, date: datetime):
-    for job in st.session_state["schedule"]:
-        if job["truck"] == truck and job["date"].date() == date.date():
-            return True
-    return False
-
+    for job in st.session_state["schedule"]:
+        if job["truck"] == truck and job["date"].date() == date.date():
+            return True
+    return False
 
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
-    start_dt = datetime.combine(date, start_t)
-    end_dt = start_dt + timedelta(hours=dur_hrs)
-    for job in st.session_state["schedule"]:
-        if job["truck"] != truck:
-            continue
-        if job["date"].date() != date.date():
-            continue
-        job_start = datetime.combine(job["date"], job["time"])
-        job_end = job_start + timedelta(hours=job["duration"])
-        latest_start = max(start_dt, job_start)
-        earliest_end = min(end_dt, job_end)
-        overlap = (earliest_end - latest_start).total_seconds() > 0
-        if overlap:
-            return False
-    return True
-
-
-# ... (Your existing code before the find_three_dates function)
+    start_dt = datetime.combine(date, start_t)
+    end_dt = start_dt + timedelta(hours=dur_hrs)
+    for job in st.session_state["schedule"]:
+        if job["truck"] != truck:
+            continue
+        if job["date"].date() != date.date():
+            continue
+        job_start = datetime.combine(job["date"], job["time"])
+        job_end = job_start + timedelta(hours=job["duration"])
+        latest_start = max(start_dt, job_start)
+        earliest_end = min(end_dt, job_end)
+        overlap = (earliest_end - latest_start).total_seconds() > 0
+        if overlap:
+            return False
+    return True
 
 def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
-    """
-    Finds the three earliest available dates for boat ramp scheduling.
+    found = []
+    current = start_date
+    trucks = eligible_trucks(boat_len)
+    if not trucks:
+        return []
 
-    Args:
-        start_date (datetime): The earliest date to start the search.
-        ramp (str): The name of the launch ramp.
-        boat_len (int): The length of the boat.
-        duration (float): The estimated duration of the job in hours.
-        boat_draft (float, optional): The boat's draft (for ramps with draft restrictions). Defaults to None.
-        search_days_limit (int, optional): The maximum number of days to search from start_date. Defaults to 7.
+    days_searched = 0
+    while len(found) < 3 and days_searched < search_days_limit:
+        if is_workday(current):
+            valid_slots, high_tide_time = get_valid_slots_with_tides(current, ramp, boat_draft)
 
-    Returns:
-        list: A list of dictionaries, where each dictionary represents an available slot
-              (date, time, ramp, truck, high_tide).  The list is sorted by date and time.
-    """
+            for truck in trucks:
+                first_job_today = not has_truck_scheduled(truck, current)
+                relevant_slots_for_truck = []
+                if first_job_today:
+                    for slot in valid_slots:
+                        if slot.hour == 8 and slot.minute == 0:
+                            relevant_slots_for_truck.append(slot)
+                            break
+                else:
+                    relevant_slots_for_truck = valid_slots
 
-    found = []
-    current = start_date
-    trucks = eligible_trucks(boat_len)
-    if not trucks:
-        return []
+                for slot in relevant_slots_for_truck:
+                    if is_truck_free(truck, current, slot, duration):
+                        found.append({
+                            "date": current.date(),
+                            "time": slot,
+                            "ramp": ramp,
+                            "truck": truck,
+                            "high_tide": high_tide_time
+                        })
 
-    days_searched = 0
-    while len(found) < 3 and days_searched < search_days_limit:
-        if is_workday(current):
-            valid_slots, high_tide_time = get_valid_slots_with_tides(current, ramp, boat_draft)
+            # Sort the 'found' list by date and then time to prioritize earlier slots
+            found.sort(key=lambda x: (x["date"], x["time"]))
 
-            for truck in trucks:
-                first_job_today = not has_truck_scheduled(truck, current)
-                relevant_slots_for_truck = []
-                if first_job_today:
-                    for slot in valid_slots:
-                        if slot.hour == 8 and slot.minute == 0:
-                            relevant_slots_for_truck.append(slot)
-                            break
-                else:
-                    relevant_slots_for_truck = valid_slots
+            # If we've found 3, we can stop searching
+            if len(found) >= 3:
+                break
 
-                for slot in relevant_slots_for_truck:
-                    if is_truck_free(truck, current, slot, duration):
-                        found.append({
-                            "date": current.date(),
-                            "time": slot,
-                            "ramp": ramp,
-                            "truck": truck,
-                            "high_tide": high_tide_time
-                        })
+        current += timedelta(days=1)
+        days_searched += 1
 
-            # Sort the 'found' list by date and then time to prioritize earlier slots
-            found.sort(key=lambda x: (x["date"], x["time"]))
+    return found[:3]  # Return at most the first 3 slots (or fewer if we didn't find 3)
 
-            # If we've found 3, we can stop searching
-            if len(found) >= 3:
-                break
+# ====================================
+# ------------- UI -------------------
+# ====================================
+st.title("Boat Ramp Scheduling")
 
-        current += timedelta(days=1)
-        days_searched += 1
+customers_df = load_customer_data()
 
-    return found[:3]  # Return at most the first 3 slots (or fewer if we didn't find 3)
+# --- Sidebar for Input ---
+with st.sidebar:
+    st.header("New Job")
+    customer_query = st.text_input("Find Customer:", "")
+    filtered_customers = filter_customers(customers_df, customer_query)
 
-# ... (Your existing code after the find_three_dates function)
+    if not filtered_customers.empty:
+        selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
+    else:
+        selected_customer = None
+        st.info("No matching customers found.")
+
+    if selected_customer:
+        customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
+        boat_type = customer_row["Boat Type"]
+        boat_length = customer_row["Boat Length"]
+        st.write(f"Selected Boat Type: **{boat_type}**")
+        st.write(f"Selected Boat Length: **{boat_length} feet**")
+        ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
+        if ramp_choice == "Scituate Harbor (Jericho Road)":
+            boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
+        else:
+            boat_draft = None
+        earliest_date = st.date_input("Earliest Date", datetime.now().date())
+        find_slots_button = st.button("Find Available Dates")
+
+# --- Main Page for Results ---
+st.header("Available Slots")
+if 'find_slots_button' in locals() and find_slots_button:
+    if selected_customer:
+        duration = JOB_DURATION_HRS.get(boat_type, 1.0)
+        available_slots = find_three_dates(
+            datetime(earliest_date.year, earliest_date.month, earliest_date.day),
+            ramp_choice,
+            boat_length,
+            duration,
+            boat_draft
+        )
+
+        if available_slots:
+            # Display the first high tide prominently once
+            first_high_tide = available_slots[0].get('high_tide') if available_slots else None
+            if first_high_tide:
+                st.subheader(f"High Tide: {first_high_tide}")
+
+            cols = st.columns(len(available_slots))
+            for i, slot in enumerate(available_slots):
+                with cols[i]:
+                    formatted_date = format_date(slot['date'])
+                    st.info(f"Date: {formatted_date}")
+                    st.markdown(f"<span style='font-size: 0.8em;'>Time: {slot['time'].strftime('%H:%M')}</span>", unsafe_allow_html=True)
+                    st.markdown(f"**Ramp:** {slot['ramp']}")
+                    st.markdown(f"**Truck:** {slot['truck']}")
+                    schedule_key = f"schedule_{slot['date']}_{slot['time']}_{slot['truck']}"
+
+                    def schedule_job():
+                        new_schedule_item = {
+                            "truck": slot["truck"],
+                            "date": datetime.combine(slot["date"], slot["time"]),
+                            "time": slot["time"],
+                            "duration": duration,
+                            "customer": selected_customer
+                        }
+                        st.session_state["schedule"].append(new_schedule_item)
+                        st.success(f"Scheduled {selected_customer} with {slot['truck']} on {formatted_date} at {slot['time'].strftime('%H:%M')}.")
+
+                    st.button(f"Schedule on {slot['time'].strftime('%H:%M')}", key=schedule_key, on_click=schedule_job)
+                    st.markdown("---")
+        else:
+            st.info("No suitable slots found for the selected criteria.")
+    else:
+        st.warning("Please select a customer first.")
+
+st.header("Current Schedule")
+if st.session_state["schedule"]:
+    schedule_df = pd.DataFrame(st.session_state["schedule"])
+    schedule_df["Date"] = schedule_df["date"].dt.date
+    schedule_df["Time"] = schedule_df["time"].astype(str)
+    st.dataframe(schedule_df[["customer", "Date", "Time", "truck", "duration"]])
+else:
+    st.info("The schedule is currently empty.")
 
 
 # ====================================
