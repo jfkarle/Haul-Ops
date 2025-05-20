@@ -162,13 +162,13 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
             return False
     return True
 
-def format_date_mmddyy(date_obj):
-    """Formats a date object (date or datetime) to MM/DD/YY string."""
+def format_date_display(date_obj):
     if isinstance(date_obj, datetime):
-        return date_obj.strftime("%m/%d/%y")
-    elif isinstance(date_obj, date): # Handle date objects too
-        return date_obj.strftime("%m/%d/%y")
-    return str(date_obj) # Fallback
+        return date_obj.strftime("%B %d, %Y")  # e.g., July 5, 2025
+    elif isinstance(date_obj, date):
+        return date_obj.strftime("%B %d, %Y")
+    return str(date_obj)
+
 
 def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
     found = []
