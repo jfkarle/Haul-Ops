@@ -183,25 +183,26 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: f
             valid_slots, high_tide_time = get_valid_slots_with_tides(current_date, ramp, boat_draft)
 
             for truck in trucks:
-                first_job_today = not has_truck_scheduled(truck, current_date)
-                relevant_slots_for_truck = []
-                if first_job_today:
-                    for slot in valid_slots:
-                        if slot.hour == 8 and slot.minute == 0:
-                            relevant_slots_for_truck.append(slot)
-                            break
-                else:
-                    relevant_slots_for_truck = valid_slots
+    first_job_today = not has_truck_scheduled(truck, current_date)
+    if first_job_today:
+        relevant_slots_for_truck = [
+            slot for slot in valid_slots if slot.hour == 8 and slot.minute == 0
+        ]
+    else:
+        relevant_slots_for_truck = valid_slots
 
-                for slot in relevant_slots_for_truck:
-                    if is_truck_free(truck, current_date, slot, duration):
-                        found.append({
-                            "date": current_date.date(), # Store as date object
-                            "time": slot,
-                            "ramp": ramp,
-                            "truck": truck,
-                            "high_tide": high_tide_time
-                        })
+    for slot in relevant_slots_for_truck:
+        if is_truck_free(truck, current_date, slot, duration):
+            found.append({
+                "date": current_date.date(),
+                "time": slot,
+                "ramp": ramp,
+                "truck": truck,
+                "high_tide": high_tide_time
+            })
+            if len(found) >= 3:
+                return found  # ✅ Immediately return if 3 are found
+
 
             found.sort(key=lambda x: (x["date"], x["time"]))
 
