@@ -279,14 +279,6 @@ with st.sidebar:
         if ht:
             st.markdown(f"**High Tide on {format_date_display(slot['date'])}: {ht}**")
 
-    # Always display high tide in sidebar if slots exist
-    if "available_slots" in st.session_state and st.session_state["available_slots"]:
-        slot = st.session_state["available_slots"][0]
-        ht = slot.get("high_tide")
-        if ht:
-            st.markdown(f"**High Tide on {format_date_display(slot['date'])}: {ht}**")
-
-
 # --- Main Page for Results ---
 st.header("Available Slots")
 if 'find_slots_button' in locals() and find_slots_button:
