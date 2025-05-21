@@ -279,6 +279,30 @@ with st.sidebar:
         if ht:
             st.markdown(f"**High Tide on {format_date_display(slot['date'])}: {ht}**")
 
+st.markdown("---")
+st.subheader("Remove Scheduled Job")
+
+if st.session_state["schedule"]:
+    # Generate readable job labels
+    job_options = [
+        f"{job['customer']} – {format_date_display(job['date'])} at {job['time'].strftime('%H:%M')} on {job['truck']}"
+        for job in st.session_state["schedule"]
+    ]
+    selected_label = st.selectbox("Select Job to Remove", job_options)
+
+    if st.button("Remove Selected Job"):
+        # Find and remove matching job
+        for i, job in enumerate(st.session_state["schedule"]):
+            label = f"{job['customer']} – {format_date_display(job['date'])} at {job['time'].strftime('%H:%M')} on {job['truck']}"
+            if label == selected_label:
+                removed_job = st.session_state["schedule"].pop(i)
+                st.success(f"Removed: {label}")
+                break
+else:
+    st.info("No jobs to remove.")
+
+
+
 # --- Main Page for Results ---
 st.header("Available Slots")
 if 'find_slots_button' in locals() and find_slots_button:
