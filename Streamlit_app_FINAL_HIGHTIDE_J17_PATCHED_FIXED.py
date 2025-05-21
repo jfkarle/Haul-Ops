@@ -281,4 +281,16 @@ with st.sidebar:
     filtered_customers = filter_customers(customers_df, customer_query)
 
     if not filtered_customers.empty:
-        selected_customer = st.selectbox("Select Customer", filtered_customers
+        selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
+    else:
+        selected_customer = None
+        st.info("No matching customers found.")
+
+    if selected_customer:
+        customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
+        boat_type = customer_row["Boat Type"]
+        boat_length = customer_row["Boat Length"]
+        st.write(f"Selected Boat Type: **{boat_type}**")
+        st.write(f"Selected Boat Length: **{boat_length} feet**")
+        ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
+        if ramp_choice == "Scituate Harbor
