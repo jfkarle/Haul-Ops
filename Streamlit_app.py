@@ -332,15 +332,26 @@ if 'find_slots_button' in locals() and find_slots_button:
 
                     def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
                         def schedule_job_callback():
-                        # Schedule hauling truck job
-                        hauling_job = {
-                            "truck": current_slot["truck"],
-                            "date": datetime.combine(current_slot["date"], current_slot["time"]),
-                            "time": current_slot["time"],
-                            "duration": current_duration,
-                            "customer": current_customer
-                        }
-                        st.session_state["schedule"].append(hauling_job)
+                            # Schedule hauling truck job
+                            hauling_job = {
+                                "truck": current_slot["truck"],
+                                "date": datetime.combine(current_slot["date"], current_slot["time"]),
+                                "time": current_slot["time"],
+                                "duration": current_duration,
+                                "customer": current_customer
+                    }
+                    st.session_state["schedule"].append(hauling_job)
+
+                    # Schedule crane truck J17 if required
+                    if current_slot.get("j17_required"):
+                       crane_job = {
+                           "truck": "J17",
+                           "date": datetime.combine(current_slot["date"], current_slot["time"]),
+                           "time": current_slot["time"],
+                           "duration": current_slot["j17_duration"],
+                           "customer": current_customer
+                    }
+                    st.session_state["schedule"].append(crane_job)
 
                         # Schedule crane truck J17 if required
                         if current_slot.get("j17_required"):
