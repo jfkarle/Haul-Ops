@@ -363,12 +363,14 @@ if st.session_state["schedule"]:
     for job in st.session_state["schedule"]:
         display_schedule_list.append({
             "Customer": job["customer"],
+            "Boat Type":  customers_df[customers_df["Customer Name"] == job["customer"]]["Boat Type"].iloc[0], # Added Boat Type
             "Date": format_date_display(job["date"]), # Format for display
             "Time": job["time"].strftime('%H:%M'),
             "Truck": job["truck"],
+            "Truck J17": "Yes" if job["truck"] == "J17" else "No",  # New Truck J17 column
             "Duration (hrs)": job["duration"]
         })
     schedule_df_display = pd.DataFrame(display_schedule_list)
-    st.dataframe(schedule_df_display[["Customer", "Date", "Time", "Truck", "Duration (hrs)"]])
+    st.dataframe(schedule_df_display[["Customer", "Boat Type", "Date", "Time", "Truck", "Truck J17", "Duration (hrs)"]]) # Updated column order
 else:
     st.info("The schedule is currently empty.")
