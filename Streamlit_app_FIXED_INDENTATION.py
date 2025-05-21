@@ -283,6 +283,12 @@ st.markdown("---")
 st.header("Current Schedule")
 
 if st.session_state["schedule"]:
+    # Table headers
+    col_headers = st.columns([2, 2, 2, 1, 1, 1, 1, 1])
+    headers = ["Customer", "Boat Type", "Date", "Time", "Truck", "J17", "Hrs", "Remove"]
+    for col, header in zip(col_headers, headers):
+        col.markdown(f"**{header}**")
+
     for i, job in enumerate(st.session_state["schedule"]):
         try:
             customer_row = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
@@ -295,26 +301,19 @@ if st.session_state["schedule"]:
             for j in st.session_state["schedule"]
         ) else "No"
 
-        col1, col2 = st.columns([5, 1])
-        with col1:
-            st.markdown(f"""
-                **Customer:** {job['customer']}  
-                **Boat Type:** {boat_type}  
-                **Date:** {format_date_display(job['date'])}  
-                **Time:** {job['time'].strftime('%H:%M')}  
-                **Truck:** {job['truck']}  
-                **Crane (J17):** {truck_j17}  
-                **Duration:** {job['duration']} hrs
-            """)
-        with col2:
-            if st.button("❌ Remove", key=f"remove_{i}"):
-                st.session_state["schedule"].pop(i)
-                st.experimental_rerun()
+        cols = st.columns([2, 2, 2, 1, 1, 1, 1, 1])
+        cols[0].write(job["customer"])
+        cols[1].write(boat_type)
+        cols[2].write(format_date_display(job["date"]))
+        cols[3].write(job["time"].strftime("%H:%M"))
+        cols[4].write(job["truck"])
+        cols[5].write(truck_j17)
+        cols[6].write(job["duration"])
+        if cols[7].button("❌", key=f"remove_{i}"):
+            st.session_state["schedule"].pop(i)
+            st.experimental_rerun()
 else:
     st.info("The schedule is currently empty.")
-
-
-
 
 
 # --- Main Page for Results ---
