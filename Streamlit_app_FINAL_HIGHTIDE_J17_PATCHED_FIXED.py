@@ -189,10 +189,10 @@ def format_date_display(date_obj):
         return date_obj.strftime("%B %d, %Y")
     return str(date_obj)
 
-def find_three_dates(start_date: datetime, ramp: str, boat_len: int, duration: float, boat_draft: float = None, search_days_limit: int = 7):
+def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 7):
     found = []
     current_date = start_date
-    trucks = eligible_trucks(boat_len, boat_type)
+    trucks = eligible_trucks(boat_len, boat_type_arg)
     if not trucks:
         return []
 
@@ -281,6 +281,7 @@ if 'find_slots_button' in locals() and find_slots_button:
             earliest_datetime,
             ramp_choice,
             boat_length,
+            boat_type,  # Pass the boat_type variable here
             duration,
             boat_draft
         )
