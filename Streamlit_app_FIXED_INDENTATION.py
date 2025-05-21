@@ -389,7 +389,14 @@ if st.session_state["schedule"]:
             "Date": format_date_display(job["date"]),
             "Time": job["time"].strftime('%H:%M'),
             "Truck": job["truck"],
-            "Truck J17": "Yes" if job["truck"] == "J17" else "No",
+            "Truck J17": "Yes" if any(
+                j["truck"] == "J17" and
+                j["customer"] == job["customer"] and
+                j["date"] == job["date"] and
+                j["time"] == job["time"]
+                for j in st.session_state["schedule"]
+            ) else "No",
+
             "Duration (hrs)": job["duration"]
         })
 
