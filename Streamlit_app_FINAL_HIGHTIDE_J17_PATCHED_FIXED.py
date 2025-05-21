@@ -361,13 +361,19 @@ if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
     display_schedule_list = []
     for job in st.session_state["schedule"]:
+        customer_boat_type = ""
+        try:
+            customer_boat_type = customers_df[customers_df["Customer Name"] == job["customer"]]["Boat Type"].iloc[0]
+        except (KeyError, IndexError):
+            customer_boat_type = "Unknown"
+
         display_schedule_list.append({
             "Customer": job["customer"],
-            "Boat Type":  customers_df[customers_df["Customer Name"] == job["customer"]]["Boat Type"].iloc[0], # Added Boat Type
+            "Boat Type": customer_boat_type,
             "Date": format_date_display(job["date"]), # Format for display
             "Time": job["time"].strftime('%H:%M'),
             "Truck": job["truck"],
-            "Truck J17": "Yes" if job["truck"] == "J17" else "No",  # New Truck J17 column
+            "Truck J17": "Yes" if job["truck"] == "J17" else "No",  # Corrected J17 check
             "Duration (hrs)": job["duration"]
         })
     schedule_df_display = pd.DataFrame(display_schedule_list)
