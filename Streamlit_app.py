@@ -196,43 +196,44 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
     if not trucks:
         return []
 
+    j17_duration = 0
+    if "Sailboat MD" in boat_type_arg:
+        j17_duration = 1.0
+    elif "Sailboat MT" in boat_type_arg:
+        j17_duration = 1.5
+
     days_searched = 0
     while len(found) < 3 and days_searched < search_days_limit:
         if is_workday(current_date):
             valid_slots, high_tide_time = get_valid_slots_with_tides(current_date, ramp, boat_draft)
             if valid_slots:
-                earliest_slot = min(valid_slots)  # Find the earliest slot
                 for truck in trucks:
-                    if is_truck_free(truck, current_date, earliest_slot, duration):
-                        found.append({
-                            "date": current_date.date(),
-                            "time": earliest_slot,
-                            "ramp": ramp,
-                            "truck": truck,
-                            "high_tide": high_tide_time
-                        })
-                        break  # Only one slot per truck per day
-                if len(found) < 3:
-                    # Check for other trucks on the same day
-                    remaining_trucks = [truck for truck in trucks if not any(f['truck'] == truck and f['date'] == current_date.date() for f in found)]
-                    for truck in remaining_trucks:
-                        for slot in valid_slots:
-                            if is_truck_free(truck, current_date, slot, duration):
-                                found.append({
-                                    "date": current_date.date(),
-                                    "time": slot,
-                                    "ramp": ramp,
-                                    "truck": truck,
-                                    "high_tide": high_tide_time
-                                })
-                                break
-                    
-        if len(found) >= 3:
-            break
+                    for slot in valid_slots:
+                        # Check if both hauling truck and (if needed) J17 are free
+                        hauling_free = is_truck_free(truck, current_date, slot, duration)
+                        j17_free = True
+                        if j17_duration > 0:
+                            j17_free = is_truck_free("J17", current_date, slot, j17_duration)
+                        if hauling_free and j17_free:
+                            # Store hauling truck job
+                            found.append({
+                                "date": current_date.date(),
+                                "time": slot,
+                                "ramp": ramp,
+                                "truck": truck,
+                                "high_tide": high_tide_time,
+                                "boat_type": boat_type_arg,
+                                "j17_required": j17_duration > 0,
+                                "j17_duration": j17_duration
+                            })
+                            break
+                    if len(found) >= 3:
+                        break
         current_date += timedelta(days=1)
         days_searched += 1
 
     return found[:3]
+
 
 
 # ====================================
