@@ -472,9 +472,3 @@ if st.session_state["schedule"]:
 else:
     st.info("The schedule is currently empty.")
 
-
-    # Display schedule table
-    schedule_df_display = pd.DataFrame(display_schedule_list)
-    st.dataframe(schedule_df_display)
-
-    # Job rem
