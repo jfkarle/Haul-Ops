@@ -280,26 +280,40 @@ with st.sidebar:
             st.markdown(f"**High Tide on {format_date_display(slot['date'])}: {ht}**")
 
 st.markdown("---")
-st.subheader("Remove Scheduled Job")
+st.header("Current Schedule")
 
 if st.session_state["schedule"]:
-    # Generate readable job labels
-    job_options = [
-        f"{job['customer']} – {format_date_display(job['date'])} at {job['time'].strftime('%H:%M')} on {job['truck']}"
-        for job in st.session_state["schedule"]
-    ]
-    selected_label = st.selectbox("Select Job to Remove", job_options)
+    for i, job in enumerate(st.session_state["schedule"]):
+        try:
+            customer_row = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
+            boat_type = customer_row["Boat Type"]
+        except (KeyError, IndexError):
+            boat_type = "Unknown"
 
-    if st.button("Remove Selected Job"):
-        # Find and remove matching job
-        for i, job in enumerate(st.session_state["schedule"]):
-            label = f"{job['customer']} – {format_date_display(job['date'])} at {job['time'].strftime('%H:%M')} on {job['truck']}"
-            if label == selected_label:
-                removed_job = st.session_state["schedule"].pop(i)
-                st.success(f"Removed: {label}")
-                break
+        truck_j17 = "Yes" if any(
+            j["truck"] == "J17" and j["customer"] == job["customer"] and j["date"] == job["date"] and j["time"] == job["time"]
+            for j in st.session_state["schedule"]
+        ) else "No"
+
+        col1, col2 = st.columns([5, 1])
+        with col1:
+            st.markdown(f"""
+                **Customer:** {job['customer']}  
+                **Boat Type:** {boat_type}  
+                **Date:** {format_date_display(job['date'])}  
+                **Time:** {job['time'].strftime('%H:%M')}  
+                **Truck:** {job['truck']}  
+                **Crane (J17):** {truck_j17}  
+                **Duration:** {job['duration']} hrs
+            """)
+        with col2:
+            if st.button("❌ Remove", key=f"remove_{i}"):
+                st.session_state["schedule"].pop(i)
+                st.experimental_rerun()
 else:
-    st.info("No jobs to remove.")
+    st.info("The schedule is currently empty.")
+
+
 
 
 
