@@ -200,18 +200,35 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
     while len(found) < 3 and days_searched < search_days_limit:
         if is_workday(current_date):
             valid_slots, high_tide_time = get_valid_slots_with_tides(current_date, ramp, boat_draft)
-            for truck in trucks:
-                for slot in valid_slots:
-                    if is_truck_free(truck, current_date, slot, duration):
+            if valid_slots:
+                earliest_slot = min(valid_slots)  # Find the earliest slot
+                for truck in trucks:
+                    if is_truck_free(truck, current_date, earliest_slot, duration):
                         found.append({
                             "date": current_date.date(),
-                            "time": slot,
+                            "time": earliest_slot,
                             "ramp": ramp,
                             "truck": truck,
                             "high_tide": high_tide_time
                         })
-                        if len(found) >= 3:
-                            return found[:3]
+                        break  # Only one slot per truck per day
+                if len(found) < 3:
+                    # Check for other trucks on the same day
+                    remaining_trucks = [truck for truck in trucks if not any(f['truck'] == truck and f['date'] == current_date.date() for f in found)]
+                    for truck in remaining_trucks:
+                        for slot in valid_slots:
+                            if is_truck_free(truck, current_date, slot, duration):
+                                found.append({
+                                    "date": current_date.date(),
+                                    "time": slot,
+                                    "ramp": ramp,
+                                    "truck": truck,
+                                    "high_tide": high_tide_time
+                                })
+                                break
+                    
+        if len(found) >= 3:
+            break
         current_date += timedelta(days=1)
         days_searched += 1
 
