@@ -285,12 +285,23 @@ if 'find_slots_button' in locals() and find_slots_button:
             boat_draft
         )
 
-        st.session_state['available_slots'] = available_slots
-        if available_slots:
-            first_high_tide = available_slots[0].get('high_tide') if available_slots else None
-            
-            cols = st.columns(len(available_slots))
-            for i, slot in enumerate(available_slots):
+        # Streamlit_app_FINAL_HIGHTIDE_J17_PATCHED_FIXED.py
+        boat_draft
+        # boat_type also needs to be passed here, see point 3 below
+    )
+
+    # The result is in st.session_state['available_slots'].
+    # Use a local variable to hold the slots for this block for clarity.
+    current_available_slots = st.session_state.get('available_slots') 
+
+    if current_available_slots:
+        # The variable 'first_high_tide' previously defined here (line 290) was not used
+        # in this block. High tide for the first slot is shown in the sidebar.
+        # You can remove that line if it's not used elsewhere.
+
+        cols = st.columns(len(current_available_slots))
+        for i, slot in enumerate(current_available_slots): # Use the correctly defined variable
+            # ...
                 with cols[i]:
                     # slot['date'] is a date object here
                     formatted_date_display = format_date_display(slot['date'])
