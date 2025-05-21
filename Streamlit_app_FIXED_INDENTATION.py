@@ -401,34 +401,77 @@ if 'find_slots_button' in locals() and find_slots_button:
 st.header("Current Schedule")
 
 if st.session_state["schedule"]:
-    # Build the display table
-    display_schedule_list = []
-    job_labels = []
+    grouped_jobs = []
+    processed_keys = set()
 
     for i, job in enumerate(st.session_state["schedule"]):
+        job_key = (job["customer"], job["date"], job["time"])
+        if job_key in processed_keys:
+            continue
+
+        # Find all matching jobs (same customer/date/time)
+        matches = [
+            j for j in st.session_state["schedule"]
+            if (j["customer"], j["date"], j["time"]) == job_key
+        ]
+
+        hauling_truck = None
+        crane_truck = None
+        duration = None
+        boat_type = "Unknown"
+
         try:
             customer_row = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
             boat_type = customer_row["Boat Type"]
         except (KeyError, IndexError):
-            boat_type = "Unknown"
+            pass
 
-        label = f"{job['customer']} – {format_date_display(job['date'])} at {job['time'].strftime('%H:%M')} on {job['truck']}"
-        job_labels.append(label)
+        for m in matches:
+            if m["truck"] == "J17":
+                crane_truck = "J17"
+            else:
+                hauling_truck = m["truck"]
+                duration = m["duration"]
 
-        truck_j17 = "Yes" if any(
-            j["truck"] == "J17" and j["customer"] == job["customer"] and j["date"] == job["date"] and j["time"] == job["time"]
-            for j in st.session_state["schedule"]
-        ) else "No"
-
-        display_schedule_list.append({
+        grouped_jobs.append({
             "Customer": job["customer"],
             "Boat Type": boat_type,
             "Date": format_date_display(job["date"]),
-            "Time": job["time"].strftime('%H:%M'),
-            "Truck": job["truck"],
-            "Truck J17": truck_j17,
-            "Duration (hrs)": job["duration"]
+            "Time": job["time"].strftime("%H:%M"),
+            "Hauling Truck": hauling_truck or "",
+            "Crane Truck": crane_truck or "",
+            "Duration (hrs)": duration or "",
+            "Key": job_key  # used for deletion
         })
+
+        processed_keys.add(job_key)
+
+    # Display table-like layout
+    col_headers = st.columns([2, 2, 2, 1, 2, 2, 1, 1])
+    headers = ["Customer", "Boat Type", "Date", "Time", "Hauling Truck", "Crane Truck", "Hrs", "Remove"]
+    for col, header in zip(col_headers, headers):
+        col.markdown(f"**{header}**")
+
+    for entry in grouped_jobs:
+        cols = st.columns([2, 2, 2, 1, 2, 2, 1, 1])
+        cols[0].write(entry["Customer"])
+        cols[1].write(entry["Boat Type"])
+        cols[2].write(entry["Date"])
+        cols[3].write(entry["Time"])
+        cols[4].write(entry["Hauling Truck"])
+        cols[5].write(entry["Crane Truck"])
+        cols[6].write(entry["Duration (hrs)"])
+
+        if cols[7].button("❌", key=f"remove_{entry['Key']}"):
+            # Remove both J17 and Hauling truck jobs for this customer/date/time
+            st.session_state["schedule"] = [
+                j for j in st.session_state["schedule"]
+                if (j["customer"], j["date"], j["time"]) != entry["Key"]
+            ]
+            st.experimental_rerun()
+else:
+    st.info("The schedule is currently empty.")
+
 
     # Display schedule table
     schedule_df_display = pd.DataFrame(display_schedule_list)
