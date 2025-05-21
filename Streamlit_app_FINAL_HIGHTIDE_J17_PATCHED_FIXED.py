@@ -41,7 +41,7 @@ RAMP_TIDE_WINDOWS = {
     "South River Yacht Yard": (2, 2),  # 2 hrs before or after
     "Roht (A to Z/ Mary's)": (1, 1),  # 1 hr before or after
     "Scituate Harbor (Jericho Road)": None,  # Any tide, special rule for 5' draft
-    "Harbor Cohasset (Parker Ave)": (3, 3),  # 3 hrs before or after
+    "Harbor Cohasset (Parker Ave)": (3, 3),  # 3 hrs before and after
     "Hull (A St, Sunset, Steamboat)": (3, 1.5),  # 3 hrs before, 1.5 hrs after for 6'+ draft
     "Hull (X Y Z St) (Goodwiny st)": (1, 1),  # 1 hr before or after
     "Hingham Harbor": (3, 3),  # 3 hrs before and after
@@ -281,21 +281,4 @@ with st.sidebar:
     filtered_customers = filter_customers(customers_df, customer_query)
 
     if not filtered_customers.empty:
-        selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
-    else:
-        selected_customer = None
-        st.info("No matching customers found.")
-
-    if selected_customer:
-        customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
-        boat_type = customer_row["Boat Type"]
-        boat_length = customer_row["Boat Length"]
-        st.write(f"Selected Boat Type: **{boat_type}**")
-        st.write(f"Selected Boat Length: **{boat_length} feet**")
-        ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
-        if ramp_choice == "Scituate Harbor (Jericho Road)":
-            boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
-        else:
-            boat_draft = None
-        # st.date_input returns a datetime.date object
-        earliest_date_input = st.date_input("Ear
+        selected_customer = st.selectbox("Select Customer", filtered_customers
