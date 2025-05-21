@@ -311,7 +311,7 @@ if st.session_state["schedule"]:
         cols[6].write(job["duration"])
         if cols[7].button("❌", key=f"remove_{i}"):
             st.session_state["schedule"].pop(i)
-            st.experimental_rerun()
+            st.rerun()
 else:
     st.info("The schedule is currently empty.")
 
@@ -468,7 +468,7 @@ if st.session_state["schedule"]:
                 j for j in st.session_state["schedule"]
                 if (j["customer"], j["date"], j["time"]) != entry["Key"]
             ]
-            st.experimental_rerun()
+            st.rerun()
 else:
     st.info("The schedule is currently empty.")
 
