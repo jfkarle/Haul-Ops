@@ -353,7 +353,7 @@ if 'find_slots_button' in locals() and find_slots_button:
                     }
                     st.session_state["schedule"].append(crane_job)
 
-                        # Schedule crane truck J17 if required
+                    # Schedule crane truck J17 if required
                         if current_slot.get("j17_required"):
                         crane_job = {
                             "truck": "J17",
