@@ -388,28 +388,37 @@ if 'find_slots_button' in locals() and find_slots_button:
 st.header("Current Schedule")
 
 if st.session_state["schedule"]:
+    # Build the display table
+    display_schedule_list = []
+    job_labels = []
+
     for i, job in enumerate(st.session_state["schedule"]):
-        job_label = f"{job['customer']} – {format_date_display(job['date'])} at {job['time'].strftime('%H:%M')} on {job['truck']}"
-        truck_j17_status = "Yes" if any(
+        try:
+            customer_row = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
+            boat_type = customer_row["Boat Type"]
+        except (KeyError, IndexError):
+            boat_type = "Unknown"
+
+        label = f"{job['customer']} – {format_date_display(job['date'])} at {job['time'].strftime('%H:%M')} on {job['truck']}"
+        job_labels.append(label)
+
+        truck_j17 = "Yes" if any(
             j["truck"] == "J17" and j["customer"] == job["customer"] and j["date"] == job["date"] and j["time"] == job["time"]
             for j in st.session_state["schedule"]
         ) else "No"
 
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            st.markdown(f"""
-            **Customer:** {job['customer']}  
-            **Boat Type:** {job.get('boat_type', 'N/A')}  
-            **Date:** {format_date_display(job['date'])}  
-            **Time:** {job['time'].strftime('%H:%M')}  
-            **Truck:** {job['truck']}  
-            **Crane (J17):** {truck_j17_status}  
-            **Duration:** {job['duration']} hrs  
-            """)
-        with col2:
-            if st.button("❌ Remove", key=f"remove_{i}"):
-                st.session_state["schedule"].pop(i)
-                st.experimental_rerun()
-else:
-    st.info("The schedule is currently empty.")
+        display_schedule_list.append({
+            "Customer": job["customer"],
+            "Boat Type": boat_type,
+            "Date": format_date_display(job["date"]),
+            "Time": job["time"].strftime('%H:%M'),
+            "Truck": job["truck"],
+            "Truck J17": truck_j17,
+            "Duration (hrs)": job["duration"]
+        })
 
+    # Display schedule table
+    schedule_df_display = pd.DataFrame(display_schedule_list)
+    st.dataframe(schedule_df_display)
+
+    # Job rem
