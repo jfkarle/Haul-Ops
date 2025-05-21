@@ -361,22 +361,28 @@ if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
     display_schedule_list = []
     for job in st.session_state["schedule"]:
-        customer_boat_type = ""
         try:
-            customer_boat_type = customers_df[customers_df["Customer Name"] == job["customer"]]["Boat Type"].iloc[0]
+            customer_row = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
+            boat_type = customer_row["Boat Type"]
+            boat_name = customer_row.get("Boat Name", "Unknown")
         except (KeyError, IndexError):
-            customer_boat_type = "Unknown"
+            boat_type = "Unknown"
+            boat_name = "Unknown"
 
         display_schedule_list.append({
             "Customer": job["customer"],
-            "Boat Type": customer_boat_type,
-            "Date": format_date_display(job["date"]), # Format for display
+            "Boat Name": boat_name,
+            "Boat Type": boat_type,
+            "Date": format_date_display(job["date"]),
             "Time": job["time"].strftime('%H:%M'),
             "Truck": job["truck"],
-            "Truck J17": "Yes" if job["truck"] == "J17" else "No",  # Corrected J17 check
+            "Truck J17": "Yes" if job["truck"] == "J17" else "No",
             "Duration (hrs)": job["duration"]
         })
+
     schedule_df_display = pd.DataFrame(display_schedule_list)
-    st.dataframe(schedule_df_display[["Customer", "Boat Type", "Date", "Time", "Truck", "Truck J17", "Duration (hrs)"]]) # Updated column order
+    st.dataframe(schedule_df_display[[
+        "Customer", "Boat Name", "Boat Type", "Date", "Time", "Truck", "Truck J17", "Duration (hrs)"
+    ]])
 else:
     st.info("The schedule is currently empty.")
