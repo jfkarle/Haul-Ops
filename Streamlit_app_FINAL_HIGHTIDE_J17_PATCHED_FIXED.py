@@ -289,7 +289,7 @@ if 'find_slots_button' in locals() and find_slots_button:
         # Streamlit_app_FINAL_HIGHTIDE_J17_PATCHED_FIXED.py
         boat_draft
         # boat_type also needs to be passed here, see point 3 below
-    )
+    
 
     # The result is in st.session_state['available_slots'].
     # Use a local variable to hold the slots for this block for clarity.
