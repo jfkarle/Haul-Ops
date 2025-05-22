@@ -239,6 +239,8 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
 
     return found[:3]
 
+def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
+    ...
 
 
 # ====================================
@@ -449,6 +451,31 @@ if st.session_state["schedule"]:
         ])
 
     st.dataframe(styled_df, use_container_width=True)
+
+# ========== Daily PDF Export UI ==========
+from datetime import datetime
+
+st.markdown("---")
+st.header("📄 Daily Schedule PDF")
+
+selected_date = st.date_input("Select Date for Daily PDF")
+
+if st.button("📄 Print Daily Truck Schedule"):
+    if "schedule" in st.session_state:
+        filtered_jobs = [
+            job for job in st.session_state["schedule"]
+            if job["date"].date() == selected_date
+        ]
+
+        pdf_path = generate_daily_schedule_pdf_bold_end_line_streamlit(
+            datetime.combine(selected_date, datetime.min.time()), filtered_jobs
+        )
+
+        with open(pdf_path, "rb") as f:
+            st.download_button("Download PDF", f, file_name=f"Truck_Schedule_{selected_date}.pdf")
+    else:
+        st.warning("No scheduled jobs found.")
+
 
 else:
     st.info("The schedule is currently empty.")
