@@ -364,8 +364,16 @@ if 'find_slots_button' in locals() and find_slots_button:
 st.header("Current Schedule")
 if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
-    display_schedule_list = []
+        display_schedule_list = []
+    seen = set()
+
     for job in st.session_state["schedule"]:
+        key = (job["customer"], job["date"], job["time"])
+        if job["truck"] == "J17" or key in seen:
+            continue  # Skip J17 rows or duplicates
+
+        seen.add(key)
+
         try:
             customer_row = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
             boat_type = customer_row["Boat Type"]
@@ -374,6 +382,15 @@ if st.session_state["schedule"]:
             boat_type = "Unknown"
             boat_name = "Unknown"
 
+        # Check if this job had a J17 companion job
+        has_j17 = any(
+            j["truck"] == "J17" and
+            j["customer"] == job["customer"] and
+            j["date"] == job["date"] and
+            j["time"] == job["time"]
+            for j in st.session_state["schedule"]
+        )
+
         display_schedule_list.append({
             "Customer": job["customer"],
             "Boat Name": boat_name,
@@ -381,16 +398,10 @@ if st.session_state["schedule"]:
             "Date": format_date_display(job["date"]),
             "Time": job["time"].strftime('%H:%M'),
             "Truck": job["truck"],
-            "Truck J17": "Yes" if any(
-                j["truck"] == "J17" and
-                j["customer"] == job["customer"] and
-                j["date"] == job["date"] and
-                j["time"] == job["time"]
-                for j in st.session_state["schedule"]
-            ) else "No",
-
+            "J17": "Yes" if has_j17 else "No",
             "Duration (hrs)": job["duration"]
         })
+
 
     schedule_df_display = pd.DataFrame(display_schedule_list)
     st.dataframe(schedule_df_display[[
