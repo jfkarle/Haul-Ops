@@ -344,8 +344,9 @@ if 'find_slots_button' in locals() and find_slots_button:
                                 }
                                 st.session_state['schedule'].append(crane_job)
                             st.success(
-                                f"Scheduled {current_customer} with {current_slot['truck']}"
-                                f"{' and J17' if current_slot.get('j17_required') else ''} on {current_formatted_date} at {current_slot['time'].strftime('%H:%M')}."
+                                f"Scheduled {current_customer} with Truck {current_slot['truck']}"
+                                f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
+                                f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}."
                             )
                         return schedule_job_callback
 
