@@ -320,7 +320,11 @@ if 'find_slots_button' in locals() and find_slots_button:
             # ...
                 with cols[i]:
                     # slot['date'] is a date object here
+                    ### formatted_date_display = format_date_display(slot['date'])
+                    ### st.info(f"Date: {formatted_date_display}")
+                    day_name = slot['date'].strftime("%A")  # e.g., Monday
                     formatted_date_display = format_date_display(slot['date'])
+                    st.markdown(f"**{day_name}**")
                     st.info(f"Date: {formatted_date_display}")
                     st.markdown(f"**Time:** {slot['time'].strftime('%I:%M %p')}")
                     st.markdown(f"**Ramp:** {slot['ramp']}")
