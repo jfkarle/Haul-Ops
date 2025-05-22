@@ -404,7 +404,7 @@ if st.session_state["schedule"]:
 
     schedule_df_display = pd.DataFrame(display_schedule_list)
     st.dataframe(schedule_df_display[[
-        "Customer", "Boat Type", "Date", "Time", "Truck", "Crane", "Duration (hrs)"
+        "Customer", "Boat Type", "Date", "Time", "Truck", "J17", "Duration (hrs)"
     ]])
 else:
     st.info("The schedule is currently empty.")
