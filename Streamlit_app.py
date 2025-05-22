@@ -377,7 +377,7 @@ if st.session_state["schedule"]:
     for job in st.session_state["schedule"]:
         key = (job["customer"], job["date"], job["time"])
         if job["truck"] == "J17" or key in seen:
-            continue  # Skip J17 rows or duplicates
+            continue
 
         seen.add(key)
 
@@ -389,7 +389,6 @@ if st.session_state["schedule"]:
             boat_type = "Unknown"
             boat_name = "Unknown"
 
-        # Check if this job had a J17 companion job
         has_j17 = any(
             j["truck"] == "J17" and
             j["customer"] == job["customer"] and
@@ -413,24 +412,27 @@ if st.session_state["schedule"]:
 
     schedule_df_display = pd.DataFrame(display_schedule_list)
     schedule_df_display.rename(columns={"J17": "Crane"}, inplace=True)
-  
+
     def highlight_crane(val):
         if val == "Yes":
-            return "background-color: #ffcccc; font-weight: bold"  # light red
+            return "background-color: #ffcccc; font-weight: bold"
         return ""
 
-    styled_df = schedule_df_display.style \
-    .applymap(highlight_crane, subset=["Crane"]) \
-    .set_table_styles([
-        {"selector": "thead th", "props": [("font-weight", "bold"), ("background-color", "#f0f0f0"), ("border", "2px solid black")]},
-        {"selector": "td", "props": [("border", "2px solid black")]}
-    ])
-
-    st.dataframe(styled_df[[
+    display_df = schedule_df_display[[
         "Customer", "Boat Name", "Boat Type", "Date", "Time",
         "Truck", "Truck Duration", "Crane", "Duration", "High Tide"
-    ]], use_container_width=True)
+    ]]
+
+    styled_df = display_df.style \
+        .applymap(highlight_crane, subset=["Crane"]) \
+        .set_table_styles([
+            {"selector": "thead th", "props": [("font-weight", "bold"), ("background-color", "#f0f0f0"), ("border", "2px solid black")]},
+            {"selector": "td", "props": [("border", "2px solid black")]}
+        ])
+
+    st.dataframe(styled_df, use_container_width=True)
 
 else:
     st.info("The schedule is currently empty.")
+
 
