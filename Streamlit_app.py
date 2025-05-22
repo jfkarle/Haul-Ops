@@ -467,7 +467,7 @@ if st.button("📄 Print Daily Truck Schedule"):
             if job["date"].date() == selected_date
         ]
 
-                if filtered_jobs:
+        if filtered_jobs:
             pdf_path = generate_daily_schedule_pdf_bold_end_line_streamlit(
                 datetime.combine(selected_date, datetime.min.time()), filtered_jobs
             )
@@ -478,10 +478,8 @@ if st.button("📄 Print Daily Truck Schedule"):
                 st.error("PDF generation failed.")
         else:
             st.warning("No scheduled jobs found for the selected date.")
-
-
-
+    else:
+        st.warning("No scheduled jobs found.")
 else:
     st.info("The schedule is currently empty.")
-
 
