@@ -427,8 +427,6 @@ if st.session_state["schedule"]:
     ])
 
 st.dataframe(styled_df, use_container_width=True)
-
-
 else:
     st.info("The schedule is currently empty.")
 
