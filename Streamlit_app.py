@@ -246,6 +246,18 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
 # ====================================
 st.title("Boat Ramp Scheduling")
 
+st.title("Boat Ramp Scheduling")
+
+# Clean: Ensure nothing outputs accidental None
+# If you want to display tide info or status later, gate it properly like this:
+if "available_slots" in st.session_state and st.session_state["available_slots"]:
+    first_slot = st.session_state["available_slots"][0]
+    if first_slot.get("high_tide"):
+        tide_time = first_slot["high_tide"]
+        slot_date = first_slot["date"].strftime("%A, %B %d, %Y")
+        st.markdown(f"**High Tide on {slot_date}: {tide_time}**")
+
+
 if 'customers_df_loaded' not in st.session_state:
     customers_df = load_customer_data()
 else:
