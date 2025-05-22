@@ -280,7 +280,7 @@ with st.sidebar:
             st.markdown(f"**High Tide on {format_date_display(slot['date'])}: {ht}**")
 
 # --- Main Page for Results ---
-st.header("Available Slots")
+st.header("Leslie Penni")
 if 'find_slots_button' in locals() and find_slots_button:
     if selected_customer:
         duration = JOB_DURATION_HRS.get(boat_type, 1.0)
