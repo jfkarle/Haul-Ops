@@ -346,7 +346,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
             else:
                 pdf.text(x + column_widths[col] / 2 - 2, y + 13, "|")
 
-    filename = f"/mnt/data/schedule_{date_obj.strftime('%Y-%m-%d')}.pdf"
+    filename = f"schedule_{date_obj.strftime('%Y-%m-%d')}.pdf"
     pdf.output(filename)
     return filename if os.path.exists(filename) else None
 
