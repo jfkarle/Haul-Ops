@@ -405,6 +405,7 @@ if st.session_state["schedule"]:
             "Date": format_date_display(job["date"]),
             "Time": job["time"].strftime('%H:%M'),
             "Truck": job["truck"],
+            "Truck Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}",
             "J17": "Yes" if has_j17 else "No",
             "Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}",
             "High Tide": job.get("high_tide", "")
@@ -418,8 +419,14 @@ if st.session_state["schedule"]:
             return "background-color: #ffcccc; font-weight: bold"  # light red
         return ""
 
-    styled_df = schedule_df_display.style.applymap(highlight_crane, subset=["Crane"])
-    st.dataframe(styled_df, use_container_width=True)
+    styled_df = schedule_df_display.style \
+    .applymap(highlight_crane, subset=["Crane"]) \
+    .set_table_styles([
+        {"selector": "thead th", "props": [("font-weight", "bold"), ("background-color", "#f0f0f0"), ("border", "2px solid black")]},
+        {"selector": "td", "props": [("border", "2px solid black")]}
+    ])
+
+st.dataframe(styled_df, use_container_width=True)
 
 
 else:
