@@ -365,7 +365,7 @@ st.header("Current Schedule")
 if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
         display_schedule_list = []
-    seen = set()
+        seen = set()
 
     for job in st.session_state["schedule"]:
         key = (job["customer"], job["date"], job["time"])
