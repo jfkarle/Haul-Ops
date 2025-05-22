@@ -467,14 +467,18 @@ if st.button("📄 Print Daily Truck Schedule"):
             if job["date"].date() == selected_date
         ]
 
-        pdf_path = generate_daily_schedule_pdf_bold_end_line_streamlit(
-            datetime.combine(selected_date, datetime.min.time()), filtered_jobs
-        )
+                if filtered_jobs:
+            pdf_path = generate_daily_schedule_pdf_bold_end_line_streamlit(
+                datetime.combine(selected_date, datetime.min.time()), filtered_jobs
+            )
+            if pdf_path:
+                with open(pdf_path, "rb") as f:
+                    st.download_button("Download PDF", f, file_name=f"Truck_Schedule_{selected_date}.pdf")
+            else:
+                st.error("PDF generation failed.")
+        else:
+            st.warning("No scheduled jobs found for the selected date.")
 
-        with open(pdf_path, "rb") as f:
-            st.download_button("Download PDF", f, file_name=f"Truck_Schedule_{selected_date}.pdf")
-    else:
-        st.warning("No scheduled jobs found.")
 
 
 else:
