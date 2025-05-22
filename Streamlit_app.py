@@ -421,7 +421,7 @@ if st.session_state["schedule"]:
         return ""
 
     display_df = schedule_df_display[[
-        "Customer", "Boat Name", "Boat Type", "Date", "Time",
+        "Customer", "Boat Name", "Boat Type", "Date", "Ramp", "Time",
         "Truck", "Truck Duration", "Crane", "Duration", "High Tide"
     ]]
 
