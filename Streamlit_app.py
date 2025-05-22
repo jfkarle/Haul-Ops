@@ -364,8 +364,8 @@ if 'find_slots_button' in locals() and find_slots_button:
 st.header("Current Schedule")
 if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
-        display_schedule_list = []
-        seen = set()
+    display_schedule_list = []
+    seen = set()
 
     for job in st.session_state["schedule"]:
         key = (job["customer"], job["date"], job["time"])
@@ -402,10 +402,10 @@ if st.session_state["schedule"]:
             "Duration (hrs)": job["duration"]
         })
 
-
     schedule_df_display = pd.DataFrame(display_schedule_list)
     st.dataframe(schedule_df_display[[
-        "Customer", "Boat Type", "Date", "Time", "Truck", "Truck J17", "Duration (hrs)"
+        "Customer", "Boat Type", "Date", "Time", "Truck", "J17", "Duration (hrs)"
     ]])
 else:
     st.info("The schedule is currently empty.")
+
