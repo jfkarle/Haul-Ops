@@ -357,8 +357,6 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
 # ====================================
 st.title("Boat Ramp Scheduling")
 
-st.title("Boat Ramp Scheduling")
-
 # Clean: Ensure nothing outputs accidental None
 # If you want to display tide info or status later, gate it properly like this:
 if "available_slots" in st.session_state and st.session_state["available_slots"]:
