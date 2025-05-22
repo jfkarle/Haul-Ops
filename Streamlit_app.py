@@ -464,7 +464,7 @@ if st.button("📄 Print Daily Truck Schedule"):
     if "schedule" in st.session_state:
         filtered_jobs = [
             job for job in st.session_state["schedule"]
-            if job["date"] == selected_date
+            if job["date"].date() == selected_date
         ]
 
         if filtered_jobs:
