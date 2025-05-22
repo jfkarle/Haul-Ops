@@ -280,7 +280,7 @@ with st.sidebar:
             st.markdown(f"**High Tide on {format_date_display(slot['date'])}: {ht}**")
 
 # --- Main Page for Results ---
-st.header("Leslie Penni")
+# st.header("Available Slots")
 if 'find_slots_button' in locals() and find_slots_button:
     if selected_customer:
         duration = JOB_DURATION_HRS.get(boat_type, 1.0)
@@ -400,7 +400,7 @@ if st.session_state["schedule"]:
             "Time": job["time"].strftime('%H:%M'),
             "Truck": job["truck"],
             "J17": "Yes" if has_j17 else "No",
-            "Duration (hrs)": job["duration"]
+            "Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}"
         })
 
     schedule_df_display = pd.DataFrame(display_schedule_list)
