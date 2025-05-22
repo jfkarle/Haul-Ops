@@ -330,7 +330,8 @@ if 'find_slots_button' in locals() and find_slots_button:
                                 'date': datetime.combine(current_slot['date'], current_slot['time']),
                                 'time': current_slot['time'],
                                 'duration': current_duration,
-                                'customer': current_customer
+                                'customer': current_customer,
+                                'high_tide': current_slot.get("high_tide", "")
                             }
                             st.session_state['schedule'].append(hauling_job)
                             # Schedule crane truck J17 if required
@@ -401,6 +402,7 @@ if st.session_state["schedule"]:
             "Truck": job["truck"],
             "J17": "Yes" if has_j17 else "No",
             "Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}"
+            "High Tide": job.get("high_tide", "")
         })
 
     schedule_df_display = pd.DataFrame(display_schedule_list)
