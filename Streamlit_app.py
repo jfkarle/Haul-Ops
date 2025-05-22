@@ -426,10 +426,10 @@ if st.session_state["schedule"]:
         {"selector": "td", "props": [("border", "2px solid black")]}
     ])
 
-st.dataframe(styled_df[[
-    "Customer", "Boat Name", "Boat Type", "Date", "Time",
-    "Truck", "Truck Duration", "Crane", "Duration", "High Tide"
-]], use_container_width=True)
+    st.dataframe(styled_df[[
+        "Customer", "Boat Name", "Boat Type", "Date", "Time",
+        "Truck", "Truck Duration", "Crane", "Duration", "High Tide"
+    ]], use_container_width=True)
 
 else:
     st.info("The schedule is currently empty.")
