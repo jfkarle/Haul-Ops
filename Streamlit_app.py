@@ -336,7 +336,7 @@ if 'find_slots_button' in locals() and find_slots_button:
                                 'time': current_slot['time'],
                                 'duration': current_duration,
                                 'customer': current_customer,
-                                'high_tide': current_slot.get("high_tide", "")
+                                'high_tide': current_slot.get("high_tide", ""),
                                 'ramp': current_slot.get("ramp", "")
                             }
                             st.session_state['schedule'].append(hauling_job)
