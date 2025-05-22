@@ -1,1 +1,0 @@
-<full user script from earlier message goes here>
