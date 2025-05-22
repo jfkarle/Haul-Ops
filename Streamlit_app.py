@@ -337,6 +337,7 @@ if 'find_slots_button' in locals() and find_slots_button:
                                 'duration': current_duration,
                                 'customer': current_customer,
                                 'high_tide': current_slot.get("high_tide", "")
+                                'ramp': current_slot.get("ramp", "")
                             }
                             st.session_state['schedule'].append(hauling_job)
                             # Schedule crane truck J17 if required
@@ -402,6 +403,7 @@ if st.session_state["schedule"]:
             "Boat Name": boat_name,
             "Boat Type": boat_type,
             "Date": format_date_display(job["date"]),
+            "Ramp": job.get("ramp", "Unknown"),
             "Time": job["time"].strftime('%H:%M'),
             "Truck": job["truck"],
             "Truck Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}",
