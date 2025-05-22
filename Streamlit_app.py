@@ -3,6 +3,11 @@ import pandas as pd
 from datetime import datetime, timedelta, time, date
 import requests
 
+st.set_page_config(
+    page_title="Boat Ramp Scheduling",
+    layout="wide"
+)
+
 # ====================================
 # ------------ CONSTANTS -------------
 # ====================================
