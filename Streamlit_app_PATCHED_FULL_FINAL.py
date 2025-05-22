@@ -249,7 +249,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
     pdf.set_auto_page_break(auto=False)
     # Top-left date heading
     pdf.set_font("Helvetica", size=14, style='B')
-    pdf.text(margin_left, margin_top - 15, date_obj.strftime("%A, %B %d, %Y"))
+    
     pdf.set_font("Helvetica", size=11)
 
     # Fonts and colors
@@ -262,6 +262,8 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
     page_width = 612
     column_widths = [60, 100, 100, 100, 100]
     row_height = 18
+
+    pdf.text(margin_left, margin_top - 15, date_obj.strftime("%A, %B %d, %Y"))
 
     headers = ["", "S20", "S21", "S23", "Crane J17"]
     pdf.set_fill_color(220, 220, 220)
