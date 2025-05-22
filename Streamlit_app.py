@@ -402,9 +402,9 @@ if st.session_state["schedule"]:
             "Duration (hrs)": job["duration"]
         })
 
-    schedule_df_display = pd.DataFrame(display_schedule_list)
+    schedule_df_display.rename(columns={"J17": "Crane"}, inplace=True)
     st.dataframe(schedule_df_display[[
-        "Customer", "Boat Type", "Date", "Time", "Truck", "J17", "Duration (hrs)"
+        "Customer", "Boat Type", "Date", "Time", "Truck", "Crane", "Duration (hrs)"
     ]])
 else:
     st.info("The schedule is currently empty.")
