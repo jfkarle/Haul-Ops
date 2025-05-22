@@ -405,9 +405,15 @@ if st.session_state["schedule"]:
 
     schedule_df_display = pd.DataFrame(display_schedule_list)
     schedule_df_display.rename(columns={"J17": "Crane"}, inplace=True)
-    st.dataframe(schedule_df_display[[
-        "Customer", "Boat Type", "Date", "Time", "Truck", "Crane", "Duration (hrs)"
-    ]])
+  
+    def highlight_crane(val):
+        if val == "Yes":
+            return "background-color: #ffcccc; font-weight: bold"  # light red
+        return ""
+
+    styled_df = schedule_df_display.style.applymap(highlight_crane, subset=["Crane"])
+    st.dataframe(styled_df, use_container_width=True)
+
 
 else:
     st.info("The schedule is currently empty.")
