@@ -401,7 +401,7 @@ if st.session_state["schedule"]:
             "Time": job["time"].strftime('%H:%M'),
             "Truck": job["truck"],
             "J17": "Yes" if has_j17 else "No",
-            "Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}"
+            "Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}",
             "High Tide": job.get("high_tide", "")
         })
 
