@@ -11,6 +11,7 @@ st.set_page_config(
     page_title="Boat Ramp Scheduling",
     layout="wide"
 )
+)
 
 # ====================================
 # ------------ CONSTANTS -------------
@@ -285,7 +286,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
 
     start_hour = 8
     end_hour = 19
-
+    
     # Gather high/low tide times (rounded to nearest 30min)
     tide_marks = {"H": [], "L": []}
     for job in jobs:
@@ -401,7 +402,7 @@ with st.sidebar:
             boat_draft = None
         # st.date_input returns a datetime.date object
         earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
-        st.button(
+                    st.button(
     if "available_slots" in st.session_state and st.session_state["available_slots"]:
         slot = st.session_state["available_slots"][0]
         ht = slot.get("high_tide")
@@ -428,11 +429,11 @@ if 'find_slots_button' in locals() and find_slots_button:
         # Streamlit_app_FINAL_HIGHTIDE_J17_PATCHED_FIXED.py
         boat_draft
         # boat_type also needs to be passed here, see point 3 below
-
+    
 
     # The result is in st.session_state['available_slots'].
     # Use a local variable to hold the slots for this block for clarity.
-    current_available_slots = st.session_state.get('available_slots')
+    current_available_slots = st.session_state.get('available_slots') 
 
     if current_available_slots:
         # The variable 'first_high_tide' previously defined here (line 290) was not used
