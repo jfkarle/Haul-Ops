@@ -389,24 +389,24 @@ with st.sidebar:
         st.info("No matching customers found.")
 
     if selected_customer:
-        customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
-        boat_type = customer_row["Boat Type"]
-        boat_length = customer_row["Boat Length"]
-        st.write(f"Selected Boat Type: **{boat_type}**")
-        st.write(f"Selected Boat Length: **{boat_length} feet**")
-        ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
-        if ramp_choice == "Scituate Harbor (Jericho Road)":
-            boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
-        else:
-            boat_draft = None
-        # st.date_input returns a datetime.date object
-        earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
-        st.button(
+    customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
+    boat_type = customer_row["Boat Type"]
+    boat_length = customer_row["Boat Length"]
+    st.write(f"Selected Boat Type: **{boat_type}**")
+    st.write(f"Selected Boat Length: **{boat_length} feet**")
+    ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
+    if ramp_choice == "Scituate Harbor (Jericho Road)":
+        boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
+    else:
+        boat_draft = None
+    earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
+
     if "available_slots" in st.session_state and st.session_state["available_slots"]:
         slot = st.session_state["available_slots"][0]
         ht = slot.get("high_tide")
         if ht:
             st.markdown(f"**High Tide on {format_date_display(slot['date'])}: {ht}**")
+
 
 # --- Main Page for Results ---
 # st.header("Available Slots")
