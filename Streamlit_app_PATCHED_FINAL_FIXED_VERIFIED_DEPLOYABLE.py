@@ -1,15 +1,3 @@
-I've reviewed the provided Python script and it indeed has significant indentation issues and what appear to be incomplete or malformed code blocks, particularly in the UI section and within the `get_tide_predictions` function. There are also duplicated `page_title` and `layout` settings.
-
-Below is the corrected and validated script. I've focused on:
-
-1.  **Fixing Indentation:** Correcting all indentation errors to ensure proper Python syntax.
-2.  **Resolving Code Fragments:** Addressing incomplete `if/else` statements and logical blocks.
-3.  **Removing Duplicates:** Eliminating repeated code sections like the `page_title` setting and the `get_tide_predictions` function content.
-4.  **Ensuring Logical Flow:** Making sure the UI elements and their corresponding logic (like the `available_slots` display and scheduling callback) are correctly structured and connected.
-5.  **Refining UI Display:** Enhancing how information like high tide data and scheduled jobs are presented.
-6.  **Minor Logic Adjustments:** For instance, ensuring `boat_draft` is consistently handled.
-
-```python
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time, date
