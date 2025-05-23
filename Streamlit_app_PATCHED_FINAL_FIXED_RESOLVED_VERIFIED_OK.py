@@ -388,7 +388,7 @@ with st.sidebar:
         selected_customer = None
         st.info("No matching customers found.")
 
-    if selected_customer:
+  if selected_customer:
     customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
     boat_type = customer_row["Boat Type"]
     boat_length = customer_row["Boat Length"]
@@ -400,12 +400,6 @@ with st.sidebar:
     else:
         boat_draft = None
     earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
-
-    if "available_slots" in st.session_state and st.session_state["available_slots"]:
-        slot = st.session_state["available_slots"][0]
-        ht = slot.get("high_tide")
-        if ht:
-            st.markdown(f"**High Tide on {format_date_display(slot['date'])}: {ht}**")
 
 
 # --- Main Page for Results ---
