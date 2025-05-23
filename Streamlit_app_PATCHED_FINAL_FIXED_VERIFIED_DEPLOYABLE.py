@@ -375,16 +375,13 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
             "font_size": 8, "font_style": ""
         }
     
-    # Store job extent for drawing vertical lines after all cells are drawn
-    job_line_data = [] 
-
     # Function to convert time object to its corresponding row index
     def time_to_idx(t_obj):
         return (t_obj.hour - start_hour) * 4 + t_obj.minute // 15
 
     # Main loop to draw the grid and content
     for idx, t in enumerate(rows): # Iterate through each 15-minute time slot
-        y_row_start = pdf.get_y() # Current Y position for this row
+        y_row_start = margin_top + row_height * (idx + 1) # Y position for this row, +1 for header
         
         # Draw time/tide labels in the first column
         x_first_col = margin_left
@@ -432,9 +429,6 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
 
             current_x_grid += column_widths[col_idx]
         
-        pdf.set_y(y_row_start + row_height) # Move Y cursor down for the next row
-
-
     # After drawing all cells, draw the vertical lines for job durations
     truck_col_map = {"S20": 1, "S21": 2, "S23": 3, "J17": 4} 
     for job in jobs:
@@ -444,16 +438,15 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
         job_end_dt = job_start_dt + timedelta(hours=job["duration"])
 
         # Calculate the Y coordinate for the start of the line (bottom of the Ramp cell)
+        # Ramp text is at job_start_t + 30 mins. Line starts *below* this cell.
         ramp_slot_time = (job_start_dt + timedelta(minutes=30)).time()
-        start_job_idx_for_line = time_to_idx(ramp_slot_time) # Get index of the ramp cell
-        y_line_start = margin_top + row_height * (start_job_idx_for_line + 1 + 1) # +1 for header, +1 for bottom of ramp cell
+        start_line_row_idx = time_to_idx(ramp_slot_time) # Get index of the ramp cell
+        y_line_start = margin_top + row_height * (start_line_row_idx + 1 + 1) # +1 for header, +1 for bottom of ramp cell
 
         # Calculate the Y coordinate for the end of the line (bottom of the last job cell)
-        end_job_idx_for_line = time_to_idx((job_end_dt - timedelta(seconds=1)).time())
-        if end_job_idx_for_line < start_job_idx_for_line: 
-            continue # Should not happen if job duration is reasonable, but good to check
-
-        y_line_end = margin_top + row_height * (end_job_idx_for_line + 1 + 1)
+        # The line terminates at the bottom of the last *occupied* 15-min slot
+        end_job_row_idx = time_to_idx((job_end_dt - timedelta(seconds=1)).time())
+        y_line_end = margin_top + row_height * (end_job_row_idx + 1 + 1) # +1 for header, +1 for bottom of row
 
         col_idx = truck_col_map.get(job_truck)
         if col_idx is None: continue
@@ -464,7 +457,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
         pdf.line(x_center_line, y_line_start, x_center_line, y_line_end)
 
         # Draw the horizontal end cap
-        cap_length = 10 # length of the horizontal cap line
+        cap_length = 20 # length of the horizontal cap line
         pdf.line(x_center_line - cap_length/2, y_line_end, x_center_line + cap_length/2, y_line_end)
 
 
@@ -486,7 +479,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
 # ====================================
 st.title("Boat Ramp Scheduling")
 
-# High Tide display for the first available slot, now in the main column
+# High Tide display for the first available slot
 if "available_slots" in st.session_state and st.session_state["available_slots"]:
     first_slot = st.session_state["available_slots"][0]
     if first_slot.get("high_tide"):
@@ -505,10 +498,10 @@ with st.sidebar:
     customer_query = st.text_input("Find Customer:", "")
     filtered_customers = filter_customers(customers_df, customer_query)
 
+    selected_customer = None
     if not filtered_customers.empty:
         selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
     else:
-        selected_customer = None
         st.info("No matching customers found.")
 
     if selected_customer:
@@ -536,8 +529,11 @@ with st.sidebar:
                 duration,
                 boat_draft
             )
+    else:
+        st.warning("Please select a customer first.")
 
-# Available Slots section (now in the main column, outside the sidebar)
+
+# Available Slots section (main column)
 current_available_slots = st.session_state.get('available_slots')
 
 if current_available_slots:
@@ -592,12 +588,6 @@ if current_available_slots:
     st.markdown("---")
 else:
     st.info("No suitable slots found for the selected criteria.")
-
-# These 'elif' and 'else' now correctly belong to the main app flow
-if selected_customer:
-    pass # No action needed here, as logic is handled above
-else:
-    st.warning("Please select a customer first.")
 
 
 st.header("Current Schedule")
