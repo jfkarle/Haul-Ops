@@ -182,7 +182,7 @@ def format_date_display(date_obj):
         return date_obj.strftime("%B %d, %Y")
     return str(date_obj)
 
-def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 21):
+def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 7):
     found = []
     current_date = start_date
     trucks = eligible_trucks(boat_len, boat_type_arg)
@@ -232,17 +232,38 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
     pdf.add_page()
     pdf.set_auto_page_break(auto=False)
 
-    # Top-left date heading
-    pdf.set_font("Helvetica", size=14, style='B')
-    margin_left = 40
-    margin_top = 40
-    pdf.text(margin_left, margin_top - 15, date_obj.strftime("%A, %B %d, %Y"))
-    pdf.set_font("Helvetica", size=11)
-
     # Margins and layout constants
     page_width = 612
+    margin_left = 40
+    margin_top = 40
     column_widths = [60, 100, 100, 100, 100]
     row_height = 18
+
+    # Top-left date heading
+    pdf.set_font("Helvetica", size=14, style='B')
+    pdf.text(margin_left, margin_top - 15, date_obj.strftime("%A, %B %d, %Y"))
+
+    # High Tide in upper right corner
+    high_tide_display = ""
+    # Find the high tide from the first job for the selected date
+    if jobs and jobs[0].get("high_tide"):
+        high_tide_display = f"High Tide: {jobs[0]['high_tide']}"
+    elif jobs: # If no specific job has high tide, try to get it directly for the ramp of the first job
+        first_job_ramp = jobs[0].get("ramp")
+        if first_job_ramp:
+            _, high_tides_data, _ = get_tide_predictions(date_obj, first_job_ramp)
+            if high_tides_data:
+                ht_datetime = datetime.strptime(high_tides_data[0][0], "%Y-%m-%d %H:%M")
+                high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
+
+    if high_tide_display:
+        pdf.set_font("Helvetica", size=8) # Small print
+        text_width = pdf.get_string_width(high_tide_display)
+        pdf.text(page_width - margin_left - text_width, margin_top - 15, high_tide_display)
+
+
+    # Reset font for the rest of the schedule
+    pdf.set_font("Helvetica", size=11)
 
     headers = ["", "S20", "S21", "S23", "Crane J17"]
     pdf.set_fill_color(220, 220, 220)
