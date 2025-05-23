@@ -378,6 +378,10 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
     # Store job extent for drawing vertical lines after all cells are drawn
     job_line_data = [] 
 
+    # Function to convert time object to its corresponding row index
+    def time_to_idx(t_obj):
+        return (t_obj.hour - start_hour) * 4 + t_obj.minute // 15
+
     # Main loop to draw the grid and content
     for idx, t in enumerate(rows): # Iterate through each 15-minute time slot
         y_row_start = pdf.get_y() # Current Y position for this row
@@ -439,33 +443,30 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
         job_start_dt = datetime.combine(date_obj, job_start_t)
         job_end_dt = job_start_dt + timedelta(hours=job["duration"])
 
-        # Function to convert time object to its corresponding row index
-        def time_to_idx(t_obj):
-            return (t_obj.hour - start_hour) * 4 + t_obj.minute // 15
-        
-        start_job_idx = time_to_idx(job_start_t)
-        
-        # Calculate the index of the *last occupied* 15-minute slot for the job
-        # Subtract a small duration to ensure time_to_idx correctly identifies the last full slot
-        end_job_idx_for_line = time_to_idx((job_end_dt - timedelta(seconds=1)).time())
-        
-        if end_job_idx_for_line < start_job_idx: # Handle edge cases for very short jobs
-            continue
+        # Calculate the Y coordinate for the start of the line (bottom of the Ramp cell)
+        ramp_slot_time = (job_start_dt + timedelta(minutes=30)).time()
+        start_job_idx_for_line = time_to_idx(ramp_slot_time) # Get index of the ramp cell
+        y_line_start = margin_top + row_height * (start_job_idx_for_line + 1 + 1) # +1 for header, +1 for bottom of ramp cell
 
-        # Get the x-coordinate for the center of the truck's column
+        # Calculate the Y coordinate for the end of the line (bottom of the last job cell)
+        end_job_idx_for_line = time_to_idx((job_end_dt - timedelta(seconds=1)).time())
+        if end_job_idx_for_line < start_job_idx_for_line: 
+            continue # Should not happen if job duration is reasonable, but good to check
+
+        y_line_end = margin_top + row_height * (end_job_idx_for_line + 1 + 1)
+
         col_idx = truck_col_map.get(job_truck)
         if col_idx is None: continue
         
         x_center_line = margin_left + sum(column_widths[:col_idx]) + column_widths[col_idx] / 2
         
-        # Calculate Y coordinates for the line
-        # Line starts from the top of the Customer Name cell
-        y_line_start = margin_top + row_height * (start_job_idx + 1) # +1 because of header row
-        
-        # Line ends at the bottom of the last occupied 15-min slot
-        y_line_end = margin_top + row_height * (end_job_idx_for_line + 1 + 1) # +1 for header, +1 for bottom of row
-
+        # Draw the vertical line
         pdf.line(x_center_line, y_line_start, x_center_line, y_line_end)
+
+        # Draw the horizontal end cap
+        cap_length = 10 # length of the horizontal cap line
+        pdf.line(x_center_line - cap_length/2, y_line_end, x_center_line + cap_length/2, y_line_end)
+
 
     # Add copyright text at the bottom of the page
     pdf.set_y(page_height - margin_bottom + 10) # Position from bottom margin, 10pt up
