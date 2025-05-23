@@ -414,6 +414,7 @@ if 'find_slots_button' in locals() and find_slots_button:
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
 
         st.session_state['available_slots'] = find_three_dates(
+        current_available_slots = st.session_state.get('available_slots')
             earliest_datetime,
             ramp_choice,
             boat_length,
@@ -437,7 +438,9 @@ if 'find_slots_button' in locals() and find_slots_button:
         # You can remove that line if it's not used elsewhere.
 
         cols = st.columns(len(current_available_slots))
-        for i, slot in enumerate(current_available_slots): # Use the correctly defined variable
+        if current_available_slots:
+            cols = st.columns(len(current_available_slots))
+            for i, slot in enumerate(current_available_slots):
             # ...
                 with cols[i]:
                     # slot['date'] is a date object here
@@ -488,10 +491,11 @@ if 'find_slots_button' in locals() and find_slots_button:
                         key=schedule_key,
                         on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
                     )
-                    st.markdown("---")
+                st.markdown("---")
         else:
             st.info("No suitable slots found for the selected criteria.")
-    else:
+            st.info("No suitable slots found for the selected criteria.")
+else:
         st.warning("Please select a customer first.")
 
 st.header("Current Schedule")
@@ -562,7 +566,7 @@ if st.session_state["schedule"]:
 # ========== Daily PDF Export UI ==========
 from datetime import datetime
 
-st.markdown("---")
+                st.markdown("---")
 st.header("📄 Daily Schedule PDF")
 
 selected_date = st.date_input("Select Date for Daily PDF")
@@ -583,10 +587,11 @@ if st.button("📄 Print Daily Truck Schedule"):
                     st.download_button("Download PDF", f, file_name=f"Truck_Schedule_{selected_date}.pdf")
             else:
                 st.error("PDF generation failed.")
-        else:
-            st.warning("No scheduled jobs found for the selected date.")
-    else:
-        st.warning("No scheduled jobs found.")
 else:
+            st.warning("No scheduled jobs found for the selected date.")
+else:
+        st.warning("No scheduled jobs found.")
+        else:
+            st.info("No suitable slots found for the selected criteria.")
     st.info("The schedule is currently empty.")
 
