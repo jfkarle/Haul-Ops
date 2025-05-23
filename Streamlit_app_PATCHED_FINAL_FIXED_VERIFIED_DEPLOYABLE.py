@@ -78,10 +78,7 @@ def filter_customers(df, query):
 def get_tide_predictions(date: datetime, ramp: str):
     station_id = RAMP_TO_NOAA_ID.get(ramp)
     if not station_id:
-        # Fallback to Scituate for any ramp without assigned NOAA ID (or handle as needed)
-        # The original code had a fallback to "8445138" (Scituate) which is reasonable.
-        # But if the specific ramp is crucial and has no ID, you might want to return an error.
-        return None, [], f"No NOAA station ID mapped for {ramp}"
+        return [], [], f"No NOAA station ID mapped for {ramp}"
 
     params = NOAA_PARAMS_TEMPLATE | {
         "station": station_id,
@@ -92,10 +89,11 @@ def get_tide_predictions(date: datetime, ramp: str):
         resp = requests.get(NOAA_API_URL, params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json().get("predictions", [])
+        all_tides = [(d["t"], d["type"]) for d in data]
         high_tides = [(d["t"], d["v"]) for d in data if d["type"] == "H"]
-        return [(d["t"], d["type"]) for d in data], high_tides, None
+        return all_tides, high_tides, None
     except Exception as e:
-        return None, [], str(e)
+        return [], [], str(e)
 
 def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_hours: float):
     ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
@@ -258,55 +256,70 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
     start_hour = 8
     end_hour = 19
 
-    # Gather high/low tide times (rounded to nearest 30min)
-    tide_marks = {"H": [], "L": []}
-    for job in jobs:
-        if job.get("high_tide"):
-            try:
-                # Assuming high_tide is in "%I:%M %p" format from get_valid_slots_with_tides
-                ht = datetime.strptime(job["high_tide"], "%I:%M %p").time()
-                # Round to nearest 30 minutes for display
-                rounded_ht_minute = 0 if ht.minute < 15 else (30 if ht.minute < 45 else 0)
-                rounded_ht_hour = ht.hour if ht.minute < 45 else (ht.hour + 1) % 24
-                rounded_ht = time(rounded_ht_hour, rounded_ht_minute)
-                tide_marks["H"].append(rounded_ht)
-            except Exception as e:
-                # st.warning(f"Could not parse high_tide '{job.get('high_tide')}': {e}")
-                pass # Silently fail for PDF generation if tide parsing fails
+    # Collect all tides for the given date and relevant ramps
+    unique_ramps = list(set(job['ramp'] for job in jobs if 'ramp' in job))
+    all_tides_for_day = []
+    for ramp in unique_ramps:
+        preds, _, err = get_tide_predictions(date_obj, ramp)
+        if not err:
+            all_tides_for_day.extend(preds)
 
+    tide_marks = {"H": [], "L": []}
+    for t_str, t_type in all_tides_for_day:
+        try:
+            # Parse the time string
+            dt_obj = datetime.strptime(t_str, "%Y-%m-%d %H:%M")
+            # Round to the nearest 15 minutes to match grid granularity
+            total_minutes = dt_obj.hour * 60 + dt_obj.minute
+            rounded_minutes = round(total_minutes / 15) * 15
+            rounded_hour = rounded_minutes // 60
+            rounded_minute = rounded_minutes % 60
+            rounded_t = time(rounded_hour % 24, rounded_minute) # Use % 24 for potential 24:00 to 00:00 rollover
+            if t_type == "H":
+                tide_marks["H"].append(rounded_t)
+            elif t_type == "L":
+                tide_marks["L"].append(rounded_t)
+        except Exception as e:
+            pass # Silently fail if tide parsing fails
 
     rows = []
     for hour in range(start_hour, end_hour):
         for minute in [0, 15, 30, 45]:
             t = time(hour, minute)
-            label = t.strftime("%-I:%M") if minute else t.strftime("%-I:00")
-            rows.append((t, label))
+            rows.append((t, "")) # Label will be set dynamically
 
-    for idx, (t, label) in enumerate(rows):
+    for idx, (t, _) in enumerate(rows): # label is now dynamic
         y = margin_top + row_height * (idx + 1)
         x = margin_left
-        # Draw time labels and grid lines
-        if t.minute == 0:
-            pdf.set_font("Helvetica", size=11, style="B")
-            pdf.text(x + 4, y + 13, label)
-            pdf.set_font("Helvetica", size=11)
-        elif t.minute in [15, 30, 45]:
-            pdf.set_text_color(150)
-            pdf.text(x + 4, y + 13, label)
-            pdf.set_text_color(0) # Reset color
+
+        display_label = t.strftime("%-I:%M") if t.minute else t.strftime("%-I:00")
+        label_style = "Helvetica"
+        label_size = 11
+        label_color = (0) # Black by default
+
+        # Check for High/Low Tide at this time slot
+        if t in tide_marks["H"]:
+            display_label = "HIGH TIDE"
+            label_style = "Helvetica"
+            label_size = 10
+            label_color = (0, 100, 0) # Green
+        elif t in tide_marks["L"]:
+            display_label = "LOW TIDE"
+            label_style = "Helvetica"
+            label_size = 10
+            label_color = (200, 0, 0) # Red
+        elif t.minute != 0: # Gray out 15/30/45 minute marks if no tide
+            label_color = (150)
+
+        pdf.set_font(label_style, size=label_size)
+        pdf.set_text_color(*label_color)
+        pdf.text(x + 4, y + 13, display_label)
+        pdf.set_text_color(0) # Reset color to black for other elements
 
         # Draw grid cells
         for col_idx in range(len(column_widths)):
             x_col = margin_left + sum(column_widths[:col_idx])
             pdf.rect(x_col, y, column_widths[col_idx], row_height)
-
-        # Mark high tides
-        if t in tide_marks["H"]:
-            pdf.set_font("Helvetica", size=8, style="I")
-            pdf.set_text_color(0, 100, 0) # Green color for High Tide
-            pdf.text(x + 65, y + 13, f"High Tide")
-            pdf.set_font("Helvetica", size=11)
-            pdf.set_text_color(0)
 
     # Populate jobs onto the grid
     for job in jobs:
@@ -321,7 +334,9 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
 
         # Helper to convert time object to row index
         def time_to_grid_idx(t_obj):
-            return (t_obj.hour - start_hour) * 4 + t_obj.minute // 15
+            # Convert time to total minutes from start_hour
+            total_minutes_from_start = (t_obj.hour - start_hour) * 60 + t_obj.minute
+            return total_minutes_from_start // 15 # Each row is 15 minutes
 
         start_idx = time_to_grid_idx(job_start_time_obj)
         end_idx = time_to_grid_idx(job_end_time_obj)
@@ -453,7 +468,7 @@ if current_available_slots:
                     st.success(
                         f"Scheduled {current_customer} with Truck {current_slot['truck']}"
                         f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
-                        f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}.") # FIX: Closing parenthesis added here
+                        f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}.")
                 return schedule_job_callback
 
             # Create a unique key for each button to avoid Streamlit warning
@@ -526,7 +541,7 @@ if st.session_state["schedule"]:
 
     display_df = schedule_df_display[[
         "Customer", "Boat Name", "Boat Type", "Date", "Ramp", "Time",
-        "Truck", "Truck Duration", "Crane", "High Tide" # "Duration" column was redundant, removed
+        "Truck", "Truck Duration", "Crane", "High Tide"
     ]]
 
     styled_df = display_df.style \
