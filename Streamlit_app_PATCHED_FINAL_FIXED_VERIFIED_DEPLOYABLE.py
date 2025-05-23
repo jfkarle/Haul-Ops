@@ -485,6 +485,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
 # ====================================
 st.title("Boat Ramp Scheduling")
 
+# High Tide display for the first available slot, now in the main column
 if "available_slots" in st.session_state and st.session_state["available_slots"]:
     first_slot = st.session_state["available_slots"][0]
     if first_slot.get("high_tide"):
@@ -535,68 +536,66 @@ with st.sidebar:
                 boat_draft
             )
 
-    # Display available slots from session state
-    current_available_slots = st.session_state.get('available_slots')
+# Available Slots section (now in the main column, outside the sidebar)
+current_available_slots = st.session_state.get('available_slots')
 
-    if current_available_slots:
-        st.subheader("Available Slots")
-        cols = st.columns(len(current_available_slots))
-        for i, slot in enumerate(current_available_slots):
-            with cols[i]:
-                day_name = slot['date'].strftime("%A")  # e.g., Monday
-                formatted_date_display = format_date_display(slot['date'])
-                st.markdown(f"**{day_name}**")
-                st.info(f"Date: {formatted_date_display}")
-                st.markdown(f"**Time:** {slot['time'].strftime('%I:%M %p')}")
-                st.markdown(f"**Ramp:** {slot['ramp']}")
-                st.markdown(f"**Truck:** {slot['truck']}")
-                schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}" # Ensure key is unique
+if current_available_slots:
+    st.subheader("Available Slots")
+    cols = st.columns(len(current_available_slots))
+    for i, slot in enumerate(current_available_slots):
+        with cols[i]:
+            day_name = slot['date'].strftime("%A")  # e.g., Monday
+            formatted_date_display = format_date_display(slot['date'])
+            st.markdown(f"**{day_name}**")
+            st.info(f"Date: {formatted_date_display}")
+            st.markdown(f"**Time:** {slot['time'].strftime('%I:%M %p')}")
+            st.markdown(f"**Ramp:** {slot['ramp']}")
+            st.markdown(f"**Truck:** {slot['truck']}")
+            schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}" # Ensure key is unique
 
-                def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
-                    def schedule_job_callback():
-                        # Schedule hauling truck job
-                        hauling_job = {
-                            'truck': current_slot['truck'],
+            def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
+                def schedule_job_callback():
+                    # Schedule hauling truck job
+                    hauling_job = {
+                        'truck': current_slot['truck'],
+                        'date': datetime.combine(current_slot['date'], current_slot['time']),
+                        'time': current_slot['time'],
+                        'duration': current_duration,
+                        'customer': current_customer,
+                        'high_tide': current_slot.get("high_tide", ""),
+                        'ramp': current_slot.get("ramp", "")
+                    }
+                    st.session_state['schedule'].append(hauling_job)
+                    # Schedule crane truck J17 if required
+                    if current_slot.get('j17_required'):
+                        crane_job = {
+                            'truck': 'J17',
                             'date': datetime.combine(current_slot['date'], current_slot['time']),
                             'time': current_slot['time'],
-                            'duration': current_duration,
-                            'customer': current_customer,
-                            'high_tide': current_slot.get("high_tide", ""),
-                            'ramp': current_slot.get("ramp", "")
+                            'duration': current_slot['j17_duration'],
+                            'customer': current_customer
                         }
-                        st.session_state['schedule'].append(hauling_job)
-                        # Schedule crane truck J17 if required
-                        if current_slot.get('j17_required'):
-                            crane_job = {
-                                'truck': 'J17',
-                                'date': datetime.combine(current_slot['date'], current_slot['time']),
-                                'time': current_slot['time'],
-                                'duration': current_slot['j17_duration'],
-                                'customer': current_customer
-                            }
-                            st.session_state['schedule'].append(crane_job)
-                        st.success(
-                            f"Scheduled {current_customer} with Truck {current_slot['truck']}"
-                            f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
-                            f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}."
-                        )
-                    return schedule_job_callback
+                        st.session_state['schedule'].append(crane_job)
+                    st.success(
+                        f"Scheduled {current_customer} with Truck {current_slot['truck']}"
+                        f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
+                        f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}."
+                    )
+                return schedule_job_callback
 
-                st.button(
-                    f"Schedule on {slot['time'].strftime('%H:%M')}",
-                    key=schedule_key,
-                    on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
-                )
-        st.markdown("---")
-    # This 'else' correctly belongs to the 'if current_available_slots' block
-    else:
-        st.info("No suitable slots found for the selected criteria.")
-# This 'elif' and its following 'else' should be at the same level as the 'with st.sidebar' block.
-# Since they are not, they were causing the SyntaxError.
-# They are part of the main app logic outside the sidebar.
-if selected_customer: # Moved outside sidebar to be at the correct indentation level
+            st.button(
+                f"Schedule on {slot['time'].strftime('%H:%M')}",
+                key=schedule_key,
+                on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
+            )
+    st.markdown("---")
+else:
+    st.info("No suitable slots found for the selected criteria.")
+
+# These 'elif' and 'else' now correctly belong to the main app flow
+if selected_customer:
     pass # No action needed here, as logic is handled above
-else: # Moved outside sidebar to be at the correct indentation level
+else:
     st.warning("Please select a customer first.")
 
 
