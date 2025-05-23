@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time, date
 import requests
-from fpdf import FPDF
-import os
+from fpdf import FPDF # Make sure FPDF is imported
+import os # Make sure os is imported
 
 st.set_page_config(
     page_title="Boat Ramp Scheduling",
@@ -570,7 +570,8 @@ if current_available_slots:
                             'date': datetime.combine(current_slot['date'], current_slot['time']),
                             'time': current_slot['time'],
                             'duration': current_slot['j17_duration'],
-                            'customer': current_customer
+                            'customer': current_customer,
+                            'ramp': current_slot.get("ramp", "") # Add the ramp information here!
                         }
                         st.session_state['schedule'].append(crane_job)
                     st.success(
@@ -598,11 +599,12 @@ if st.session_state["schedule"]:
 
     for job in st.session_state["schedule"]:
         key = (job["customer"], job["date"], job["time"])
-        if job["truck"] == "J17" or key in seen: # Avoid duplicate entries for J17 if already covered by hauling truck
+        # Only process hauling truck jobs for display; J17 is implicitly handled by 'Crane' column
+        if job["truck"] == "J17" and key in seen: # Ensure we don't double count if J17 is added separately
             continue
-
-        seen.add(key)
-
+        if job["truck"] != "J17": # Process hauling truck and mark as seen
+            seen.add(key)
+        
         try:
             customer_row = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
             boat_type = customer_row["Boat Type"]
@@ -611,6 +613,7 @@ if st.session_state["schedule"]:
             boat_type = "Unknown"
             boat_name = "Unknown"
 
+        # Check if a J17 job exists for this customer at this date/time
         has_j17 = any(
             j["truck"] == "J17" and
             j["customer"] == job["customer"] and
@@ -619,18 +622,22 @@ if st.session_state["schedule"]:
             for j in st.session_state["schedule"]
         )
 
-        display_schedule_list.append({
-            "Customer": job["customer"],
-            "Boat Name": boat_name,
-            "Boat Type": boat_type,
-            "Date": format_date_display(job["date"]),
-            "Ramp": job.get("ramp", "Unknown"),
-            "Time": job["time"].strftime('%H:%M'),
-            "Truck": job["truck"],
-            "Truck Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}",
-            "Crane": "Yes" if has_j17 else "No",
-            "High Tide": job.get("high_tide", "")
-        })
+        # Only add the main hauling job to the display list if it's not J17,
+        # or if it's a J17 job that hasn't been "seen" (meaning it's the primary/only entry for that time)
+        # This prevents duplicate rows if both hauling and J17 are listed separately
+        if job["truck"] != "J17": # We only want one row per customer/date/time, associated with the main truck
+            display_schedule_list.append({
+                "Customer": job["customer"],
+                "Boat Name": boat_name,
+                "Boat Type": boat_type,
+                "Date": format_date_display(job["date"]),
+                "Ramp": job.get("ramp", "Unknown"),
+                "Time": job["time"].strftime('%H:%M'),
+                "Truck": job["truck"],
+                "Truck Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}",
+                "Crane": "Yes" if has_j17 else "No",
+                "High Tide": job.get("high_tide", "")
+            })
 
     schedule_df_display = pd.DataFrame(display_schedule_list)
     
@@ -641,7 +648,6 @@ if st.session_state["schedule"]:
         return ""
 
     # Ensure all columns exist before selecting
-    # Adding 'Boat Name' here as it was added above, but ensure it's displayed if needed
     columns_to_display = [
         "Customer", "Boat Name", "Boat Type", "Date", "Ramp", "Time",
         "Truck", "Truck Duration", "Crane", "High Tide"
@@ -688,3 +694,4 @@ if st.button("Generate PDF"):
             st.error("PDF generation failed.")
     else:
         st.warning("No scheduled jobs found for the selected date to generate PDF.")
+
