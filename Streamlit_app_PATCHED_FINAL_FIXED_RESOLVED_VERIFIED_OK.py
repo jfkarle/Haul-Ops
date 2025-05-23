@@ -401,7 +401,7 @@ with st.sidebar:
             boat_draft = None
         # st.date_input returns a datetime.date object
         earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
-            st.button(
+        st.button(
     if "available_slots" in st.session_state and st.session_state["available_slots"]:
         slot = st.session_state["available_slots"][0]
         ht = slot.get("high_tide")
