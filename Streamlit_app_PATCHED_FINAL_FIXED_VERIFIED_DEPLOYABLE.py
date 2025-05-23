@@ -588,12 +588,17 @@ with st.sidebar:
                     on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
                 )
         st.markdown("---")
+    # This 'else' correctly belongs to the 'if current_available_slots' block
     else:
         st.info("No suitable slots found for the selected criteria.")
-elif selected_customer:
-    st.warning("Please click 'Find Available Slots' to search.")
-else:
+# This 'elif' and its following 'else' should be at the same level as the 'with st.sidebar' block.
+# Since they are not, they were causing the SyntaxError.
+# They are part of the main app logic outside the sidebar.
+if selected_customer: # Moved outside sidebar to be at the correct indentation level
+    pass # No action needed here, as logic is handled above
+else: # Moved outside sidebar to be at the correct indentation level
     st.warning("Please select a customer first.")
+
 
 st.header("Current Schedule")
 if st.session_state["schedule"]:
