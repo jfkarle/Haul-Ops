@@ -184,7 +184,7 @@ def format_date_display(date_obj):
 
 def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 7):
     found = []
-    current_date = start_date
+    
     trucks = eligible_trucks(boat_len, boat_type_arg)
     if not trucks:
         return []
@@ -195,8 +195,41 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
     elif "Sailboat MT" in boat_type_arg:
         j17_duration = 1.5
 
+    # New Logic: Prioritize dates with existing J17 schedule at the ramp
+    j17_scheduled_dates_at_ramp = set()
+    for job in st.session_state["schedule"]:
+        if job["truck"] == "J17" and job["ramp"] == ramp:
+            j17_scheduled_dates_at_ramp.add(job["date"])
+
+    prioritized_dates = []
+    other_dates_to_check = []
+
+    # Check dates around the requested earliest_date_input (7 days before/after)
+    # The actual date in current_date for the `find_three_dates` function comes from `earliest_date_input` in the UI.
+    # So, the search window should be relative to `start_date`.
+    for i in range(-7, 8): # 7 days before to 7 days after
+        check_date = start_date + timedelta(days=i)
+        if is_workday(check_date):
+            if check_date.date() in j17_scheduled_dates_at_ramp:
+                # Add to prioritized dates, ensuring uniqueness and order
+                if check_date not in prioritized_dates:
+                    prioritized_dates.append(check_date)
+            else:
+                if check_date not in other_dates_to_check: # Avoid duplicates if already in prioritized
+                    other_dates_to_check.append(check_date)
+    
+    # Sort prioritized dates to check them in chronological order
+    prioritized_dates.sort()
+
+    # Combine prioritized dates with other dates, ensuring we don't exceed search_days_limit
+    # and removing duplicates that might have been added to prioritized_dates.
+    full_date_search_order = prioritized_dates + [d for d in other_dates_to_check if d not in prioritized_dates]
+    
     days_searched = 0
-    while len(found) < 3 and days_searched < search_days_limit:
+    for current_date in full_date_search_order:
+        if len(found) >= 3 or days_searched >= search_days_limit:
+            break # Stop if we found enough slots or exceeded search limit
+
         if is_workday(current_date):
             valid_slots, high_tide_time = get_valid_slots_with_tides(current_date, ramp, boat_draft)
             if valid_slots:
@@ -222,10 +255,9 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
                             break # Found a slot for this truck on this day, move to next date/truck
                     if len(found) >= 3:
                         break
-        current_date += timedelta(days=1)
-        days_searched += 1
+        days_searched += 1 # Increment days searched for each distinct date checked
 
-    return found[:3]
+    return found[:3] # Return up to 3 found slots
 
 
 def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customers_df):
