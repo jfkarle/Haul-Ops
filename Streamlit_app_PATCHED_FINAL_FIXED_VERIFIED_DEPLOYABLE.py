@@ -232,11 +232,24 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
     pdf.add_page()
     pdf.set_auto_page_break(auto=False)
 
-    # Margins and layout constants
-    page_width = 612
-    margin_left = 40
-    margin_top = 40
-    column_widths = [60, 100, 100, 100, 100]
+    # Margins (3/4 inch = 54 pt)
+    margin_left = 54
+    margin_top = 54
+    page_width = pdf.w # Get page width from FPDF object
+    page_height = pdf.h # Get page height from FPDF object
+    
+    # Calculate new column widths to maximize table within new margins
+    # Original total width of columns: 60 + 100*4 = 460
+    # Available content width: page_width - (2 * margin_left) = 612 - (2 * 54) = 504
+    scale_factor = (page_width - 2 * margin_left) / (60 + 100*4)
+
+    column_widths = [
+        60 * scale_factor,
+        100 * scale_factor,
+        100 * scale_factor,
+        100 * scale_factor,
+        100 * scale_factor
+    ]
     row_height = 18
 
     # Top-left date heading
@@ -257,7 +270,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
                 high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
 
     if high_tide_display:
-        pdf.set_font("Helvetica", size=8) # Small print
+        pdf.set_font("Helvetica", size=9) # Increased font size to 9
         text_width = pdf.get_string_width(high_tide_display)
         pdf.text(page_width - margin_left - text_width, margin_top - 15, high_tide_display)
 
@@ -268,10 +281,12 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
     headers = ["", "S20", "S21", "S23", "Crane J17"]
     pdf.set_fill_color(220, 220, 220)
     pdf.set_font("Helvetica", size=11, style="B")
+    current_x = margin_left
     for i, h in enumerate(headers):
-        x = margin_left + sum(column_widths[:i])
+        x = current_x
         pdf.rect(x, margin_top, column_widths[i], row_height, 'FD')
         pdf.text(x + 4, margin_top + 13, h)
+        current_x += column_widths[i]
     pdf.set_font("Helvetica", size=11)
 
     start_hour = 8
@@ -338,15 +353,17 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
         pdf.set_text_color(0, 0, 0) # Reset color to black for other elements
 
         # Draw grid cells
+        current_x_grid = margin_left
         for col_idx in range(len(column_widths)):
-            x_col = margin_left + sum(column_widths[:col_idx])
+            x_col = current_x_grid
             pdf.rect(x_col, y, column_widths[col_idx], row_height)
+            current_x_grid += column_widths[col_idx]
 
     # Populate jobs onto the grid
     for job in jobs:
         truck_col_map = {"S20": 1, "S21": 2, "S23": 3, "J17": 4}
-        col = truck_col_map.get(job["truck"], None)
-        if col is None:
+        col_idx = truck_col_map.get(job["truck"], None)
+        if col_idx is None:
             continue
 
         job_start_time_obj = job["time"]
@@ -364,7 +381,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
 
         for i in range(start_idx, end_idx):
             y_pos = margin_top + row_height * (i + 1)
-            x_pos = margin_left + sum(column_widths[:col])
+            x_pos = margin_left + sum(column_widths[:col_idx])
 
             if i == start_idx:
                 pdf.set_font("Helvetica", size=11, style="B")
@@ -372,10 +389,18 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
                 pdf.set_font("Helvetica", size=11)
             # Draw line at the end of the job slot
             if i == end_idx - 1:
-                pdf.line(x_pos + 4, y_pos + 14, x_pos + column_widths[col] - 4, y_pos + 14)
+                pdf.line(x_pos + 4, y_pos + 14, x_pos + column_widths[col_idx] - 4, y_pos + 14)
             else:
                 # Draw vertical indicator for ongoing job
-                pdf.text(x_pos + column_widths[col] / 2 - 2, y_pos + 13, "|")
+                pdf.text(x_pos + column_widths[col_idx] / 2 - 2, y_pos + 13, "|")
+
+    # Add copyright text at the bottom
+    copyright_text = "© Copyright ECM, Inc 2025"
+    pdf.set_font("Helvetica", size=8) # Set font size for copyright
+    text_width = pdf.get_string_width(copyright_text)
+    x_center = (page_width - text_width) / 2
+    y_bottom = page_height - margin_top + 10 # Place 10pt from the bottom margin (54pt)
+    pdf.text(x_center, y_bottom, copyright_text)
 
     filename = f"schedule_{date_obj.strftime('%Y-%m-%d')}.pdf"
     pdf.output(filename)
