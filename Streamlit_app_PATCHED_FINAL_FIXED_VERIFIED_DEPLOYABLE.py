@@ -37,7 +37,7 @@ RAMP_TO_NOAA_ID = {
     "Hull (X Y Z St) (Goodwiny st)": None,  # No NOAA ID provided
     "Hingham Harbor": "8444841",
     "Weymouth Harbor (Wessagusset)": None,  # No NOAA ID provided
-    "Sandwich Basin": None # No NOAA ID provided
+    "Sandwich Basin": None # Any tide
 }
 RAMP_TIDE_WINDOWS = {
     "Plymouth Harbor": (3, 3),  # 3 hrs before and after
@@ -295,7 +295,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
         display_label = t.strftime("%-I:%M") if t.minute else t.strftime("%-I:00")
         label_style = "Helvetica"
         label_size = 11
-        label_color = (0) # Black by default
+        label_color = (0, 0, 0) # Black by default, now a tuple
 
         # Check for High/Low Tide at this time slot
         if t in tide_marks["H"]:
@@ -309,12 +309,12 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
             label_size = 10
             label_color = (200, 0, 0) # Red
         elif t.minute != 0: # Gray out 15/30/45 minute marks if no tide
-            label_color = (150)
+            label_color = (150, 150, 150) # Gray, now a tuple
 
         pdf.set_font(label_style, size=label_size)
         pdf.set_text_color(*label_color)
         pdf.text(x + 4, y + 13, display_label)
-        pdf.set_text_color(0) # Reset color to black for other elements
+        pdf.set_text_color(0, 0, 0) # Reset color to black for other elements
 
         # Draw grid cells
         for col_idx in range(len(column_widths)):
