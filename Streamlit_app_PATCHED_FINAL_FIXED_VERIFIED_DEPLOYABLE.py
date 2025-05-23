@@ -274,6 +274,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
                 # st.warning(f"Could not parse high_tide '{job.get('high_tide')}': {e}")
                 pass # Silently fail for PDF generation if tide parsing fails
 
+
     rows = []
     for hour in range(start_hour, end_hour):
         for minute in [0, 15, 30, 45]:
@@ -452,7 +453,7 @@ if current_available_slots:
                     st.success(
                         f"Scheduled {current_customer} with Truck {current_slot['truck']}"
                         f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
-                        f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}."
+                        f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}.") # FIX: Closing parenthesis added here
                 return schedule_job_callback
 
             # Create a unique key for each button to avoid Streamlit warning
@@ -561,4 +562,3 @@ if st.button("Generate Daily Schedule PDF"):
             st.error("PDF generation failed.")
     else:
         st.warning("No scheduled jobs found for the selected date to generate PDF.")
-```
