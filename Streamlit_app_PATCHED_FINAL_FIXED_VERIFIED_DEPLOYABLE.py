@@ -227,67 +227,84 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
 
     return found[:3]
 
-def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
+def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customers_df):
     pdf = FPDF(orientation='P', unit='pt', format='Letter')
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=False)
-
+    
     # Margins (3/4 inch = 54 pt)
     margin_left = 54
-    margin_top = 54
-    page_width = pdf.w # Get page width from FPDF object
-    page_height = pdf.h # Get page height from FPDF object
-    
-    # Calculate new column widths to maximize table within new margins
+    margin_top = 54 # This will be the top margin for content
+    margin_right = 54
+    margin_bottom = 54
+
+    pdf.set_left_margin(margin_left)
+    pdf.set_top_margin(margin_top)
+    pdf.set_right_margin(margin_right)
+    pdf.set_auto_page_break(auto=True, margin=margin_bottom) # Enable auto page break with bottom margin
+
+    page_width = pdf.w
+    page_height = pdf.h
+
+    # Calculate column widths based on new margins
     # Original total width of columns: 60 + 100*4 = 460
-    # Available content width: page_width - (2 * margin_left) = 612 - (2 * 54) = 504
-    scale_factor = (page_width - 2 * margin_left) / (60 + 100*4)
+    # Available content width: page_width - (margin_left + margin_right) = 612 - (54 + 54) = 504
+    total_original_width = 60 + (4 * 100) # 460
+    available_content_width = page_width - (margin_left + margin_right) # 504
+    scale_factor = available_content_width / total_original_width
 
     column_widths = [
-        60 * scale_factor,
-        100 * scale_factor,
-        100 * scale_factor,
-        100 * scale_factor,
-        100 * scale_factor
+        60 * scale_factor, # Time column
+        100 * scale_factor, # S20
+        100 * scale_factor, # S21
+        100 * scale_factor, # S23
+        100 * scale_factor  # Crane J17
     ]
-    row_height = 18
-
-    # Top-left date heading
-    pdf.set_font("Helvetica", size=14, style='B')
-    pdf.text(margin_left, margin_top - 15, date_obj.strftime("%A, %B %d, %Y"))
-
-    # High Tide in upper right corner
-    high_tide_display = ""
-    # Find the high tide from the first job for the selected date
-    if jobs and jobs[0].get("high_tide"):
-        high_tide_display = f"High Tide: {jobs[0]['high_tide']}"
-    elif jobs: # If no specific job has high tide, try to get it directly for the ramp of the first job
-        first_job_ramp = jobs[0].get("ramp")
-        if first_job_ramp:
-            _, high_tides_data, _ = get_tide_predictions(date_obj, first_job_ramp)
-            if high_tides_data:
-                ht_datetime = datetime.strptime(high_tides_data[0][0], "%Y-%m-%d %H:%M")
-                high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
-
-    if high_tide_display:
-        pdf.set_font("Helvetica", size=9) # Increased font size to 9
-        text_width = pdf.get_string_width(high_tide_display)
-        pdf.text(page_width - margin_left - text_width, margin_top - 15, high_tide_display)
-
-
-    # Reset font for the rest of the schedule
-    pdf.set_font("Helvetica", size=11)
+    
+    # Increased row height to accommodate 3 lines of text
+    row_height = 30 # Increased from 18
 
     headers = ["", "S20", "S21", "S23", "Crane J17"]
-    pdf.set_fill_color(220, 220, 220)
-    pdf.set_font("Helvetica", size=11, style="B")
-    current_x = margin_left
-    for i, h in enumerate(headers):
-        x = current_x
-        pdf.rect(x, margin_top, column_widths[i], row_height, 'FD')
-        pdf.text(x + 4, margin_top + 13, h)
-        current_x += column_widths[i]
-    pdf.set_font("Helvetica", size=11)
+
+    # Function to draw header content (date, high tide, table headers)
+    def draw_page_header(current_pdf, current_date_obj, current_jobs):
+        # Top-left date heading
+        current_pdf.set_font("Helvetica", size=14, style='B')
+        current_pdf.text(margin_left, margin_top - 15, current_date_obj.strftime("%A, %B %d, %Y"))
+
+        # High Tide in upper right corner
+        high_tide_display = ""
+        if current_jobs and current_jobs[0].get("high_tide"):
+            high_tide_display = f"High Tide: {current_jobs[0]['high_tide']}"
+        elif current_jobs:
+            first_job_ramp = current_jobs[0].get("ramp")
+            if first_job_ramp:
+                _, high_tides_data, _ = get_tide_predictions(current_date_obj, first_job_ramp)
+                if high_tides_data:
+                    ht_datetime = datetime.strptime(high_tides_data[0][0], "%Y-%m-%d %H:%M")
+                    high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
+
+        if high_tide_display:
+            current_pdf.set_font("Helvetica", size=9) # Increased font size to 9
+            text_width = current_pdf.get_string_width(high_tide_display)
+            current_pdf.text(page_width - margin_right - text_width, margin_top - 15, high_tide_display)
+
+        # Table Headers
+        current_pdf.set_fill_color(220, 220, 220)
+        current_pdf.set_font("Helvetica", size=11, style="B")
+        current_x = margin_left
+        header_y_pos = margin_top # Headers start at the top margin
+
+        for i, h in enumerate(headers):
+            x = current_x
+            current_pdf.rect(x, header_y_pos, column_widths[i], row_height, 'FD')
+            current_pdf.text(x + 4, header_y_pos + row_height / 2 + current_pdf.font_size / 2 - 2, h) # Center vertically
+            current_x += column_widths[i]
+        
+        # Set Y position for content to start below headers
+        current_pdf.set_y(header_y_pos + row_height)
+        current_pdf.set_font("Helvetica", size=11) # Reset font for content
+
+    pdf.add_page() # Start first page
+    draw_page_header(pdf, date_obj, jobs) # Draw header on first page
 
     start_hour = 8
     end_hour = 19
@@ -303,104 +320,137 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs):
     tide_marks = {"H": [], "L": []}
     for t_str, t_type in all_tides_for_day:
         try:
-            # Parse the time string
             dt_obj = datetime.strptime(t_str, "%Y-%m-%d %H:%M")
-            # Round to the nearest 15 minutes to match grid granularity
             total_minutes = dt_obj.hour * 60 + dt_obj.minute
             rounded_minutes = round(total_minutes / 15) * 15
             rounded_hour = rounded_minutes // 60
             rounded_minute = rounded_minutes % 60
-            rounded_t = time(rounded_hour % 24, rounded_minute) # Use % 24 for potential 24:00 to 00:00 rollover
+            rounded_t = time(rounded_hour % 24, rounded_minute)
             if t_type == "H":
                 tide_marks["H"].append(rounded_t)
             elif t_type == "L":
                 tide_marks["L"].append(rounded_t)
         except Exception as e:
-            pass # Silently fail if tide parsing fails
+            pass
 
     rows = []
     for hour in range(start_hour, end_hour):
         for minute in [0, 15, 30, 45]:
             t = time(hour, minute)
-            rows.append((t, "")) # Label will be set dynamically
+            rows.append(t) # Store just the time object
 
-    for idx, (t, _) in enumerate(rows): # label is now dynamic
-        y = margin_top + row_height * (idx + 1)
-        x = margin_left
+    # Create a mapping of time slots and trucks to jobs for easier lookup
+    jobs_by_time_truck = {}
+    for job in jobs:
+        job_start_time = job["time"]
+        truck = job["truck"]
+        # Round job start time to nearest 15 minutes for grid alignment
+        total_minutes = job_start_time.hour * 60 + job_start_time.minute
+        rounded_minutes = round(total_minutes / 15) * 15
+        rounded_hour = rounded_minutes // 60
+        rounded_minute = rounded_minutes % 60
+        rounded_job_start_t = time(rounded_hour % 24, rounded_minute)
+        
+        if (rounded_job_start_t, truck) not in jobs_by_time_truck:
+            jobs_by_time_truck[(rounded_job_start_t, truck)] = []
+        jobs_by_time_truck[(rounded_job_start_t, truck)].append(job)
 
+    # Iterate through time slots and draw grid rows and job content
+    for idx, t in enumerate(rows): # Iterate through each 15-minute time slot
+        # Check for page break before drawing the row
+        # Current Y position + row height + buffer for footer
+        if pdf.get_y() + row_height > page_height - margin_bottom:
+            pdf.add_page()
+            draw_page_header(pdf, date_obj, jobs) # Redraw header on new page
+
+        y_row_start = pdf.get_y() # Current Y position for this row
+        
+        # Draw time/tide labels in the first column
+        x_first_col = margin_left
+        
         display_label = t.strftime("%-I:%M") if t.minute else t.strftime("%-I:00")
         label_style = "Helvetica"
         label_size = 11
-        label_color = (0, 0, 0) # Black by default, now a tuple
+        label_color = (0, 0, 0)
 
-        # Check for High/Low Tide at this time slot
         if t in tide_marks["H"]:
             display_label = "HIGH TIDE"
             label_style = "Helvetica"
             label_size = 10
-            label_color = (0, 100, 0) # Green
+            label_color = (0, 100, 0)
         elif t in tide_marks["L"]:
             display_label = "LOW TIDE"
             label_style = "Helvetica"
             label_size = 10
-            label_color = (200, 0, 0) # Red
-        elif t.minute != 0: # Gray out 15/30/45 minute marks if no tide
-            label_color = (150, 150, 150) # Gray, now a tuple
+            label_color = (200, 0, 0)
+        elif t.minute != 0:
+            label_color = (150, 150, 150)
 
         pdf.set_font(label_style, size=label_size)
         pdf.set_text_color(*label_color)
-        pdf.text(x + 4, y + 13, display_label)
-        pdf.set_text_color(0, 0, 0) # Reset color to black for other elements
+        # Vertically center the time/tide label in the first column
+        pdf.text(x_first_col + 4, y_row_start + row_height / 2 + pdf.font_size / 2 - 2, display_label)
+        pdf.set_text_color(0, 0, 0) # Reset color
 
-        # Draw grid cells
+        # Draw grid cells for this row
         current_x_grid = margin_left
         for col_idx in range(len(column_widths)):
             x_col = current_x_grid
-            pdf.rect(x_col, y, column_widths[col_idx], row_height)
+            pdf.rect(x_col, y_row_start, column_widths[col_idx], row_height)
             current_x_grid += column_widths[col_idx]
 
-    # Populate jobs onto the grid
-    for job in jobs:
+        # Now, populate job details for this time slot across all truck columns
         truck_col_map = {"S20": 1, "S21": 2, "S23": 3, "J17": 4}
-        col_idx = truck_col_map.get(job["truck"], None)
-        if col_idx is None:
-            continue
+        for truck_name, col_idx in truck_col_map.items():
+            jobs_at_this_time_truck = jobs_by_time_truck.get((t, truck_name), [])
+            
+            if jobs_at_this_time_truck:
+                job = jobs_at_this_time_truck[0] # Take the first job if multiple for same slot/truck (shouldn't happen)
+                
+                # Retrieve customer details from customers_df
+                customer_row_data = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
+                boat_type = customer_row_data["Boat Type"]
+                boat_length = customer_row_data["Boat Length"]
+                ramp = job.get("ramp", "Unknown") # Ramp is already in job data
 
-        job_start_time_obj = job["time"]
-        duration = timedelta(hours=job["duration"])
-        job_end_time_obj = (datetime.combine(date_obj, job_start_time_obj) + duration).time()
+                x_pos_job_cell = margin_left + sum(column_widths[:col_idx])
 
-        # Helper to convert time object to row index
-        def time_to_grid_idx(t_obj):
-            # Convert time to total minutes from start_hour
-            total_minutes_from_start = (t_obj.hour - start_hour) * 60 + t_obj.minute
-            return total_minutes_from_start // 15 # Each row is 15 minutes
+                # Customer Name
+                pdf.set_font("Helvetica", size=10, style="B") # Slightly smaller for name to fit
+                pdf.text(x_pos_job_cell + 4, y_row_start + 5, job["customer"]) # Adjusted y_pos for top alignment
 
-        start_idx = time_to_grid_idx(job_start_time_obj)
-        end_idx = time_to_grid_idx(job_end_time_obj)
+                # Boat Details: Length and Type
+                boat_details_text = f"{boat_length}' {boat_type}"
+                pdf.set_font("Helvetica", size=7) # Smaller font for details
+                pdf.text(x_pos_job_cell + 4, y_row_start + 5 + 8, boat_details_text) # Offset by 8pt from customer name baseline
 
-        for i in range(start_idx, end_idx):
-            y_pos = margin_top + row_height * (i + 1)
-            x_pos = margin_left + sum(column_widths[:col_idx])
+                # Launch Ramp
+                pdf.text(x_pos_job_cell + 4, y_row_start + 5 + 8 + 7, ramp) # Offset by 7pt from boat details baseline
 
-            if i == start_idx:
-                pdf.set_font("Helvetica", size=11, style="B")
-                pdf.text(x_pos + 4, y_pos + 13, job["customer"])
-                pdf.set_font("Helvetica", size=11)
-            # Draw line at the end of the job slot
-            if i == end_idx - 1:
-                pdf.line(x_pos + 4, y_pos + 14, x_pos + column_widths[col_idx] - 4, y_pos + 14)
-            else:
-                # Draw vertical indicator for ongoing job
-                pdf.text(x_pos + column_widths[col_idx] / 2 - 2, y_pos + 13, "|")
+                pdf.set_font("Helvetica", size=11) # Reset font for next elements
 
-    # Add copyright text at the bottom
+                # Draw vertical indicator for ongoing job (if it spans multiple 15-min slots)
+                job_start_dt = datetime.combine(date_obj, job["time"])
+                job_end_dt = job_start_dt + timedelta(hours=job["duration"])
+                current_slot_dt = datetime.combine(date_obj, t)
+                next_slot_dt = current_slot_dt + timedelta(minutes=15)
+
+                # Only draw line if the job extends beyond the current 15-min slot
+                # This needs to be carefully handled for page breaks. For simplicity,
+                # we'll draw it if it extends into the next *grid* slot.
+                if job_end_dt > next_slot_dt and (t.hour - start_hour) * 4 + t.minute // 15 < len(rows) - 1:
+                    pdf.line(x_pos_job_cell + column_widths[col_idx] / 2, y_row_start + row_height,
+                             x_pos_job_cell + column_widths[col_idx] / 2, y_row_start + row_height) # Draw line to bottom of current cell
+
+        pdf.set_y(y_row_start + row_height) # Move Y cursor down for the next row
+
+    # Add copyright text at the bottom of the last page
+    pdf.set_y(page_height - margin_bottom + 10) # Position from bottom margin, 10pt up
+    pdf.set_font("Helvetica", size=8)
     copyright_text = "© Copyright ECM, Inc 2025"
-    pdf.set_font("Helvetica", size=8) # Set font size for copyright
     text_width = pdf.get_string_width(copyright_text)
     x_center = (page_width - text_width) / 2
-    y_bottom = page_height - margin_top + 10 # Place 10pt from the bottom margin (54pt)
-    pdf.text(x_center, y_bottom, copyright_text)
+    pdf.text(x_center, pdf.get_y(), copyright_text)
 
     filename = f"schedule_{date_obj.strftime('%Y-%m-%d')}.pdf"
     pdf.output(filename)
@@ -613,7 +663,9 @@ if st.button("Generate Daily Schedule PDF"):
         # Sort jobs for PDF to appear in time order
         filtered_jobs_sorted = sorted(filtered_jobs, key=lambda x: x["time"])
         pdf_path = generate_daily_schedule_pdf_bold_end_line_streamlit(
-            datetime.combine(selected_date_for_pdf, datetime.min.time()), filtered_jobs_sorted
+            datetime.combine(selected_date_for_pdf, datetime.min.time()),
+            filtered_jobs_sorted,
+            customers_df # Pass customers_df here
         )
         if pdf_path:
             with open(pdf_path, "rb") as f:
