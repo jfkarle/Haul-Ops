@@ -414,7 +414,7 @@ if 'find_slots_button' in locals() and find_slots_button:
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
 
         st.session_state['available_slots'] = find_three_dates(
-        current_available_slots = st.session_state.get('available_slots')
+        current_available_slots = st.session_state.get('available_slots'),
             earliest_datetime,
             ramp_choice,
             boat_length,
