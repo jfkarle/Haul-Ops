@@ -11,7 +11,6 @@ st.set_page_config(
     page_title="Boat Ramp Scheduling",
     layout="wide"
 )
-)
 
 # ====================================
 # ------------ CONSTANTS -------------
