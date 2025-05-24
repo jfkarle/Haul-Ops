@@ -69,43 +69,10 @@ if "suggested_slots" not in st.session_state:
 if "slot_index" not in st.session_state:
     st.session_state["slot_index"] = 0
 
-# ====================================
-# ------------ HELPERS ---------------
-# ====================================
-@st.cache_data
-def load_customer_data():
-    try:
-        df = pd.read_csv(CUSTOMER_CSV)
-        st.session_state['customers_df_loaded'] = df.copy()
-        return df
-    except FileNotFoundError:
-        st.error(f"Error: Could not find file '{CUSTOMER_CSV}'. Please ensure it is in the correct location.")
-        return pd.DataFrame()  # Return an empty DataFrame to prevent further errors
-    except pd.errors.EmptyDataError:
-        st.error(f"Error: File '{CUSTOMER_CSV}' is empty.")
-        return pd.DataFrame()
-    except pd.errors.ParserError as e:
-        st.error(f"Error parsing file '{CUSTOMER_CSV}': {e}")
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"An unexpected error occurred while loading data: {e}")
-        return pd.DataFrame()
-
-     if 'customers_df_loaded' not in st.session_state:
-         customers_df = load_customer_data()
-     else:
-         customers_df = st.session_state['customers_df_loaded']
-
-     if not customers_df.empty:
-         st.subheader("Loaded Customer Data (First 5 rows):")
-         st.dataframe(customers_df.head())  # Temporary output
-     else:
-         st.warning("Customer data was not loaded.")
-
-def filter_customers(df, query):
-    query = query.lower()
-    return df[df["Customer Name"].str.lower().str.contains(query)]
-
+File "/mount/src/haul-ops/Streamlit_app_PATCHED_FINAL_FIXED_VERIFIED_DEPLOYABLE.py", line 94
+       if 'customers_df_loaded' not in st.session_state:
+                                                        ^
+IndentationError: unindent does not match any outer indentation level
 def get_tide_predictions(date: datetime, ramp: str):
     station_id = RAMP_TO_NOAA_ID.get(ramp)
     if not station_id:
