@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time, date
 import requests
-from fpdf import FPDF
-import os
+from fpdf import FPDF # Make sure FPDF is imported
+import os # Make sure os is imported
 
 st.set_page_config(
     page_title="Boat Ramp Scheduling",
@@ -275,26 +275,4 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(selected_date, jobs, cus
     return pdf_filename
 
 # ====================================
-# ------------- UI -------------------
-# ====================================
-st.title("Boat Ramp Scheduling")
-
-if 'customers_df_loaded' not in st.session_state:
-    customers_df = load_customer_data()
-else:
-    customers_df = st.session_state['customers_df_loaded']
-
-# --- Sidebar for Input ---
-with st.sidebar:
-    st.header("New Job")
-    customer_query = st.text_input("Find Customer:", "")
-    filtered_customers = filter_customers(customers_df, customer_query)
-
-    if not filtered_customers.empty:
-        selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
-    else:
-        selected_customer = None
-        st.info("No matching customers found.")
-
-    ramp_choice = st.selectbox("Select Ramp", RAMPS)
-    job_date = st.date_input("Select Date", datetime.now().date
+#
