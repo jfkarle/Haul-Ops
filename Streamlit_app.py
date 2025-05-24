@@ -13,7 +13,7 @@ st.set_page_config(
 # ====================================
 # ------------ CONSTANTS -------------
 # ====================================
-CUSTOMER_CSV = "customers.csv"
+CUSTOMER_CSV = "customer_with_coords.csv"
 NOAA_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 NOAA_PARAMS_TEMPLATE = {
     "product": "predictions",
