@@ -91,7 +91,7 @@ def load_customer_data():
         st.error(f"An unexpected error occurred while loading data: {e}")
         return pd.DataFrame()
 
-  if 'customers_df_loaded' not in st.session_state:
+     if 'customers_df_loaded' not in st.session_state:
          customers_df = load_customer_data()
      else:
          customers_df = st.session_state['customers_df_loaded']
