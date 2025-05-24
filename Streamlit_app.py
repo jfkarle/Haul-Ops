@@ -66,10 +66,22 @@ if "schedule" not in st.session_state:
 # ====================================
 @st.cache_data
 def load_customer_data():
-    df = pd.read_csv(CUSTOMER_CSV)
-    # Store a copy in session state to ensure persistence
-    st.session_state['customers_df_loaded'] = df.copy()
-    return df
+    try:
+        df = pd.read_csv(CUSTOMER_CSV)
+        st.session_state['customers_df_loaded'] = df.copy()
+        return df
+    except FileNotFoundError:
+        st.error(f"Error: Could not find file '{CUSTOMER_CSV}'. Please ensure it is in the correct location.")
+        return pd.DataFrame()
+    except pd.errors.EmptyDataError:
+        st.error(f"Error: File '{CUSTOMER_CSV}' is empty.")
+        return pd.DataFrame()
+    except pd.errors.ParserError as e:
+        st.error(f"Error parsing file '{CUSTOMER_CSV}': {e}")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"An unexpected error occurred while loading data: {e}")
+        return pd.DataFrame()
 
 def filter_customers(df, query):
     query = query.lower()
