@@ -5,12 +5,13 @@ import requests
 from fpdf import FPDF # Make sure FPDF is imported
 import os # Make sure os is imported
 
-st.title("Is it working?")  # Add this line at the very top
-
 st.set_page_config(
     page_title="Boat Ramp Scheduling",
     layout="wide"
 )
+
+st.title("Is it working?")  # Add this line at the very top
+
 
 # ====================================
 # ------------ CONSTANTS -------------
