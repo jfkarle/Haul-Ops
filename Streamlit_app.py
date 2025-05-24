@@ -596,64 +596,64 @@ if current_available_slots:
             schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}" # Ensure key is unique
 
             def create_schedule_callback(slot, duration, selected_customer, formatted_date_display):
-    def schedule_job_callback():
-        new_hauling_job = {
-            'truck': slot['truck'],
-            'date': datetime.combine(slot['date'], slot['time']),
-            'time': slot['time'],
-            'duration': duration,
-            'customer': selected_customer,
-            'high_tide': slot.get("high_tide", ""),
-            'ramp': slot.get("ramp", "")
-        }
+     def schedule_job_callback():
+         new_hauling_job = {
+             'truck': slot['truck'],
+             'date': datetime.combine(slot['date'], slot['time']),
+             'time': slot['time'],
+             'duration': duration,
+             'customer': selected_customer,
+             'high_tide': slot.get("high_tide", ""),
+             'ramp': slot.get("ramp", "")
+         }
 
-        # --- CHECK IF CUSTOMER IS ALREADY SCHEDULED AT THIS TIME ---
-        is_customer_scheduled = any(
-            job['customer'] == selected_customer and
-            job['date'] == new_hauling_job['date'] and
-            job['time'] == new_hauling_job['time']
-            for job in st.session_state['schedule']
-        )
+         # --- CHECK IF CUSTOMER IS ALREADY SCHEDULED AT THIS TIME ---
+         is_customer_scheduled = any(
+             job['customer'] == selected_customer and
+             job['date'] == new_hauling_job['date'] and
+             job['time'] == new_hauling_job['time']
+             for job in st.session_state['schedule']
+         )
 
-        if is_customer_scheduled:
-            st.error(f"Error: {selected_customer} is already scheduled for {formatted_date_display} at {slot['time'].strftime('%I:%M %p')}.")
-            return
+         if is_customer_scheduled:
+             st.error(f"Error: {selected_customer} is already scheduled for {formatted_date_display} at {slot['time'].strftime('%I:%M %p')}.")
+             return
 
-        # --- CHECK IF TRUCK IS FREE (we'll enhance this later if needed) ---
-        is_truck_available = not any(
-            job['truck'] == new_hauling_job['truck'] and
-            job['date'].date() == new_hauling_job['date'].date() and
-            job['time'] == new_hauling_job['time']
-            for job in st.session_state['schedule']
-        )
-        # For now, let's focus on the customer to prevent double booking.
-        # We can refine the truck availability check if needed.
+         # --- CHECK IF TRUCK IS FREE (we'll enhance this later if needed) ---
+         is_truck_available = not any(
+             job['truck'] == new_hauling_job['truck'] and
+             job['date'].date() == new_hauling_job['date'].date() and
+             job['time'] == new_hauling_job['time']
+             for job in st.session_state['schedule']
+         )
+         # For now, let's focus on the customer to prevent double booking.
+         # We can refine the truck availability check if needed.
 
-        if is_truck_available: # Proceed with scheduling if customer isn't booked
-            st.session_state['schedule'].append(new_hauling_job)
-            # Schedule crane truck J17 if required
-            if slot.get('j17_required'):
-                crane_job = {
-                    'truck': 'J17',
-                    'date': datetime.combine(slot['date'], slot['time']),
-                    'time': slot['time'],
-                    'duration': slot['j17_duration'],
-                    'customer': selected_customer,
-                    'ramp': slot.get("ramp", "")
-                }
-                st.session_state['schedule'].append(crane_job)
-                crane_message = f" and Crane (J17) for {slot['j17_duration']:.1f} hrs"
-            else:
-                crane_message = ""
+         if is_truck_available:  # Proceed with scheduling if customer isn't booked
+             st.session_state['schedule'].append(new_hauling_job)
+             # Schedule crane truck J17 if required
+             if slot.get('j17_required'):
+                 crane_job = {
+                     'truck': 'J17',
+                     'date': datetime.combine(slot['date'], slot['time']),
+                     'time': slot['time'],
+                     'duration': slot['j17_duration'],
+                     'customer': selected_customer,
+                     'ramp': slot.get("ramp", "")
+                 }
+                 st.session_state['schedule'].append(crane_job)
+                 crane_message = f" and Crane (J17) for {slot['j17_duration']:.1f} hrs"
+             else:
+                 crane_message = ""
 
-            st.success(
-                f"Scheduled {selected_customer} with Truck {slot['truck']}{crane_message} "
-                f"on {formatted_date_display} at {slot['time'].strftime('%I:%M %p')}."
-            )
-        else:
-            st.error(f"Error: Truck {slot['truck']} is not available at that time.")
+             st.success(
+                 f"Scheduled {selected_customer} with Truck {slot['truck']}{crane_message} "
+                 f"on {formatted_date_display} at {slot['time'].strftime('%I:%M %p')}."
+             )
+         else:
+             st.error(f"Error: Truck {slot['truck']} is not available at that time.")
 
-    return schedule_job_callback
+     return schedule_job_callback
 
             st.button(
                 f"Schedule on {slot['time'].strftime('%H:%M')}",
