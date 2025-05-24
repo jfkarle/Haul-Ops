@@ -91,6 +91,17 @@ def load_customer_data():
         st.error(f"An unexpected error occurred while loading data: {e}")
         return pd.DataFrame()
 
+  if 'customers_df_loaded' not in st.session_state:
+         customers_df = load_customer_data()
+     else:
+         customers_df = st.session_state['customers_df_loaded']
+
+     if not customers_df.empty:
+         st.subheader("Loaded Customer Data (First 5 rows):")
+         st.dataframe(customers_df.head())  # Temporary output
+     else:
+         st.warning("Customer data was not loaded.")
+
 def filter_customers(df, query):
     query = query.lower()
     return df[df["Customer Name"].str.lower().str.contains(query)]
