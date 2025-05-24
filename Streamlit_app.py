@@ -169,22 +169,23 @@ def has_truck_scheduled(truck: str, date: datetime):
             return True
     return False
 
-def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
-    start_dt = datetime.combine(date, start_t)
-    end_dt = start_dt + timedelta(hours=dur_hrs)
-    for job in st.session_state["schedule"]:
-        if job["truck"] != truck:
-            continue
-        if job["date"].date() != date.date(): # Compare date parts
-            continue
-        job_start = datetime.combine(job["date"].date(), job["time"])
-        job_end = job_start + timedelta(hours=job["duration"])
-        latest_start = max(start_dt, job_start)
-        earliest_end = min(end_dt, job_end)
-        overlap = (earliest_end - latest_start).total_seconds() > 0
-        if overlap:
-            return False
-    return True
+def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float, customer=None): # Add customer parameter
+     start_dt = datetime.combine(date, start_t)
+     end_dt = start_dt + timedelta(hours=dur_hrs)
+     for job in st.session_state["schedule"]:
+         if job["truck"] == truck and job["date"].date() == date.date():
+             job_start = datetime.combine(job["date"].date(), job["time"])
+             job_end = job_start + timedelta(hours=job["duration"])
+             latest_start = max(start_dt, job_start)
+             earliest_end = min(end_dt, job_end)
+             overlap = (earliest_end - latest_start).total_seconds() > 0
+             if overlap:
+                 return False
++        if customer and job["customer"] == customer and job["date"].date() == date.date() and \
++           (start_dt < datetime.combine(job["date"].date(), job["time"]) + timedelta(hours=job["duration"]) and \
++            end_dt > datetime.combine(job["date"].date(), job["time"])):
++            return False
+     return True
 
 def format_date_display(date_obj):
     """Formats a date object to 'Month Day, Year' (e.g., July 5, 2025)."""
