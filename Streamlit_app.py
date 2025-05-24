@@ -169,7 +169,7 @@ def has_truck_scheduled(truck: str, date: datetime):
             return True
     return False
 
-def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float, customer=None): # Add customer parameter
+def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float, customer=None, boat_type=None):
      start_dt = datetime.combine(date, start_t)
      end_dt = start_dt + timedelta(hours=dur_hrs)
      for job in st.session_state["schedule"]:
@@ -181,10 +181,10 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float, cus
              overlap = (earliest_end - latest_start).total_seconds() > 0
              if overlap:
                  return False
-+        if customer and job["customer"] == customer and job["date"].date() == date.date() and \
-+           (start_dt < datetime.combine(job["date"].date(), job["time"]) + timedelta(hours=job["duration"]) and \
-+            end_dt > datetime.combine(job["date"].date(), job["time"])):
-+            return False
+         if customer and job["customer"] == customer and job["date"].date() == date.date() and \
+            start_dt < datetime.combine(job["date"].date(), job["time"]) + timedelta(hours=job["duration"]) and \
+            end_dt > datetime.combine(job["date"].date(), job["time"]):
+             return False
      return True
 
 def format_date_display(date_obj):
