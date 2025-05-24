@@ -2,16 +2,13 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time, date
 import requests
-from fpdf import FPDF # Make sure FPDF is imported
-import os # Make sure os is imported
+from fpdf import FPDF
+import os
 
 st.set_page_config(
     page_title="Boat Ramp Scheduling",
     layout="wide"
 )
-
-st.title("Is it working?")  # Add this line at the very top
-
 
 # ====================================
 # ------------ CONSTANTS -------------
@@ -69,10 +66,19 @@ if "suggested_slots" not in st.session_state:
 if "slot_index" not in st.session_state:
     st.session_state["slot_index"] = 0
 
-File "/mount/src/haul-ops/Streamlit_app_PATCHED_FINAL_FIXED_VERIFIED_DEPLOYABLE.py", line 94
-       if 'customers_df_loaded' not in st.session_state:
-                                                        ^
-IndentationError: unindent does not match any outer indentation level
+# ====================================
+# ------------ HELPERS ---------------
+# ====================================
+@st.cache_data
+def load_customer_data():
+    df = pd.read_csv(CUSTOMER_CSV)
+    st.session_state['customers_df_loaded'] = df.copy()
+    return df
+
+def filter_customers(df, query):
+    query = query.lower()
+    return df[df["Customer Name"].str.lower().str.contains(query)]
+
 def get_tide_predictions(date: datetime, ramp: str):
     station_id = RAMP_TO_NOAA_ID.get(ramp)
     if not station_id:
@@ -269,4 +275,26 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(selected_date, jobs, cus
     return pdf_filename
 
 # ====================================
-#
+# ------------- UI -------------------
+# ====================================
+st.title("Boat Ramp Scheduling")
+
+if 'customers_df_loaded' not in st.session_state:
+    customers_df = load_customer_data()
+else:
+    customers_df = st.session_state['customers_df_loaded']
+
+# --- Sidebar for Input ---
+with st.sidebar:
+    st.header("New Job")
+    customer_query = st.text_input("Find Customer:", "")
+    filtered_customers = filter_customers(customers_df, customer_query)
+
+    if not filtered_customers.empty:
+        selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
+    else:
+        selected_customer = None
+        st.info("No matching customers found.")
+
+    ramp_choice = st.selectbox("Select Ramp", RAMPS)
+    job_date = st.date_input("Select Date", datetime.now().date
