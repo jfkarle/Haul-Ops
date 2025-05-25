@@ -581,7 +581,7 @@ if current_available_slots:
             st.markdown(f"**Ramp:** {slot['ramp']}")
             st.markdown(f"**Truck:** {slot['truck']}")
             schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}" # Ensure key is unique
-def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
+            def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
                 def schedule_job_callback():
                     # --- MODIFIED CHECK ---
                     # Check if the customer is already scheduled on ANY date
@@ -638,7 +638,7 @@ if st.session_state["schedule"]:
             continue
         if job["truck"] != "J17": # Process hauling truck and mark as seen
             seen.add(key)
-        
+    
         try:
             customer_row = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
             boat_type = customer_row["Boat Type"]
@@ -655,7 +655,6 @@ if st.session_state["schedule"]:
             j["time"] == job["time"]
             for j in st.session_state["schedule"]
         )
-
         # Only add the main hauling job to the display list if it's not J17,
         # or if it's a J17 job that hasn't been "seen" (meaning it's the primary/only entry for that time)
         # This prevents duplicate rows if both hauling and J17 are listed separately
