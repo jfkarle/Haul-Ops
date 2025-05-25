@@ -75,7 +75,7 @@ def filter_customers(df, query):
     query = query.lower()
     return df[df["Customer Name"].str.lower().str.contains(query)]
 
-ddef get_tide_predictions(date: datetime, ramp: str):
+def get_tide_predictions(date: datetime, ramp: str):
     station_id = RAMP_TO_NOAA_ID.get(ramp)
     if not station_id:
         return [], [], f"No NOAA station ID mapped for {ramp}"
