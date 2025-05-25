@@ -602,12 +602,17 @@ with st.sidebar:
         #  -----  HIGH/LOW TIDE DISPLAY  -----
         noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)  # Use ramp_choice here
         if noaa_station_id:
-            tide_data, err = get_tide_predictions(earliest_date_input, ramp_choice)  # Fetch tides
-            if tide_data:
-                if tide_data:
-                    tide_display_text = "Tides (5 AM - 7 PM):\n"
-                    for tide_str in tide_data:  # Iterate through the list of strings
-                        tide_display_text += f"- {tide_str}\n" # Use the string directly
+            all_tides, _, err = get_tide_predictions(earliest_date_input, ramp_choice)  # Fetch all tides
+            if all_tides:
+                filtered_tides_display = []
+                for t_str, type in all_tides:
+                    tide_time_dt = datetime.strptime(t_str, "%Y-%m-%d %H:%M")
+                    if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                        formatted_time = format_time(t_str.split()[-1])
+                        filtered_tides_display.append(f"- {formatted_time} ({type})")
+
+                if filtered_tides_display:
+                    tide_display_text = "Tides (5 AM - 7 PM):\n" + "\n".join(filtered_tides_display)
                     st.sidebar.info(tide_display_text)
                 else:
                     st.sidebar.info("No high or low tide data available between 5 AM and 7 PM for this date and ramp.")
