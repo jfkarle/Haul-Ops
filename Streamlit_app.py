@@ -100,7 +100,7 @@ def get_tide_predictions(date: datetime, ramp: str):
         for item in data:
             tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
             if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                filtered_tides.append(f"{format_time(item['t'].split()[-1])} ({item['type']})") # Extract time and type
+                filtered_tides.append((format_time(item['t'].split()[-1]), item['type'])) # Store as tuple
         return filtered_tides, None
     except Exception as e:
         return [], str(e)
@@ -567,7 +567,10 @@ with st.sidebar:
             tide_data, err = get_tide_predictions(earliest_date_input, ramp_choice)  # Fetch tides
             if tide_data:
                 if tide_data:
-                    st.sidebar.info(f"Tides (5 AM - 7 PM): {', '.join(tide_data)}")
+                    tide_display_text = "Tides (5 AM - 7 PM):\n"
+                    for tide_time, tide_type in tide_data:
+                        tide_display_text += f"- {tide_time} ({tide_type})\n"
+                    st.sidebar.info(tide_display_text)
                 else:
                     st.sidebar.info("No high or low tide data available between 5 AM and 7 PM for this date and ramp.")
             else:
