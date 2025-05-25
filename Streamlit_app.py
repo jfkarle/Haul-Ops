@@ -584,9 +584,9 @@ if current_available_slots:
 
             def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
                 def schedule_job_callback():
-                    # --- ADDED CHECK ---
-                    # Check if the customer is already scheduled
-                    if any(job['customer'] == current_customer and job['date'] == current_slot['date'] for job in st.session_state["schedule"]):
+                    # --- MODIFIED CHECK ---
+                    # Check if the customer is already scheduled for ANY time on this date
+                    if any(job['customer'] == current_customer and job['date'].date() == current_slot['date'].date() for job in st.session_state["schedule"]):
                         st.error(f"Customer {current_customer} is already scheduled for {current_formatted_date}.")
                         return  # Exit the function, don't schedule
 
