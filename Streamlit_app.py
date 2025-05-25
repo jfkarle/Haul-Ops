@@ -75,6 +75,11 @@ def filter_customers(df, query):
     query = query.lower()
     return df[df["Customer Name"].str.lower().str.contains(query)]
 
+def format_time(time_str: str) -> str:
+    """Formats a time string in HH:MM format to HH:MM AM/PM."""
+    time_obj = datetime.strptime(time_str, "%H:%M")
+    return time_obj.strftime("%I:%M %p")
+
 def get_tide_predictions(date: datetime, ramp: str):
     station_id = RAMP_TO_NOAA_ID.get(ramp)
     if not station_id:
