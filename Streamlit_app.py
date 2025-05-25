@@ -583,41 +583,41 @@ if current_available_slots:
             schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}" # Ensure key is unique
 
             def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
-    def schedule_job_callback():
-        # --- ADDED CHECK ---
-        # Check if the customer is already scheduled
-        if any(job['customer'] == current_customer and job['date'] == current_slot['date'] for job in st.session_state["schedule"]):
-            st.error(f"Customer {current_customer} is already scheduled for {current_formatted_date}.")
-            return  # Exit the function, don't schedule
+                def schedule_job_callback():
+                    # --- ADDED CHECK ---
+                    # Check if the customer is already scheduled
+                    if any(job['customer'] == current_customer and job['date'] == current_slot['date'] for job in st.session_state["schedule"]):
+                        st.error(f"Customer {current_customer} is already scheduled for {current_formatted_date}.")
+                        return  # Exit the function, don't schedule
 
-        # Schedule hauling truck job
-        hauling_job = {
-            'truck': current_slot['truck'],
-            'date': datetime.combine(current_slot['date'], current_slot['time']),
-            'time': current_slot['time'],
-            'duration': current_duration,
-            'customer': current_customer,
-            'high_tide': current_slot.get("high_tide", ""),
-            'ramp': current_slot.get("ramp", "")
-        }
-        st.session_state['schedule'].append(hauling_job)
-        # Schedule crane truck J17 if required
-        if current_slot.get('j17_required'):
-            crane_job = {
-                'truck': 'J17',
-                'date': datetime.combine(current_slot['date'], current_slot['time']),
-                'time': current_slot['time'],
-                'duration': current_slot['j17_duration'],
-                'customer': current_customer,
-                'ramp': current_slot.get("ramp", "") # Add the ramp information here!
-            }
-            st.session_state['schedule'].append(crane_job)
-        st.success(
-            f"Scheduled {current_customer} with Truck {current_slot['truck']}"
-            f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
-            f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}."
-        )
-    return schedule_job_callback
+                    # Schedule hauling truck job
+                    hauling_job = {
+                        'truck': current_slot['truck'],
+                        'date': datetime.combine(current_slot['date'], current_slot['time']),
+                        'time': current_slot['time'],
+                        'duration': current_duration,
+                        'customer': current_customer,
+                        'high_tide': current_slot.get("high_tide", ""),
+                        'ramp': current_slot.get("ramp", "")
+                    }
+                    st.session_state['schedule'].append(hauling_job)
+                    # Schedule crane truck J17 if required
+                    if current_slot.get('j17_required'):
+                        crane_job = {
+                            'truck': 'J17',
+                            'date': datetime.combine(current_slot['date'], current_slot['time']),
+                            'time': current_slot['time'],
+                            'duration': current_slot['j17_duration'],
+                            'customer': current_customer,
+                            'ramp': current_slot.get("ramp", "") # Add the ramp information here!
+                        }
+                        st.session_state['schedule'].append(crane_job)
+                    st.success(
+                        f"Scheduled {current_customer} with Truck {current_slot['truck']}"
+                        f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
+                        f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}."
+                    )
+                return schedule_job_callback
 
             st.button(
                 f"Schedule on {slot['time'].strftime('%H:%M')}",
