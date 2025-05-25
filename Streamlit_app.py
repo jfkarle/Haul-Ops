@@ -407,10 +407,10 @@ def draw_page_header(current_pdf, current_date_obj, current_jobs):
         current_pdf.set_font("Helvetica", size=11)  # Reset font for content
 
     # Table Headers
-    current_pdf.set_fill_color(220, 220, 220)
-    current_pdf.set_font("Helvetica", size=11, style="B")
-    current_x = margin_left
-    header_y_pos = margin_top
+        current_pdf.set_fill_color(220, 220, 220)
+        current_pdf.set_font("Helvetica", size=11, style="B")
+        current_x = margin_left
+        header_y_pos = margin_top
 
     for i, h in enumerate(headers):
         x = current_x
