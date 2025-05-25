@@ -119,34 +119,38 @@ def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_h
         t += timedelta(minutes=30)
     return slots
 
-def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = None):
-    tide_data, err = get_tide_predictions(date, ramp)
-    if err:
-        return [], None
+def format_time(time_str: str) -> str:
+    """Formats a time string in HH:MM format to HH:MM AM/PM."""
+    time_obj = datetime.strptime(time_str, "%H:%M")
+    return time_obj.strftime("%I:%M %p")
 
-    valid_slots = []
-    high_tide_time = None
-    tide_window = RAMP_TIDE_WINDOWS.get(ramp)
+def get_tide_predictions(date: datetime, ramp: str):
+    station_id = RAMP_TO_NOAA_ID.get(ramp)
+    if not station_id:
+        return [], f"No NOAA station ID mapped for {ramp}"
 
-    if ramp == "Scituate Harbor (Jericho Road)" and boat_draft and boat_draft > 5:
-        tide_window = (3, 3)  # Special rule for Scituate with draft > 5'
-
-    if tide_window:
-        # Use only the first high tide of the day
-        first_high_tide_data = next((t for t, type in tide_data if type == 'H'), None)
-        if first_high_tide_data:
-            ht_datetime = datetime.strptime(first_high_tide_data, "%Y-%m-%d %H:%M")  # Parse original string
-            high_tide_time = ht_datetime.strftime("%I:%M %p")
-            valid_slots = generate_slots_for_high_tide(first_high_tide_data, tide_window[0], tide_window[1])
-    elif ramp == "Sandwich Basin":
-        # "Any tide" - provide middle of the day window centered at 10:00 AM
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
-    else:
-        # If no tide window is specified, return all slots (or a reasonable default)
-        # Default to 3 hours before/after 10:00 AM if no specific rule
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
-
-    return sorted(set(valid_slots)), high_tide_time
+    params = NOAA_PARAMS_TEMPLATE | {
+        "station": station_id,
+        "begin_date": date.strftime("%Y%m%d"),
+        "end_date": date.strftime("%Y%m%d"),
+        "product": "predictions",
+        "interval": "hilo"
+    }
+    try:
+        resp = requests.get(NOAA_API_URL, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json().get("predictions", [])
+        filtered_tides = []
+        for item in data:
+            try:
+                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+                if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                    filtered_tides.append({"time": item['t'], "type": item['type']})  # Store data as dictionary
+            except ValueError as e:
+                print(f"Error parsing time '{item['t']}': {e}") # Log the error
+        return filtered_tides, None
+    except Exception as e:
+        return [], str(e)
 
 def is_workday(date: datetime):
     wk = date.weekday()
