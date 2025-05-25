@@ -586,7 +586,20 @@ if current_available_slots:
                 def schedule_job_callback():
                     # --- MODIFIED CHECK ---
                     # Check if the customer is already scheduled for ANY time on this date
-                    if any(job['customer'] == current_customer and job['date'].date() == current_slot['date'].date() for job in st.session_state["schedule"]):
+                    scheduled_on_date = False
+                    for job in st.session_state["schedule"]:
+                        job_date = job['date']
+                        current_date = current_slot['date']
+                        if isinstance(job_date, datetime):
+                            job_date = job_date.date()
+                        if isinstance(current_date, datetime):
+                            current_date = current_date.date()
+
+                        if job['customer'] == current_customer and job_date == current_date:
+                            scheduled_on_date = True
+                            break
+
+                    if scheduled_on_date:
                         st.error(f"Customer {current_customer} is already scheduled for {current_formatted_date}.")
                         return  # Exit the function, don't schedule
 
@@ -627,8 +640,6 @@ if current_available_slots:
     st.markdown("---")
 else:
     st.info("No suitable slots found for the selected criteria.")
-
-
 st.header("Current Schedule")
 if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
