@@ -309,215 +309,249 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
 
 
 def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customers_df):
-    try:
-        # Data Validation (Basic checks - expand as needed)
-        if not isinstance(jobs, list):
-            raise ValueError("jobs must be a list")
-        if not isinstance(customers_df, pd.DataFrame):
-            raise ValueError("customers_df must be a pandas DataFrame")
+    pdf = FPDF(orientation='P', unit='pt', format='Letter')
+    
+    # Margins (3/4 inch = 54 pt)
+    margin_left = 54
+    margin_top = 54 
+    margin_right = 54
+    margin_bottom = 54
 
-        pdf = FPDF(orientation='P', unit='pt', format='Letter')
+    pdf.set_left_margin(margin_left)
+    pdf.set_top_margin(margin_top)
+    pdf.set_right_margin(margin_right)
+    # Set auto_page_break to False as the entire day must fit on one page
+    pdf.set_auto_page_break(auto=False) 
 
-        # Margins (3/4 inch = 54 pt)
-        margin_left = 54
-        margin_top = 54
-        margin_right = 54
-        margin_bottom = 54
+    pdf.add_page() # Only one page needed for the whole day
 
-        pdf.set_left_margin(margin_left)
-        pdf.set_top_margin(margin_top)
-        pdf.set_right_margin(margin_right)
-        # Set auto_page_break to False as the entire day must fit on one page
-        pdf.set_auto_page_break(auto=False)
+    page_width = pdf.w
+    page_height = pdf.h
 
-        pdf.add_page()  # Only one page needed for the whole day
+    # Calculate column widths to fit content width
+    total_original_width = 60 + (4 * 100) # 460
+    available_content_width = page_width - (margin_left + margin_right) # 612 - 108 = 504
+    scale_factor = available_content_width / total_original_width
 
-        page_width = pdf.w
-        page_height = pdf.h
+    column_widths = [
+        60 * scale_factor, # Time column
+        100 * scale_factor, # S20
+        100 * scale_factor, # S21
+        100 * scale_factor, # S23
+        100 * scale_factor  # Crane J17
+    ]
+    
+    start_hour = 8
+    end_hour = 19
+    num_rows = (end_hour - start_hour) * 4 # 44 rows (15-min intervals)
 
-        # Calculate column widths to fit content width
-        total_original_width = 60 + (4 * 100)  # 460
-        available_content_width = page_width - \
-            (margin_left + margin_right)  # 612 - 108 = 504
-        scale_factor = available_content_width / total_original_width
+    # Calculate exact row_height to fit all rows on one page
+    # `row_height = (usable_vertical_space) / (num_rows + 1)` where `+1` is for the header row
+    usable_vertical_space = page_height - margin_top - margin_bottom 
+    row_height = usable_vertical_space / (num_rows + 1) 
 
-        column_widths = [
-            60 * scale_factor,  # Time column
-            100 * scale_factor,  # S20
-            100 * scale_factor,  # S21
-            100 * scale_factor,  # S23
-            100 * scale_factor  # Crane J17
-        ]
+    headers = ["", "S20", "S21", "S23", "Crane J17"]
 
-        start_hour = 8
-        end_hour = 19
-        num_rows = (end_hour - start_hour) * 4  # 44 rows (15-min intervals)
+    # Function to draw header content (date, high tide, table headers)
+    def draw_page_header(current_pdf, current_date_obj, current_jobs):
+        # Top-left date heading
+        current_pdf.set_font("Helvetica", size=14, style='B')
+        current_pdf.text(margin_left, margin_top - 15, current_date_obj.strftime("%A, %B %d, %Y"))
 
-        # Calculate exact row_height to fit all rows on one page
-        # `row_height = (usable_vertical_space) / (num_rows + 1)` where `+1` is for the header row
-        usable_vertical_space = page_height - margin_top - margin_bottom
-        row_height = usable_vertical_space / (num_rows + 1)
+        # High Tide in upper right corner (using the first job's ramp for simplicity)
+        high_tide_display = ""
+        if current_jobs:
+            first_job_ramp = current_jobs[0].get("ramp")
+            if first_job_ramp:
+                _, high_tides_data, _ = get_tide_predictions(current_date_obj, first_job_ramp)
+                if high_tides_data:
+                    ht_datetime = datetime.strptime(high_tides_data[0][0], "%Y-%m-%d %H:%M")
+                    high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
 
-        headers = ["", "S20", "S21", "S23", "Crane J17"]
+        if high_tide_display:
+            current_pdf.set_font("Helvetica", size=9)
+            text_width = current_pdf.get_string_width(high_tide_display)
+            current_pdf.text(page_width - margin_right - text_width, margin_top - 15, high_tide_display)
 
-        # Function to draw header content (date, high tide, table headers)
-        def draw_page_header(current_pdf, current_date_obj, current_jobs):
-            # ... (your corrected draw_page_header function here) ...
-            pass # Replace with the code you provided earlier
+        # Table Headers
+        current_pdf.set_fill_color(220, 220, 220)
+        current_pdf.set_font("Helvetica", size=11, style="B")
+        current_x = margin_left
+        header_y_pos = margin_top 
 
-        draw_page_header(pdf, date_obj, jobs)
+        for i, h in enumerate(headers):
+            x = current_x
+            current_pdf.rect(x, header_y_pos, column_widths[i], row_height, 'FD')
+            current_pdf.text(x + 4, header_y_pos + row_height / 2 + current_pdf.font_size / 2 - 2, h)
+            current_x += column_widths[i]
+        
+        # Set Y position for content to start below headers
+        current_pdf.set_y(header_y_pos + row_height)
+        current_pdf.set_font("Helvetica", size=11) # Reset font for content
 
-        # Collect all tides for the given date and relevant ramps
-        unique_ramps = list(set(job['ramp'] for job in jobs if 'ramp' in job))
-        all_tides_for_day = []
-        for ramp in unique_ramps:
-            tide_result = get_tide_predictions(date_obj, ramp)
-            if len(tide_result) == 3:
-                preds, _, err = tide_result
-                if not err and preds:
-                    all_tides_for_day.extend(preds)
-            elif len(tide_result) == 2:
-                preds, err = tide_result
-                if not err and preds:
-                    # Adapt to the list of dictionaries format
-                    for item in preds:
-                        all_tides_for_day.append((item['time'], item['type']))
+    draw_page_header(pdf, date_obj, jobs)
 
-        tide_marks = {"H": [], "L": []}
-        for t_str, t_type in all_tides_for_day:
-            try:
-                dt_obj = datetime.strptime(t_str, "%Y-%m-%d %H:%M")
-                total_minutes = dt_obj.hour * 60 + dt_obj.minute
-                rounded_minutes = round(total_minutes / 15) * 15
-                rounded_hour = rounded_minutes // 60
-                rounded_minute = rounded_minutes % 60
-                rounded_t = time(rounded_hour % 24, rounded_minute)
-                if t_type == "H":
-                    tide_marks["H"].append(rounded_t)
-                elif t_type == "L":
-                    tide_marks["L"].append(rounded_t)
-            except ValueError as e:
-                print(f"Error parsing tide time: {e}")
-            except TypeError as e:
-                print(f"Error processing tide data: {e}, data: {(t_str, t_type)}")
+    # Collect all tides for the given date and relevant ramps
+    unique_ramps = list(set(job['ramp'] for job in jobs if 'ramp' in job))
+    all_tides_for_day = []
+    for ramp in unique_ramps:
+        preds, _, err = get_tide_predictions(date_obj, ramp)
+        if not err:
+            all_tides_for_day.extend(preds)
 
-        rows = []
-        for hour in range(start_hour, end_hour):
-            for minute in [0, 15, 30, 45]:
-                t = time(hour, minute)
-                rows.append(t)
+    tide_marks = {"H": [], "L": []}
+    for t_str, t_type in all_tides_for_day:
+        try:
+            dt_obj = datetime.strptime(t_str, "%Y-%m-%d %H:%M")
+            total_minutes = dt_obj.hour * 60 + dt_obj.minute
+            rounded_minutes = round(total_minutes / 15) * 15
+            rounded_hour = rounded_minutes // 60
+            rounded_minute = rounded_minutes % 60
+            rounded_t = time(rounded_hour % 24, rounded_minute)
+            if t_type == "H":
+                tide_marks["H"].append(rounded_t)
+            elif t_type == "L":
+                tide_marks["L"].append(rounded_t)
+        except Exception as e:
+            pass
 
-        # Prepare content for each display cell (customer, boat, ramp)
-        # Key: (time_obj, truck_name) -> { "text": "...", "font_size": int, "font_style": str }
-        display_content_map = {}
+    rows = []
+    for hour in range(start_hour, end_hour):
+        for minute in [0, 15, 30, 45]:
+            t = time(hour, minute)
+            rows.append(t)
 
-        truck_col_indices = {"S20": 1, "S21": 2, "S23": 3, "J17": 4}
+    # Prepare content for each display cell (customer, boat, ramp)
+    # Key: (time_obj, truck_name) -> { "text": "...", "font_size": int, "font_style": str }
+    display_content_map = {} 
 
-        for job in jobs:
-            # Data Validation for individual jobs
-            if not all(key in job for key in ("time", "truck", "customer", "duration")):
-                print(f"Warning: Job missing required keys: {job}")
-                continue  # Skip this job
+    for job in jobs:
+        job_start_t = job["time"]
+        job_start_dt = datetime.combine(date_obj, job_start_t)
+        job_truck = job["truck"]
 
-            job_start_t = job["time"]
-            job_truck = job["truck"]
-            job_start_dt = datetime.combine(date_obj, job_start_t)
-            job_end_dt = job_start_dt + timedelta(hours=job["duration"])
+        # 1. Customer Name (at job start time)
+        display_content_map[(job_start_t, job_truck)] = {
+            "text": job["customer"],
+            "font_size": 9, "font_style": "B"
+        }
 
-            # 1. Customer Name (at job start time)
-            display_content_map[(job_start_t, job_truck)] = {
-                "text": job["customer"],
-                "font_size": 9,
-                "font_style": "B"
-            }
+        # 2. Boat Details (15 mins after job start)
+        boat_details_t = (job_start_dt + timedelta(minutes=15)).time()
+        customer_row_data = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
+        boat_type = customer_row_data["Boat Type"]
+        boat_length = customer_row_data["Boat Length"]
+        boat_details_text = f"{boat_length}' {boat_type}"
+        display_content_map[(boat_details_t, job_truck)] = {
+            "text": boat_details_text,
+            "font_size": 8, "font_style": ""
+        }
 
-            # 2. Boat Details (15 mins after job start)
-            boat_details_t = (job_start_dt + timedelta(minutes=15)).time()
-            try:
-                customer_row_data = customers_df[customers_df["Customer Name"]
-                                                  == job["customer"]].iloc[0]
-                boat_type = customer_row_data["Boat Type"]
-                boat_length = customer_row_data["Boat Length"]
-                boat_details_text = f"{boat_length}' {boat_type}"
-                display_content_map[(boat_details_t, job_truck)] = {
-                    "text": boat_details_text,
-                    "font_size": 8,
-                    "font_style": ""
-                }
-            except IndexError:
-                print(f"Warning: Customer not found: {job['customer']}")
-                display_content_map[(boat_details_t, job_truck)] = {
-                    "text": "Customer Not Found",
-                    "font_size": 8,
-                    "font_style": ""
-                }
+        # 3. Ramp (30 mins after job start)
+        ramp_t = (job_start_dt + timedelta(minutes=30)).time()
+        ramp_text = job.get("ramp", "Unknown")
+        display_content_map[(ramp_t, job_truck)] = {
+            "text": ramp_text,
+            "font_size": 8, "font_style": ""
+        }
+    
+    # Function to convert time object to its corresponding row index
+    def time_to_idx(t_obj):
+        return (t_obj.hour - start_hour) * 4 + t_obj.minute // 15
 
-            # 3. Ramp (30 mins after job start)
-            ramp_t = (job_start_dt + timedelta(minutes=30)).time()
-            ramp_text = job.get("ramp", "Unknown")
-            display_content_map[(ramp_t, job_truck)] = {
-                "text": ramp_text,
-                "font_size": 8,
-                "font_style": ""
-            }
+    # Main loop to draw the grid and content
+    for idx, t in enumerate(rows): # Iterate through each 15-minute time slot
+        y_row_start = margin_top + row_height * (idx + 1) # Y position for this row, +1 for header
+        
+        # Draw time/tide labels in the first column
+        x_first_col = margin_left
+        
+        display_label = t.strftime("%-I:%M") if t.minute else t.strftime("%-I:00")
+        label_style = "Helvetica"
+        label_size = 11
+        label_color = (0, 0, 0)
 
-            # Function to convert time object to its corresponding row index
-            def time_to_idx(t_obj):
-                return (t_obj.hour - start_hour) * 4 + t_obj.minute // 15
+        if t in tide_marks["H"]:
+            display_label = "HIGH TIDE"
+            label_style = "Helvetica"
+            label_size = 10
+            label_color = (0, 100, 0)
+        elif t in tide_marks["L"]:
+            display_label = "LOW TIDE"
+            label_style = "Helvetica"
+            label_size = 10
+            label_color = (200, 0, 0)
+        elif t.minute != 0:
+            label_color = (150, 150, 150)
 
-            # Calculate the Y coordinate for the start of the line (bottom of the Ramp cell)
-            # Ramp text is at job_start_t + 30 mins.
-            # Line starts *below* this cell.
-            ramp_slot_time = (job_start_dt + timedelta(minutes=30)).time()
-            start_line_row_idx = time_to_idx(
-                ramp_slot_time)  # Get index of the ramp cell
-            y_line_start = margin_top + row_height * \
-                (start_line_row_idx + 1 + 1)  # +1 for header, +1 for bottom of ramp cell
+        pdf.set_font(label_style, size=label_size)
+        pdf.set_text_color(*label_color)
+        # Position text to be vertically centered in its row
+        pdf.text(x_first_col + 4, y_row_start + row_height / 2 + pdf.font_size / 2 - 2, display_label)
+        pdf.set_text_color(0, 0, 0) # Reset color
 
-            # Calculate the Y coordinate for the end of the line (bottom of the last job cell)
-            # The line terminates at the bottom of the last *occupied* 15-min slot
-            end_job_row_idx = time_to_idx(
-                (job_end_dt - timedelta(seconds=1)).time())
-            y_line_end = margin_top + row_height * \
-                (end_job_row_idx + 1 + 1)  # +1 for header, +1 for bottom of...
+        # Draw grid cells for this row
+        current_x_grid = margin_left
+        truck_col_map = {"S20": 1, "S21": 2, "S23": 3, "J17": 4} 
+        for col_idx in range(len(column_widths)):
+            x_col = current_x_grid
+            pdf.rect(x_col, y_row_start, column_widths[col_idx], row_height)
+            
+            # Draw content if it exists for this cell (skip first column for time labels)
+            if col_idx > 0: 
+                truck_name = list(truck_col_map.keys())[col_idx - 1] 
+                content_data = display_content_map.get((t, truck_name))
+                if content_data:
+                    pdf.set_font("Helvetica", size=content_data["font_size"], style=content_data["font_style"])
+                    # Center text vertically in the row
+                    pdf.text(x_col + 4, y_row_start + row_height / 2 + pdf.font_size / 2 - 2, content_data["text"])
+                    pdf.set_font("Helvetica", size=11) # Reset font
 
-            # Draw the vertical line
-            x_truck_center = margin_left + \
-                column_widths[0] + column_widths[truck_col_indices[job_truck]] / 2
-            pdf.line(x_truck_center, y_line_start,
-                     x_truck_center, y_line_end)
+            current_x_grid += column_widths[col_idx]
+        
+    # After drawing all cells, draw the vertical lines for job durations
+    truck_col_map = {"S20": 1, "S21": 2, "S23": 3, "J17": 4} 
+    for job in jobs:
+        job_start_t = job["time"]
+        job_truck = job["truck"]
+        job_start_dt = datetime.combine(date_obj, job_start_t)
+        job_end_dt = job_start_dt + timedelta(hours=job["duration"])
 
-        # Add content to the table cells
-        for hour in range(start_hour, end_hour + 1):
-            for quarter in range(4):
-                time_obj = time(hour, quarter * 15)
-                row_idx = (hour - start_hour) * 4 + quarter
-                y_cell = margin_top + row_height * (row_idx + 1)  # +1 for header
+        # Calculate the Y coordinate for the start of the line (bottom of the Ramp cell)
+        # Ramp text is at job_start_t + 30 mins. Line starts *below* this cell.
+        ramp_slot_time = (job_start_dt + timedelta(minutes=30)).time()
+        start_line_row_idx = time_to_idx(ramp_slot_time) # Get index of the ramp cell
+        y_line_start = margin_top + row_height * (start_line_row_idx + 1 + 1) # +1 for header, +1 for bottom of ramp cell
 
-                # Time column
-                pdf.set_font("Helvetica", size=9)
-                pdf.text(margin_left + 4, y_cell + row_height / 2 +
-                         pdf.font_size / 2 - 2, time_obj.strftime("%I:%M %p"))
+        # Calculate the Y coordinate for the end of the line (bottom of the last job cell)
+        # The line terminates at the bottom of the last *occupied* 15-min slot
+        end_job_row_idx = time_to_idx((job_end_dt - timedelta(seconds=1)).time())
+        y_line_end = margin_top + row_height * (end_job_row_idx + 1 + 1) # +1 for header, +1 for bottom of row
 
-                for truck, col_idx in truck_col_indices.items():
-                    content_key = (time_obj, truck)
-                    if content_key in display_content_map:
-                        content = display_content_map[content_key]
-                        x_cell = margin_left + column_widths[0] + \
-                            sum(column_widths[1:col_idx]) + 4
-                        pdf.set_font("Helvetica", size=content["font_size"],
-                                     style=content["font_style"])
-                        pdf.text(x_cell, y_cell + row_height /
-                                 2 + pdf.font_size / 2 - 2, content["text"])
+        col_idx = truck_col_map.get(job_truck)
+        if col_idx is None: continue
+        
+        x_center_line = margin_left + sum(column_widths[:col_idx]) + column_widths[col_idx] / 2
+        
+        # Draw the vertical line
+        pdf.line(x_center_line, y_line_start, x_center_line, y_line_end)
 
-        pdf_filename = f"daily_schedule_{date_obj.strftime('%Y-%m-%d')}.pdf"
-        pdf_path = pdf_filename  # Save in the current directory
-        pdf.output(pdf_path)
-        return pdf_path
+        # Draw the horizontal end cap
+        cap_length = 20 # length of the horizontal cap line
+        pdf.line(x_center_line - cap_length/2, y_line_end, x_center_line + cap_length/2, y_line_end)
 
-    except Exception as e:
-        print(f"Error generating PDF: {e}")
-        return None  # Or return an error message
+
+    # Add copyright text at the bottom of the page
+    pdf.set_y(page_height - margin_bottom + 10) # Position from bottom margin, 10pt up
+    pdf.set_font("Helvetica", size=8)
+    copyright_text = "© Copyright ECM, Inc 2025"
+    text_width = pdf.get_string_width(copyright_text)
+    x_center = (page_width - text_width) / 2
+    pdf.text(x_center, pdf.get_y(), copyright_text)
+
+    filename = f"schedule_{date_obj.strftime('%Y-%m-%d')}.pdf"
+    pdf.output(filename)
+    return filename if os.path.exists(filename) else None
 
 
 # ====================================
