@@ -89,8 +89,8 @@ def get_tide_predictions(date: datetime, ramp: str):
         "station": station_id,
         "begin_date": date.strftime("%Y%m%d"),
         "end_date": date.strftime("%Y%m%d"),
-        "product": "predictions",
-        "interval": "hilo"
+        "product": "predictions", # Ensure we are getting predictions
+        "interval": "hilo" # Ensure we are getting high/low predictions
     }
     try:
         resp = requests.get(NOAA_API_URL, params=params, timeout=10)
@@ -98,12 +98,10 @@ def get_tide_predictions(date: datetime, ramp: str):
         data = resp.json().get("predictions", [])
         filtered_tides = []
         for item in data:
-            try:
-                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
-                if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                    filtered_tides.append({"time": item['t'], "type": item['type']})  # Store data as dictionary
-            except ValueError as e:
-                print(f"Error parsing time '{item['t']}': {e}") # Log the error
+            tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+            if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                formatted_time = format_time(item['t'].split()[-1])
+                filtered_tides.append(f"{formatted_time} ({item['type']})")
         return filtered_tides, None
     except Exception as e:
         return [], str(e)
