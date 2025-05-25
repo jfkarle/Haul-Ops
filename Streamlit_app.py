@@ -310,10 +310,10 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
 
 def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customers_df):
     pdf = FPDF(orientation='P', unit='pt', format='Letter')
-    
+
     # Margins (3/4 inch = 54 pt)
     margin_left = 54
-    margin_top = 54 
+    margin_top = 54
     margin_right = 54
     margin_bottom = 54
 
@@ -321,75 +321,183 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
     pdf.set_top_margin(margin_top)
     pdf.set_right_margin(margin_right)
     # Set auto_page_break to False as the entire day must fit on one page
-    pdf.set_auto_page_break(auto=False) 
+    pdf.set_auto_page_break(auto=False)
 
-    pdf.add_page() # Only one page needed for the whole day
+    pdf.add_page()  # Only one page needed for the whole day
 
     page_width = pdf.w
     page_height = pdf.h
 
     # Calculate column widths to fit content width
-    total_original_width = 60 + (4 * 100) # 460
-    available_content_width = page_width - (margin_left + margin_right) # 612 - 108 = 504
+    total_original_width = 60 + (4 * 100)  # 460
+    available_content_width = page_width - (margin_left + margin_right)  # 612 - 108 = 504
     scale_factor = available_content_width / total_original_width
 
     column_widths = [
-        60 * scale_factor, # Time column
-        100 * scale_factor, # S20
-        100 * scale_factor, # S21
-        100 * scale_factor, # S23
-        100 * scale_factor  # Crane J17
+        60 * scale_factor,  # Time column
+        100 * scale_factor,  # S20
+        100 * scale_factor,  # S21
+        100 * scale_factor,  # S23
+        100 * scale_factor   # Crane J17
     ]
-    
+
     start_hour = 8
     end_hour = 19
-    num_rows = (end_hour - start_hour) * 4 # 44 rows (15-min intervals)
+    num_rows = (end_hour - start_hour) * 4  # 44 rows (15-min intervals)
 
     # Calculate exact row_height to fit all rows on one page
     # `row_height = (usable_vertical_space) / (num_rows + 1)` where `+1` is for the header row
-    usable_vertical_space = page_height - margin_top - margin_bottom 
-    row_height = usable_vertical_space / (num_rows + 1) 
+    usable_vertical_space = page_height - margin_top - margin_bottom
+    row_height = usable_vertical_space / (num_rows + 1)
 
     headers = ["", "S20", "S21", "S23", "Crane J17"]
 
     # Function to draw header content (date, high tide, table headers)
     def draw_page_header(current_pdf, current_date_obj, current_jobs):
-    # Top-left date heading
-    current_pdf.set_font("Helvetica", size=14, style='B')
-    current_pdf.text(margin_left, margin_top - 15, current_date_obj.strftime("%A, %B %d, %Y"))
+        # Top-left date heading
+        current_pdf.set_font("Helvetica", size=14, style='B')
+        current_pdf.text(margin_left, margin_top - 15, current_date_obj.strftime("%A, %B %d, %Y"))
 
-    # High Tide in upper right corner (using the first job's ramp for simplicity)
-    high_tide_display = ""
-    if current_jobs:
-        first_job_ramp = current_jobs[0].get("ramp")
-        if first_job_ramp:
-            tide_result = get_tide_predictions(current_date_obj, first_job_ramp)
-            if len(tide_result) == 3:
-                _, high_tides_data, _ = tide_result
-                if high_tides_data:
-                    try:
-                        ht_datetime = datetime.strptime(high_tides_data[0][0], "%Y-%m-%d %H:%M")
-                        high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
-                    except (ValueError, TypeError) as e:
-                        print(f"Error processing tide data: {e}")
-            elif len(tide_result) == 2:
-                tide_predictions, _ = tide_result
-                if tide_predictions:
-                    # Find the first high tide
-                    first_high_tide = next(
-                        (item for item in tide_predictions if item['type'] == 'H'), None)
-                    if first_high_tide:
-                        try:
-                            ht_datetime = datetime.strptime(
-                                first_high_tide['time'], "%Y-%m-%d %H:%M")
-                            high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
-                        except (ValueError, TypeError) as e:
-                            print(f"Error processing tide data: {e}")
+        # High Tide in upper right corner (using the first job's ramp for simplicity)
+        high_tide_display = ""
+        if current_jobs:
+            first_job_ramp = current_jobs[0].get("ramp")
+            if first_job_ramp:
+                tide_result = get_tide_predictions(current_date_obj, first_job_ramp)
+                if len(tide_result) == 2:
+                    tide_predictions, _ = tide_result
+                    if tide_predictions:
+                        # Find the first high tide
+                        first_high_tide = next(
+                            (item for item in tide_predictions if item['type'] == 'H'), None)
+                        if first_high_tide:
+                            try:
+                                ht_datetime = datetime.strptime(
+                                    first_high_tide['time'], "%Y-%m-%d %H:%M")
+                                high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
+                            except (ValueError, TypeError) as e:
+                                print(f"Error processing tide data: {e}")
+                elif len(tide_result) == 1:  # Handle case where only tide predictions are returned
+                    tide_predictions = tide_result[0]
+                    if tide_predictions:
+                        # Find the first high tide
+                        first_high_tide = next(
+                            (item for item in tide_predictions if item['type'] == 'H'), None)
+                        if first_high_tide:
+                            try:
+                                ht_datetime = datetime.strptime(
+                                    first_high_tide['time'], "%Y-%m-%d %H:%M")
+                                high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
+                            except (ValueError, TypeError) as e:
+                                print(f"Error processing tide data: {e}")
 
-    if high_tide_display:
-        current_pdf.set_font("Helvetica", size=9)
-        text_width = current_pdf.get_string_width(high_tide_display)
-        current_pdf.text(page_width - margin_right - text_width, margin_top - 15, high_tide_display)
+        if high_tide_display:
+            current_pdf.set_font("Helvetica", size=9)
+            text_width = current_pdf.get_string_width(high_tide_display)
+            current_pdf.text(page_width - margin_right - text_width, margin_top - 15, high_tide_display)
+
+        # Table Headers
+        current_pdf.set_fill_color(220, 220, 220)
+        current_pdf.set_font("Helvetica", size=11, style="B")
+        current_x = margin_left
+        header_y_pos = margin_top
+
+        for i, h in enumerate(headers):
+            x = current_x
+            current_pdf.rect(x, header_y_pos, column_widths[i], row_height, 'FD')
+            current_pdf.text(x + 4, header_y_pos + row_height / 2 + current_pdf.font_size / 2 - 2, h)
+            current_x += column_widths[i]
+
+        # Set Y position for content to start below headers
+        current_pdf.set_y(header_y_pos + row_height)
+        current_pdf.set_font("Helvetica", size=11)  # Reset font for content
+
+    draw_page_header(pdf, date_obj, jobs)
+
+    rows = []
+    for hour in range(start_hour, end_hour):
+        for minute in [0, 15, 30, 45]:
+            rows.append(time(hour, minute))
+
+    def time_to_idx(t: time):
+        hour_idx = (t.hour - start_hour) * 4
+        minute_idx = t.minute // 15
+        return hour_idx + minute_idx
+
+    truck_col_map = {"S20": 1, "S21": 2, "S23": 3, "J17": 4}
+    display_content_map = {}
+
+    for job in jobs:
+        job_start_t = job["time"]
+        job_truck = job["truck"]
+        job_start_dt = datetime.combine(date_obj, job_start_t)
+        job_end_dt = job_start_dt + timedelta(hours=job["duration"])
+
+        # 1. Customer Name (at job start time)
+        display_content_map[(job_start_t, job_truck)] = {
+            "text": job["customer"],
+            "font_size": 9,
+            "font_style": "B"
+        }
+        # 2. Boat Details (15 mins after job start)
+        boat_details_t = (job_start_dt + timedelta(minutes=15)).time()
+        customer_row_data = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
+        boat_type = customer_row_data["Boat Type"]
+        boat_length = customer_row_data["Boat Length"]
+        boat_details_text = f"{boat_length}\' {boat_type}"
+        display_content_map[(boat_details_t, job_truck)] = {
+            "text": boat_details_text,
+            "font_size": 8,
+            "font_style": ""
+        }
+        # 3. Ramp (30 mins after job start)
+        ramp_text = job.get("ramp", "Unknown")  # Default to 'Unknown' if ramp is not provided
+        ramp_slot_time = (job_start_dt + timedelta(minutes=30)).time()
+        display_content_map[(ramp_slot_time, job_truck)] = {
+            "text": ramp_text,
+            "font_size": 8,
+            "font_style": ""
+        }
+
+        # Draw vertical line to indicate job duration
+        start_line_row_idx = time_to_idx(job_start_t)
+        end_line_row_idx = time_to_idx(job_end_dt.time())
+        x_line = margin_left + column_widths[0] + column_widths[truck_col_map[job_truck]] - 1
+        y_line_start = margin_top + row_height * (start_line_row_idx + 1)
+        y_line_end = margin_top + row_height * (end_line_row_idx + 1)
+        pdf.line(x_line, y_line_start, x_line, y_line_end)
+        # Add bold line at the end
+        pdf.line(x_line - 3, y_line_end, x_line + 3, y_line_end)
+
+    # Populate the schedule table
+    for idx, t in enumerate(rows):
+        y_row_start = margin_top + row_height * (idx + 1)
+        pdf.set_font("Helvetica", size=9)
+        pdf.text(margin_left + 4, y_row_start + row_height / 2 + pdf.font_size / 2 - 2, t.strftime("%I:%M %p"))
+        current_x_grid = margin_left
+        for col_idx in range(len(column_widths)):
+            x_col = current_x_grid
+            pdf.rect(x_col, y_row_start, column_widths[col_idx], row_height)
+            if col_idx > 0:
+                truck_name = list(truck_col_map.keys())[col_idx - 1]
+                content_data = display_content_map.get((t, truck_name))
+                if content_data:
+                    pdf.set_font("Helvetica", size=content_data["font_size"], style=content_data["font_style"])
+                    pdf.text(x_col + 4, y_row_start + row_height / 2 + pdf.font_size / 2 - 2, content_data["text"])
+                    pdf.set_font("Helvetica", size=11)  # Reset font size
+            current_x_grid += column_widths[col_idx]
+
+    # Add copyright notice at the bottom
+    pdf.set_y(page_height - margin_bottom + 10)
+    pdf.set_font("Helvetica", size=8)
+    copyright_text = "© Copyright ECM, Inc 2025"
+    text_width = pdf.get_string_width(copyright_text)
+    x_center = (page_width - text_width) / 2
+    pdf.text(x_center, pdf.get_y(), copyright_text)
+
+    filename = f"schedule_{date_obj.strftime('%Y-%m-%d')}.pdf"
+    pdf.output(filename)
+    return filename if os.path.exists(filename) else None
 
     # Table Headers
     current_pdf.set_fill_color(220, 220, 220)
