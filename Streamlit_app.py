@@ -120,7 +120,7 @@ def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_h
     return slots
 
 def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = None):
-    tide_data, err = get_tide_predictions(date, ramp) # Correctly capture the two return values
+    tide_data, err = get_tide_predictions(date, ramp)
     if err:
         return [], None
 
@@ -135,7 +135,7 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
         # Use only the first high tide of the day
         first_high_tide_data = next((t for t, type in tide_data if type == 'H'), None)
         if first_high_tide_data:
-            ht_datetime = datetime.strptime(first_high_tide_data, "%Y-%m-%d %H:%M")
+            ht_datetime = datetime.strptime(first_high_tide_data, "%Y-%m-%d %H:%M")  # Parse original string
             high_tide_time = ht_datetime.strftime("%I:%M %p")
             valid_slots = generate_slots_for_high_tide(first_high_tide_data, tide_window[0], tide_window[1])
     elif ramp == "Sandwich Basin":
