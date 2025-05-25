@@ -75,7 +75,7 @@ def filter_customers(df, query):
     query = query.lower()
     return df[df["Customer Name"].str.lower().str.contains(query)]
 
-def get_tide_predictions(date: datetime, ramp: str):
+ddef get_tide_predictions(date: datetime, ramp: str):
     station_id = RAMP_TO_NOAA_ID.get(ramp)
     if not station_id:
         return [], [], f"No NOAA station ID mapped for {ramp}"
@@ -525,6 +525,7 @@ else:
     customers_df = st.session_state['customers_df_loaded']
 
 # --- Sidebar for Input ---
+# --- Sidebar for Input ---
 with st.sidebar:
     st.header("New Job")
     customer_query = st.text_input("Find Customer:", "")
@@ -543,21 +544,40 @@ with st.sidebar:
         st.write(f"Selected Boat Type: **{boat_type}**")
         st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
-        boat_draft = 0.0 # Default to 0
+        boat_draft = 0.0  # Default to 0
         if ramp_choice == "Scituate Harbor (Jericho Road)":
             boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
-        
+
         earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
-        
-        duration = JOB_DURATION_HRS.get(boat_type, 1.5) # Default to 1.5 hrs if not found
+
+        #  -----  HIGH TIDE DISPLAY  -----
+        noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)  # Use ramp_choice here
+        if noaa_station_id:
+            high_tide_display = get_tide_predictions(earliest_date_input, ramp_choice)[1]  # Fetch high tides
+            if high_tide_display:
+                # Assuming get_tide_predictions returns a list of (time, value) tuples for high tides
+                # Display the first high tide time
+                first_high_tide_time = high_tide_display[0][0] if high_tide_display else None
+                if first_high_tide_time:
+                    ht_datetime = datetime.strptime(first_high_tide_time, "%Y-%m-%d %H:%M")
+                    st.sidebar.info(f"High Tide: {ht_datetime.strftime('%I:%M %p')}")
+                else:
+                    st.sidebar.info("No high tide data available for this date and ramp.")
+            else:
+                st.sidebar.warning("Could not retrieve tide information.")
+        else:
+            st.sidebar.info("Tide information not available for this ramp.")
+        #  -----  END HIGH TIDE DISPLAY -----
+
+        duration = JOB_DURATION_HRS.get(boat_type, 1.5)  # Default to 1.5 hrs if not found
 
         if st.button("Find Available Slots"):
             st.session_state["available_slots"] = find_three_dates(
                 earliest_datetime,
                 ramp_choice,
                 boat_length,
-                boat_type, 
+                boat_type,
                 duration,
                 boat_draft
             )
