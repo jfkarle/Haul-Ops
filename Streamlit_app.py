@@ -352,8 +352,8 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
 
     headers = ["", "S20", "S21", "S23", "Crane J17"]
 
-    # Function to draw header content (date, high tide, table headers)
-    def draw_page_header(current_pdf, current_date_obj, current_jobs):
+# Function to draw header content (date, high tide, table headers)
+def draw_page_header(current_pdf, current_date_obj, current_jobs):
     # Top-left date heading
     current_pdf.set_font("Helvetica", size=14, style='B')
     current_pdf.text(margin_left, margin_top - 15, current_date_obj.strftime("%A, %B %d, %Y"))
@@ -382,6 +382,22 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
                 current_pdf.set_font("Helvetica", size=9)
                 text_width = current_pdf.get_string_width(high_tide_display)
                 current_pdf.text(page_width - margin_right - text_width, margin_top - 15, high_tide_display)
+
+    # Table Headers
+    current_pdf.set_fill_color(220, 220, 220)
+    current_pdf.set_font("Helvetica", size=11, style="B")
+    current_x = margin_left
+    header_y_pos = margin_top
+
+    for i, h in enumerate(headers):
+        x = current_x
+        current_pdf.rect(x, header_y_pos, column_widths[i], row_height, 'FD')
+        current_pdf.text(x + 4, header_y_pos + row_height / 2 + current_pdf.font_size / 2 - 2, h)
+        current_x += column_widths[i]
+
+    # Set Y position for content to start below headers
+    current_pdf.set_y(header_y_pos + row_height)
+    current_pdf.set_font("Helvetica", size=11)  # Reset font for content
 
     # Table Headers
     current_pdf.set_fill_color(220, 220, 220)
