@@ -83,22 +83,27 @@ def format_time(time_str: str) -> str:
 def get_tide_predictions(date: datetime, ramp: str):
     station_id = RAMP_TO_NOAA_ID.get(ramp)
     if not station_id:
-        return [], [], f"No NOAA station ID mapped for {ramp}"
+        return [], f"No NOAA station ID mapped for {ramp}"
 
     params = NOAA_PARAMS_TEMPLATE | {
         "station": station_id,
         "begin_date": date.strftime("%Y%m%d"),
-        "end_date": date.strftime("%Y%m%d")
+        "end_date": date.strftime("%Y%m%d"),
+        "product": "predictions", # Ensure we are getting predictions
+        "interval": "hilo" # Ensure we are getting high/low predictions
     }
     try:
         resp = requests.get(NOAA_API_URL, params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json().get("predictions", [])
-        all_tides = [(d["t"], d["type"]) for d in data]
-        high_tides = [(d["t"], d["v"]) for d in data if d["type"] == "H"]
-        return all_tides, high_tides, None
+        filtered_tides = []
+        for item in data:
+            tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+            if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                filtered_tides.append(f"{format_time(item['t'].split()[-1])} ({item['type']})") # Extract time and type
+        return filtered_tides, None
     except Exception as e:
-        return [], [], str(e)
+        return [], str(e)
 
 def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_hours: float):
     ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
@@ -556,24 +561,20 @@ with st.sidebar:
         earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
 
-        #  -----  HIGH TIDE DISPLAY  -----
+        #  -----  HIGH/LOW TIDE DISPLAY  -----
         noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)  # Use ramp_choice here
         if noaa_station_id:
-            high_tide_display = get_tide_predictions(earliest_date_input, ramp_choice)[1]  # Fetch high tides
-            if high_tide_display:
-                # Assuming get_tide_predictions returns a list of (time, value) tuples for high tides
-                # Display the first high tide time
-                first_high_tide_time = high_tide_display[0][0] if high_tide_display else None
-                if first_high_tide_time:
-                    ht_datetime = datetime.strptime(first_high_tide_time, "%Y-%m-%d %H:%M")
-                    st.sidebar.info(f"High Tide: {ht_datetime.strftime('%I:%M %p')}")
+            tide_data, err = get_tide_predictions(earliest_date_input, ramp_choice)  # Fetch tides
+            if tide_data:
+                if tide_data:
+                    st.sidebar.info(f"Tides (5 AM - 7 PM): {', '.join(tide_data)}")
                 else:
-                    st.sidebar.info("No high tide data available for this date and ramp.")
+                    st.sidebar.info("No high or low tide data available between 5 AM and 7 PM for this date and ramp.")
             else:
-                st.sidebar.warning("Could not retrieve tide information.")
+                st.sidebar.warning(f"Could not retrieve tide information. Error: {err}")
         else:
             st.sidebar.info("Tide information not available for this ramp.")
-        #  -----  END HIGH TIDE DISPLAY -----
+        #  -----  END HIGH/LOW TIDE DISPLAY -----
 
         duration = JOB_DURATION_HRS.get(boat_type, 1.5)  # Default to 1.5 hrs if not found
 
