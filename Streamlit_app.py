@@ -603,15 +603,18 @@ with st.sidebar:
         noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)  # Use ramp_choice here
         if noaa_station_id:
             tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
-            if len(tide_data_result) == 3:
-                all_tides, high_tides, err = tide_data_result
-                if all_tides:
+            if len(tide_data_result) == 2:
+                tide_predictions, err = tide_data_result
+                if tide_predictions:
                     filtered_tides_display = []
-                    for t_str, type in all_tides:
-                        tide_time_dt = datetime.strptime(t_str, "%Y-%m-%d %H:%M")
-                        if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                            formatted_time = format_time(t_str.split()[-1])
-                            filtered_tides_display.append(f"- {formatted_time} ({type})")
+                    for item in tide_predictions:
+                        try:
+                            tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
+                            if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                                formatted_time = format_time(item['time'].split()[-1])
+                                filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
+                        except ValueError as e:
+                            print(f"Error parsing time: {e}")
 
                     if filtered_tides_display:
                         tide_display_text = "Tides (5 AM - 7 PM):\n" + "\n".join(filtered_tides_display)
@@ -626,7 +629,6 @@ with st.sidebar:
                 st.sidebar.error(f"Unexpected return format from get_tide_predictions: {tide_data_result}")
         else:
             st.sidebar.info("Tide information not available for this ramp.")
-            
         #  -----  END HIGH/LOW TIDE DISPLAY -----
 
         duration = JOB_DURATION_HRS.get(boat_type, 1.5)  # Default to 1.5 hrs if not found
