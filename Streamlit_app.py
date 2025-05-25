@@ -581,26 +581,12 @@ if current_available_slots:
             st.markdown(f"**Ramp:** {slot['ramp']}")
             st.markdown(f"**Truck:** {slot['truck']}")
             schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}" # Ensure key is unique
-
-            def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
+def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
                 def schedule_job_callback():
                     # --- MODIFIED CHECK ---
-                    # Check if the customer is already scheduled for ANY time on this date
-                    scheduled_on_date = False
-                    for job in st.session_state["schedule"]:
-                        job_date = job['date']
-                        current_date = current_slot['date']
-                        if isinstance(job_date, datetime):
-                            job_date = job_date.date()
-                        if isinstance(current_date, datetime):
-                            current_date = current_date.date()
-
-                        if job['customer'] == current_customer and job_date == current_date:
-                            scheduled_on_date = True
-                            break
-
-                    if scheduled_on_date:
-                        st.error(f"Customer {current_customer} is already scheduled for {current_formatted_date}.")
+                    # Check if the customer is already scheduled on ANY date
+                    if any(job['customer'] == current_customer for job in st.session_state["schedule"]):
+                        st.error(f"Customer {current_customer} is already scheduled.")
                         return  # Exit the function, don't schedule
 
                     # Schedule hauling truck job
@@ -645,7 +631,6 @@ if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
     display_schedule_list = []
     seen = set()
-
     for job in st.session_state["schedule"]:
         key = (job["customer"], job["date"], job["time"])
         # Only process hauling truck jobs for display; J17 is implicitly handled by 'Crane' column
