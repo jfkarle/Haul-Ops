@@ -606,8 +606,8 @@ with st.sidebar:
             if tide_data:
                 if tide_data:
                     tide_display_text = "Tides (5 AM - 7 PM):\n"
-                    for tide_info in tide_data:
-                        tide_display_text += f"- {tide_info}\n"
+                    for tide_str in tide_data:  # Iterate through the list of strings
+                        tide_display_text += f"- {tide_str}\n" # Use the string directly
                     st.sidebar.info(tide_display_text)
                 else:
                     st.sidebar.info("No high or low tide data available between 5 AM and 7 PM for this date and ramp.")
