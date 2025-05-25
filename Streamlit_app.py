@@ -230,84 +230,6 @@ def format_date_display(date_obj):
         return date_obj.strftime("%B %d, %Y")
     return str(date_obj)
 
-def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 7):
-    found = []
-    
-    trucks = eligible_trucks(boat_len, boat_type_arg)
-    if not trucks:
-        return []
-
-    j17_duration = 0
-    if "Sailboat MD" in boat_type_arg:
-        j17_duration = 1.0
-    elif "Sailboat MT" in boat_type_arg:
-        j17_duration = 1.5
-
-    # New Logic: Prioritize dates with existing J17 schedule at the ramp
-    j17_scheduled_dates_at_ramp = set()
-    for job in st.session_state["schedule"]:
-        if job["truck"] == "J17" and job["ramp"] == ramp:
-            j17_scheduled_dates_at_ramp.add(job["date"])
-
-    prioritized_dates = []
-    other_dates_to_check = []
-
-    # Check dates around the requested earliest_date_input (7 days before/after)
-    # The actual date in current_date for the `find_three_dates` function comes from `earliest_date_input` in the UI.
-    # So, the search window should be relative to `start_date`.
-    for i in range(-7, 8): # 7 days before to 7 days after
-        check_date = start_date + timedelta(days=i)
-        if is_workday(check_date):
-            if check_date.date() in j17_scheduled_dates_at_ramp:
-                # Add to prioritized dates, ensuring uniqueness and order
-                if check_date not in prioritized_dates:
-                    prioritized_dates.append(check_date)
-            else:
-                if check_date not in other_dates_to_check: # Avoid duplicates if already in prioritized
-                    other_dates_to_check.append(check_date)
-    
-    # Sort prioritized dates to check them in chronological order
-    prioritized_dates.sort()
-
-    # Combine prioritized dates with other dates, ensuring we don't exceed search_days_limit
-    # and removing duplicates that might have been added to prioritized_dates.
-    full_date_search_order = prioritized_dates + [d for d in other_dates_to_check if d not in prioritized_dates]
-    
-    days_searched = 0
-    for current_date in full_date_search_order:
-        if len(found) >= 3 or days_searched >= search_days_limit:
-            break # Stop if we found enough slots or exceeded search limit
-
-        if is_workday(current_date):
-            valid_slots, high_tide_time = get_valid_slots_with_tides(current_date, ramp, boat_draft)
-            if valid_slots:
-                for truck in trucks:
-                    for slot in valid_slots:
-                        # Check if both hauling truck and (if needed) J17 are free
-                        hauling_free = is_truck_free(truck, current_date, slot, duration)
-                        j17_free = True
-                        if j17_duration > 0:
-                            j17_free = is_truck_free("J17", current_date, slot, j17_duration)
-                        if hauling_free and j17_free:
-                            # Store hauling truck job
-                            found.append({
-                                "date": current_date.date(),
-                                "time": slot,
-                                "ramp": ramp,
-                                "truck": truck,
-                                "high_tide": high_tide_time,
-                                "boat_type": boat_type_arg,
-                                "j17_required": j17_duration > 0,
-                                "j17_duration": j17_duration
-                            })
-                            break # Found a slot for this truck on this day, move to next date/truck
-                    if len(found) >= 3:
-                        break
-        days_searched += 1 # Increment days searched for each distinct date checked
-
-    return found[:3] # Return up to 3 found slots
-
-
 def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customers_df):
     pdf = FPDF(orientation='P', unit='pt', format='Letter')
 
@@ -777,17 +699,44 @@ current_available_slots = st.session_state.get('available_slots')
 
 if current_available_slots:
     st.subheader("Available Slots")
-    cols = st.columns(len(current_available_slots))
-    for i, slot in enumerate(current_available_slots):
-        with cols[i]:
-            day_name = slot['date'].strftime("%A")  # e.g., Monday
+
+    # Store all found slots in session state
+    if 'all_available_slots' not in st.session_state:
+        st.session_state['all_available_slots'] = current_available_slots
+    
+    # Initialize the display index
+    if 'slot_display_start_index' not in st.session_state:
+        st.session_state['slot_display_start_index'] = 0
+
+    def update_slot_display(increment):
+        st.session_state['slot_display_start_index'] += increment
+        # Wrap around if necessary
+        if st.session_state['slot_display_start_index'] < 0:
+            st.session_state['slot_display_start_index'] = 0  # Or wrap to the end if desired
+        elif st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']):
+            st.session_state['slot_display_start_index'] = max(0, len(st.session_state['all_available_slots']) - 1)
+        
+    cols = st.columns([1, 3, 1])  # Adjust column widths as needed
+
+    with cols[0]:
+        if st.button("← Previous", disabled=st.session_state['slot_display_start_index'] == 0):
+            update_slot_display(-1)
+    
+    with cols[1]:
+        display_slots = st.session_state['all_available_slots'][
+            st.session_state['slot_display_start_index']:st.session_state['slot_display_start_index'] + 1
+        ]  # Display only one slot at a time
+        if display_slots:
+            slot = display_slots[0]  # Get the single slot to display
+            day_name = slot['date'].strftime("%A")
             formatted_date_display = format_date_display(slot['date'])
             st.markdown(f"**{day_name}**")
             st.info(f"Date: {formatted_date_display}")
             st.markdown(f"**Time:** {slot['time'].strftime('%I:%M %p')}")
             st.markdown(f"**Ramp:** {slot['ramp']}")
             st.markdown(f"**Truck:** {slot['truck']}")
-            schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}" # Ensure key is unique
+            schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}"
+            
             def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
                 def schedule_job_callback():
                     # --- MODIFIED CHECK ---
@@ -830,9 +779,17 @@ if current_available_slots:
                 key=schedule_key,
                 on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
             )
+        else:
+            st.warning("No slots to display.")
+
+    with cols[2]:
+        if st.button("Next →", disabled=st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']) - 1):
+            update_slot_display(1)
+    
     st.markdown("---")
 else:
     st.info("No suitable slots found for the selected criteria.")
+    
 st.header("Current Schedule")
 if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
