@@ -602,7 +602,7 @@ with st.sidebar:
         #  -----  HIGH/LOW TIDE DISPLAY  -----
         noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)  # Use ramp_choice here
         if noaa_station_id:
-            all_tides, _, err = get_tide_predictions(earliest_date_input, ramp_choice)  # Fetch all tides
+            all_tides, high_tides, err = get_tide_predictions(earliest_date_input, ramp_choice)  # Fetch all tides
             if all_tides:
                 filtered_tides_display = []
                 for t_str, type in all_tides:
