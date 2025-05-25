@@ -354,68 +354,52 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
 
 # Function to draw header content (date, high tide, table headers)
 def draw_page_header(current_pdf, current_date_obj, current_jobs):
-        # Top-left date heading
-        current_pdf.set_font("Helvetica", size=14, style='B')
-        current_pdf.text(margin_left, margin_top - 15,
-                       current_date_obj.strftime("%A, %B %d, %Y"))
+    # Top-left date heading
+    current_pdf.set_font("Helvetica", size=14, style='B')
+    current_pdf.text(margin_left, margin_top - 15,
+                    current_date_obj.strftime("%A, %B %d, %Y"))
 
-        # High Tide in upper right corner (using the first job's ramp for simplicity)
-        high_tide_display = ""
-        if current_jobs:
-            first_job_ramp = current_jobs[0].get("ramp")
-            if first_job_ramp:
-                tide_result = get_tide_predictions(
-                    current_date_obj, first_job_ramp)
-                if len(tide_result) == 3:
-                    _, high_tides_data, _ = tide_result
-                    if high_tides_data:
+    # High Tide in upper right corner (using the first job's ramp for simplicity)
+    high_tide_display = ""
+    if current_jobs:
+        first_job_ramp = current_jobs[0].get("ramp")
+        if first_job_ramp:
+            tide_result = get_tide_predictions(
+                current_date_obj, first_job_ramp)
+            if len(tide_result) == 3:
+                _, high_tides_data, _ = tide_result
+                if high_tides_data:
+                    ht_datetime = datetime.strptime(
+                        high_tides_data[0][0], "%Y-%m-%d %H:%M")
+                    high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
+            elif len(tide_result) == 2:
+                tide_predictions, _ = tide_result
+                if tide_predictions:
+                    #  Find the first high tide
+                    first_high_tide = next(
+                        (item for item in tide_predictions if item['type'] == 'H'), None)
+                    if first_high_tide:
                         ht_datetime = datetime.strptime(
-                            high_tides_data[0][0], "%Y-%m-%d %H:%M")
+                            first_high_tide['time'], "%Y-%m-%d %H:%M")
                         high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
-                elif len(tide_result) == 2:
-                    tide_predictions, _ = tide_result
-                    if tide_predictions:
-                        #  Find the first high tide
-                        first_high_tide = next(
-                            (item for item in tide_predictions if item['type'] == 'H'), None)
-                        if first_high_tide:
-                            ht_datetime = datetime.strptime(
-                                first_high_tide['time'], "%Y-%m-%d %H:%M")
-                            high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
 
-                if high_tide_display:
-                    current_pdf.set_font("Helvetica", size=9)
-                    text_width = current_pdf.get_string_width(high_tide_display)
-                    current_pdf.text(page_width - margin_right -
-                                   text_width, margin_top - 15, high_tide_display)
-
-        # Table Headers
-        current_pdf.set_fill_color(220, 220, 220)
-        current_pdf.set_font("Helvetica", size=11, style="B")
-        current_x = margin_left
-        header_y_pos = margin_top
-
-        for i, h in enumerate(headers):
-            x = current_x
-            current_pdf.rect(x, header_y_pos, column_widths[i], row_height, 'FD')
-            current_pdf.text(x + 4, header_y_pos + row_height / 2 +
-                           current_pdf.font_size / 2 - 2, h)
-            current_x += column_widths[i]
-
-        # Set Y position for content to start below headers
-        current_pdf.set_y(header_y_pos + row_height)
-        current_pdf.set_font("Helvetica", size=11)  # Reset font for content
+            if high_tide_display:
+                current_pdf.set_font("Helvetica", size=9)
+                text_width = current_pdf.get_string_width(high_tide_display)
+                current_pdf.text(page_width - margin_right -
+                               text_width, margin_top - 15, high_tide_display)
 
     # Table Headers
-        current_pdf.set_fill_color(220, 220, 220)
-        current_pdf.set_font("Helvetica", size=11, style="B")
-        current_x = margin_left
-        header_y_pos = margin_top
+    current_pdf.set_fill_color(220, 220, 220)
+    current_pdf.set_font("Helvetica", size=11, style="B")
+    current_x = margin_left
+    header_y_pos = margin_top
 
     for i, h in enumerate(headers):
         x = current_x
         current_pdf.rect(x, header_y_pos, column_widths[i], row_height, 'FD')
-        current_pdf.text(x + 4, header_y_pos + row_height / 2 + current_pdf.font_size / 2 - 2, h)
+        current_pdf.text(x + 4, header_y_pos + row_height / 2 +
+                       current_pdf.font_size / 2 - 2, h)
         current_x += column_widths[i]
 
     # Set Y position for content to start below headers
