@@ -89,8 +89,8 @@ def get_tide_predictions(date: datetime, ramp: str):
         "station": station_id,
         "begin_date": date.strftime("%Y%m%d"),
         "end_date": date.strftime("%Y%m%d"),
-        "product": "predictions", # Ensure we are getting predictions
-        "interval": "hilo" # Ensure we are getting high/low predictions
+        "product": "predictions",
+        "interval": "hilo"
     }
     try:
         resp = requests.get(NOAA_API_URL, params=params, timeout=10)
@@ -98,12 +98,48 @@ def get_tide_predictions(date: datetime, ramp: str):
         data = resp.json().get("predictions", [])
         filtered_tides = []
         for item in data:
-            tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
-            if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                filtered_tides.append((format_time(item['t'].split()[-1]), item['type'])) # Store as tuple
+            try:
+                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+                if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                    filtered_tides.append({"time": item['t'], "type": item['type']})  # Store data as dictionary
+            except ValueError as e:
+                print(f"Error parsing time '{item['t']}': {e}") # Log the error
         return filtered_tides, None
     except Exception as e:
         return [], str(e)
+
+
+def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = None):
+    tide_data, err = get_tide_predictions(date, ramp)
+    if err:
+        return [], None
+
+    valid_slots = []
+    high_tide_time = None
+    tide_window = RAMP_TIDE_WINDOWS.get(ramp)
+
+    if ramp == "Scituate Harbor (Jericho Road)" and boat_draft and boat_draft > 5:
+        tide_window = (3, 3)  # Special rule for Scituate with draft > 5'
+
+    if tide_window:
+        # Use only the first high tide of the day
+        first_high_tide_item = next((item for item in tide_data if item["type"] == 'H'), None)
+        if first_high_tide_item:
+            try:
+                ht_datetime = datetime.strptime(first_high_tide_item["time"], "%Y-%m-%d %H:%M")  # Parse original string
+                high_tide_time = ht_datetime.strftime("%I:%M %p")
+                valid_slots = generate_slots_for_high_tide(first_high_tide_item["time"], tide_window[0], tide_window[1])
+            except ValueError as e:
+                print(f"Error parsing high tide time '{first_high_tide_item['time']}': {e}")
+    elif ramp == "Sandwich Basin":
+        # "Any tide" - provide middle of the day window centered at 10:00 AM
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
+    else:
+        # If no tide window is specified, return all slots (or a reasonable default)
+        # Default to 3 hours before/after 10:00 AM if no specific rule
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
+
+    return sorted(set(valid_slots)), high_tide_time
 
 def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_hours: float):
     ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
