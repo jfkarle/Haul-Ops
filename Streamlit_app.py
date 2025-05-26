@@ -882,16 +882,19 @@ st.button(
     key=schedule_key,
     on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
 )
+
+if not st.session_state.get("available_slots"): # Check if available_slots is empty or None
     st.warning("No slots to display.")
 
+cols = st.columns([1, 3, 1])
 with cols[2]:
-    if st.button("Next →", disabled=st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']) - 1):
+    if st.button("Next →", disabled=st.session_state.get('slot_display_start_index', 0) >= len(st.session_state.get('all_available_slots', [])) - 1):
         update_slot_display(1)
-    
+
 st.markdown("---")
 else:
     st.info("No suitable slots found for the selected criteria.")
-    
+
 st.header("Current Schedule")
 if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
