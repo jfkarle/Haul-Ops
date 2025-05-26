@@ -679,96 +679,82 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
     return filename if os.path.exists(filename) else None
 
 
-# ====================================
-# ------------- UI -------------------
-# ====================================
-st.title("Boat Ramp Scheduling")
+def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 15):
+    found = []
+    trucks = eligible_trucks(boat_len, boat_type_arg)
+    if not trucks:
+        return []
 
-# High Tide display for the first available slot
-if "available_slots" in st.session_state and st.session_state["available_slots"]:
-    first_slot = st.session_state["available_slots"][0]
-    if first_slot.get("high_tide"):
-        tide_time = first_slot["high_tide"]
-        slot_date = first_slot["date"]
-        st.markdown(f"**High Tide on {format_date_display(slot_date)}: {tide_time}**")
+    j17_duration = 0
+    if "Sailboat MD" in boat_type_arg:
+        j17_duration = 1.0
+    elif "Sailboat MT" in boat_type_arg:
+        j17_duration = 1.5
 
-if 'customers_df_loaded' not in st.session_state:
-    customers_df = load_customer_data()
-else:
-    customers_df = st.session_state['customers_df_loaded']
+    available_slots_with_dates = []
+    dates_checked = set()
 
-# --- Sidebar for Input ---
-# --- Sidebar for Input ---
-with st.sidebar:
-    st.header("New Job")
-    customer_query = st.text_input("Find Customer:", "")
-    filtered_customers = filter_customers(customers_df, customer_query)
+    # Check yesterday
+    yesterday = start_date - timedelta(days=1)
+    if is_workday(yesterday) and yesterday.date() not in dates_checked:
+        valid_slots, high_tide_time = get_valid_slots_with_tides(yesterday, ramp, boat_draft)
+        if valid_slots:
+            for truck in trucks:
+                for slot in valid_slots:
+                    hauling_free = is_truck_free(truck, yesterday, slot, duration)
+                    j17_free = True
+                    if j17_duration > 0:
+                        j17_free = is_truck_free("J17", yesterday, slot, j17_duration)
+                    if hauling_free and j17_free:
+                        available_slots_with_dates.append({
+                            "date": yesterday.date(),
+                            "time": slot,
+                            "ramp": ramp,
+                            "truck": truck,
+                            "high_tide": high_tide_time,
+                            "boat_type": boat_type_arg,
+                            "j17_required": j17_duration > 0,
+                            "j17_duration": j17_duration
+                        })
+                        if len(available_slots_with_dates) >= 3:
+                            break  # Exit inner loop, continue checking other dates
+                if len(available_slots_with_dates) >= 3:
+                    break  # Exit outer loop if we have 3 slots
+        dates_checked.add(yesterday.date())
 
-    selected_customer = None
-    if not filtered_customers.empty:
-        selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
-    else:
-        st.info("No matching customers found.")
+    # Check today and forward
+    check_date = start_date
+    days_forward = 0
+    while len(available_slots_with_dates) < 3 and days_forward < search_days_limit:
+        if is_workday(check_date) and check_date.date() not in dates_checked:
+            valid_slots, high_tide_time = get_valid_slots_with_tides(check_date, ramp, boat_draft)
+            if valid_slots:
+                for truck in trucks:
+                    for slot in valid_slots:
+                        hauling_free = is_truck_free(truck, check_date, slot, duration)
+                        j17_free = True
+                        if j17_duration > 0:
+                            j17_free = is_truck_free("J17", check_date, slot, j17_duration)
+                        if hauling_free and j17_free:
+                            available_slots_with_dates.append({
+                                "date": check_date.date(),
+                                "time": slot,
+                                "ramp": ramp,
+                                "truck": truck,
+                                "high_tide": high_tide_time,
+                                "boat_type": boat_type_arg,
+                                "j17_required": j17_duration > 0,
+                                "j17_duration": j17_duration
+                            })
+                            if len(available_slots_with_dates) >= 3:
+                                break
+                    if len(available_slots_with_dates) >= 3:
+                        break
+                dates_checked.add(check_date.date())
+        check_date += timedelta(days=1)
+        days_forward += 1
 
-    if selected_customer:
-        customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
-        boat_type = customer_row["Boat Type"]
-        boat_length = customer_row["Boat Length"]
-        st.write(f"Selected Boat Type: **{boat_type}**")
-        st.write(f"Selected Boat Length: **{boat_length} feet**")
-        ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
-        boat_draft = 0.0  # Default to 0
-        if ramp_choice == "Scituate Harbor (Jericho Road)":
-            boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
-
-        earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
-        earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
-
-        #  -----  HIGH/LOW TIDE DISPLAY  -----
-        noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)  # Use ramp_choice here
-        if noaa_station_id:
-            tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
-            if len(tide_data_result) == 2:
-                tide_predictions, err = tide_data_result
-                if tide_predictions:
-                    filtered_tides_display = []
-                    for item in tide_predictions:
-                        try:
-                            tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
-                            if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                                formatted_time = format_time(item['time'].split()[-1])
-                                filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
-                        except ValueError as e:
-                            print(f"Error parsing time: {e}")
-
-                    if filtered_tides_display:
-                        tide_display_text = "Tides (5 AM - 7 PM):\n" + "\n".join(filtered_tides_display)
-                        st.sidebar.info(tide_display_text)
-                    else:
-                        st.sidebar.info("No high or low tide data available between 5 AM and 7 PM for this date and ramp.")
-                elif err:
-                    st.sidebar.warning(f"Could not retrieve tide information. Error: {err}")
-                else:
-                    st.sidebar.info("No tide data available.")
-            else:
-                st.sidebar.error(f"Unexpected return format from get_tide_predictions: {tide_data_result}")
-        else:
-            st.sidebar.info("Tide information not available for this ramp.")
-        #  -----  END HIGH/LOW TIDE DISPLAY -----
-
-        duration = JOB_DURATION_HRS.get(boat_type, 1.5)  # Default to 1.5 hrs if not found
-
-        if st.button("Find Available Slots"):
-            st.session_state["available_slots"] = find_three_dates(
-                earliest_datetime,
-                ramp_choice,
-                boat_length,
-                boat_type,
-                duration,
-                boat_draft
-            )
-    else:
-        st.warning("Please select a customer first.")
+    return available_slots_with_dates[:3]
 
 
 # Available Slots section (main column)
