@@ -140,6 +140,10 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
 
 st.header("Current Schedule")
 if st.session_state["schedule"]:
+    pass  # TODO: Insert schedule rendering logic here
+else:
+    st.info("The schedule is currently empty.")
+if st.session_state["schedule"]:
     else:
         # If no tide window is specified, return all slots (or a reasonable default)
         # Default to 3 hours before/after 10:00 AM if no specific rule
