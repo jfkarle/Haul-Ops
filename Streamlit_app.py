@@ -134,6 +134,10 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
         # "Any tide" - provide middle of the day window centered at 10:00 AM
         valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
 
+    else:
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
+    return sorted(set(valid_slots)), high_tide_time
+
 st.header("Current Schedule")
 if st.session_state["schedule"]:
     else:
