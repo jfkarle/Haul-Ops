@@ -81,9 +81,7 @@ def format_time(time_str: str) -> str:
     return time_obj.strftime("%I:%M %p")
 
 def get_tide_predictions(date: datetime, ramp: str):
-    station_id = RAMP_TO_NOAA_ID.get(ramp)
-    if not station_id:
-        return [], f"No NOAA station ID mapped for {ramp}"
+    station_id = RAMP_TO_NOAA_ID.get(ramp) or "8445138"
 
     params = NOAA_PARAMS_TEMPLATE | {
         "station": station_id,
@@ -778,31 +776,30 @@ if current_available_slots:
     # Store all found slots in session state
     if 'all_available_slots' not in st.session_state:
         st.session_state['all_available_slots'] = current_available_slots
-    
+
     # Initialize the display index
     if 'slot_display_start_index' not in st.session_state:
         st.session_state['slot_display_start_index'] = 0
 
     def update_slot_display(increment):
         st.session_state['slot_display_start_index'] += increment
-        # Wrap around if necessary
         if st.session_state['slot_display_start_index'] < 0:
-            st.session_state['slot_display_start_index'] = 0  # Or wrap to the end if desired
+            st.session_state['slot_display_start_index'] = 0
         elif st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']):
             st.session_state['slot_display_start_index'] = max(0, len(st.session_state['all_available_slots']) - 1)
-        
-    cols = st.columns([1, 3, 1])  # Adjust column widths as needed
+
+    cols = st.columns([1, 3, 1])
 
     with cols[0]:
         if st.button("← Previous", disabled=st.session_state['slot_display_start_index'] == 0):
             update_slot_display(-1)
-    
+
     with cols[1]:
         display_slots = st.session_state['all_available_slots'][
             st.session_state['slot_display_start_index']:st.session_state['slot_display_start_index'] + 1
-        ]  # Display only one slot at a time
+        ]
         if display_slots:
-            slot = display_slots[0]  # Get the single slot to display
+            slot = display_slots[0]
             day_name = slot['date'].strftime("%A")
             formatted_date_display = format_date_display(slot['date'])
             st.markdown(f"**{day_name}**")
@@ -811,16 +808,22 @@ if current_available_slots:
             st.markdown(f"**Ramp:** {slot['ramp']}")
             st.markdown(f"**Truck:** {slot['truck']}")
             schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}"
-            
+
             def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
                 def schedule_job_callback():
                     # --- MODIFIED CHECK ---
-                    # Check if the customer is already scheduled on ANY date
                     if any(job['customer'] == current_customer for job in st.session_state["schedule"]):
                         st.error(f"Customer {current_customer} is already scheduled.")
-                        return  # Exit the function, don't schedule
+                        return
 
-                    # Schedule hauling truck job
+                    if not is_truck_free(current_slot['truck'], current_slot['date'], current_slot['time'], current_duration):
+                        st.error(f"Truck {current_slot['truck']} is already booked at this time.")
+                        return
+
+                    if current_slot.get('j17_required') and not is_truck_free("J17", current_slot['date'], current_slot['time'], current_slot['j17_duration']):
+                        st.error("Crane (J17) is already booked at this time.")
+                        return
+
                     hauling_job = {
                         'truck': current_slot['truck'],
                         'date': datetime.combine(current_slot['date'], current_slot['time']),
@@ -831,7 +834,7 @@ if current_available_slots:
                         'ramp': current_slot.get("ramp", "")
                     }
                     st.session_state['schedule'].append(hauling_job)
-                    # Schedule crane truck J17 if required
+
                     if current_slot.get('j17_required'):
                         crane_job = {
                             'truck': 'J17',
@@ -839,9 +842,10 @@ if current_available_slots:
                             'time': current_slot['time'],
                             'duration': current_slot['j17_duration'],
                             'customer': current_customer,
-                            'ramp': current_slot.get("ramp", "") # Add the ramp information here!
+                            'ramp': current_slot.get("ramp", "")
                         }
                         st.session_state['schedule'].append(crane_job)
+
                     st.success(
                         f"Scheduled {current_customer} with Truck {current_slot['truck']}"
                         f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
@@ -860,11 +864,11 @@ if current_available_slots:
     with cols[2]:
         if st.button("Next →", disabled=st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']) - 1):
             update_slot_display(1)
-    
+
     st.markdown("---")
 else:
     st.info("No suitable slots found for the selected criteria.")
-    
+
 st.header("Current Schedule")
 if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
