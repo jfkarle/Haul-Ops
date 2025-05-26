@@ -876,10 +876,10 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
         days_forward += 1
 
     return available_slots_with_dates[:3]
-            st.button(
-                f"Schedule on {slot['time'].strftime('%H:%M')}",
-                key=schedule_key,
-                on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
+        st.button(
+            f"Schedule on {slot['time'].strftime('%H:%M')}",
+            key=schedule_key,
+            on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
             )
         else:
             st.warning("No slots to display.")
