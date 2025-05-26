@@ -740,7 +740,7 @@ with st.sidebar:
         earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
 
-        #  -----  HIGH/LOW TIDE DISPLAY  -----
+#  -----  HIGH/LOW TIDE DISPLAY  -----
         noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)  # Use ramp_choice here
         if noaa_station_id:
             tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
@@ -770,7 +770,8 @@ with st.sidebar:
                 st.sidebar.error(f"Unexpected return format from get_tide_predictions: {tide_data_result}")
         else:
             st.sidebar.info("Tide information not available for this ramp.")
-        #  -----  END HIGH/LOW TIDE DISPLAY -----
+
+#  -----  END HIGH/LOW TIDE DISPLAY -----
 
         duration = JOB_DURATION_HRS.get(boat_type, 1.5)  # Default to 1.5 hrs if not found
 
