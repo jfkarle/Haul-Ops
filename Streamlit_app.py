@@ -714,6 +714,7 @@ else:
     customers_df = st.session_state['customers_df_loaded']
 
 # --- Sidebar for Input ---
+
 with st.sidebar:
     st.header("New Job")
     customer_query = st.text_input("Find Customer:", "")
@@ -795,7 +796,7 @@ with st.sidebar:
         st.warning("Please select a customer first.")
 
 
-        #  -----  HIGH/LOW TIDE DISPLAY  -----
+#  -----  HIGH/LOW TIDE DISPLAY  -----
         noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)  # Use ramp_choice here
         if noaa_station_id:
             tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
