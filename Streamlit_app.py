@@ -242,9 +242,7 @@ def format_time(time_str: str) -> str:
     return time_obj.strftime("%I:%M %p")
 
 def get_tide_predictions(date: datetime, ramp: str):
-    station_id = RAMP_TO_NOAA_ID.get(ramp)
-    if not station_id:
-        return [], f"No NOAA station ID mapped for {ramp}"
+    station_id = RAMP_TO_NOAA_ID.get(ramp) or "8445138"  # Scituate fallback
 
     params = NOAA_PARAMS_TEMPLATE | {
         "station": station_id,
