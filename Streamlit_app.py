@@ -877,21 +877,21 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
 
     return available_slots_with_dates[:3]
 
-    st.button(
-        f"Schedule on {slot['time'].strftime('%H:%M')}",
-        key=schedule_key,
-        on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
-    )
-    else:
-        st.warning("No slots to display.")
+st.button(
+    f"Schedule on {slot['time'].strftime('%H:%M')}",
+    key=schedule_key,
+    on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
+)
+else:
+    st.warning("No slots to display.")
 
-    with cols[2]:
-        if st.button("Next →", disabled=st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']) - 1):
-            update_slot_display(1)
+with cols[2]:
+    if st.button("Next →", disabled=st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']) - 1):
+        update_slot_display(1)
     
-    st.markdown("---")
-    else:
-        st.info("No suitable slots found for the selected criteria.")
+st.markdown("---")
+else:
+    st.info("No suitable slots found for the selected criteria.")
     
 st.header("Current Schedule")
 if st.session_state["schedule"]:
