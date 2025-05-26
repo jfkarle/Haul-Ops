@@ -137,10 +137,11 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
 
     return sorted(set(valid_slots)), high_tide_time
 
-def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 15): # Increased limit
+def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 15):
     found = []
     trucks = eligible_trucks(boat_len, boat_type_arg)
     if not trucks:
+        print("No eligible trucks found.")
         return []
 
     j17_duration = 0
@@ -163,6 +164,10 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
                     j17_free = True
                     if j17_duration > 0:
                         j17_free = is_truck_free("J17", yesterday, slot, j17_duration)
+
+                    # ✅ Logging for yesterday check
+                    print(f"[YESTERDAY] {yesterday.date()} - Truck {truck} at {slot.strftime('%H:%M')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
+
                     if hauling_free and j17_free:
                         available_slots_with_dates.append({
                             "date": yesterday.date(),
@@ -191,6 +196,10 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
                         j17_free = True
                         if j17_duration > 0:
                             j17_free = is_truck_free("J17", check_date, slot, j17_duration)
+
+                        # ✅ Logging for future dates
+                        print(f"[FORWARD] {check_date.date()} - Truck {truck} at {slot.strftime('%H:%M')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
+
                         if hauling_free and j17_free:
                             available_slots_with_dates.append({
                                 "date": check_date.date(),
@@ -209,6 +218,7 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
         days_forward += 1
 
     return available_slots_with_dates[:3]
+
 
 
 
