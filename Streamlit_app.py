@@ -814,7 +814,7 @@ if current_available_slots:
             st.markdown(f"**Truck:** {slot['truck']}")
             schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}"
             
-            def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 15):
+def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 15):
     found = []
     trucks = eligible_trucks(boat_len, boat_type_arg)
     if not trucks:
@@ -852,9 +852,9 @@ if current_available_slots:
                             "j17_duration": j17_duration
                         })
                         if len(available_slots_with_dates) >= 3:
-                            break # Exit inner loop, continue checking other dates
+                            break  # Exit inner loop, continue checking other dates
                 if len(available_slots_with_dates) >= 3:
-                    break # Exit outer loop if we have 3 slots
+                    break  # Exit outer loop if we have 3 slots
         dates_checked.add(yesterday.date())
 
     # Check today and forward
@@ -883,14 +883,13 @@ if current_available_slots:
                             })
                             if len(available_slots_with_dates) >= 3:
                                 break
-                if len(available_slots_with_dates) >= 3:
-                    break
-            dates_checked.add(check_date.date())
+                    if len(available_slots_with_dates) >= 3:
+                        break
+                dates_checked.add(check_date.date())
         check_date += timedelta(days=1)
         days_forward += 1
 
     return available_slots_with_dates[:3]
-
             st.button(
                 f"Schedule on {slot['time'].strftime('%H:%M')}",
                 key=schedule_key,
