@@ -134,15 +134,10 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
         # "Any tide" - provide middle of the day window centered at 10:00 AM
         valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
 
-    else:
         valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
     return sorted(set(valid_slots)), high_tide_time
 
 st.header("Current Schedule")
-if st.session_state["schedule"]:
-    pass  # TODO: Insert schedule rendering logic here
-else:
-    st.info("The schedule is currently empty.")
 if st.session_state["schedule"]:
     else:
         # If no tide window is specified, return all slots (or a reasonable default)
@@ -741,7 +736,6 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
         ])
 
     st.dataframe(styled_df, use_container_width=True)
-else:
     st.info("The schedule is currently empty.")
 
 
@@ -767,8 +761,6 @@ if st.button("Generate PDF"):
         if pdf_path:
             with open(pdf_path, "rb") as f:
                 st.download_button("Download PDF", f, file_name=f"Truck_Schedule_{selected_date_for_pdf}.pdf")
-        else:
             st.error("PDF generation failed.")
-    else:
         st.warning("No scheduled jobs found for the selected date to generate PDF.")
 
