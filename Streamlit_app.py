@@ -289,29 +289,44 @@ def has_truck_scheduled(truck: str, date: datetime):
 def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
     start_dt = datetime.combine(date, start_t)
     end_dt = start_dt + timedelta(hours=dur_hrs)
+
     for job in st.session_state["schedule"]:
         if job["truck"] != truck:
             continue
 
-        # ✅ Convert if necessary
+        # ✅ Parse job["date"] if needed
         job_date = job["date"]
         if isinstance(job_date, str):
             try:
                 job_date = datetime.fromisoformat(job_date)
             except ValueError:
-                continue  # skip bad date formats
+                continue  # Skip invalid formats
 
-        if job_date.date() != date.date():
+        # ✅ Ensure both sides are date objects
+        job_date_only = job_date.date() if isinstance(job_date, datetime) else job_date
+        if job_date_only != date:
             continue
 
-        job_start = datetime.combine(job_date.date(), job["time"])
+        # ✅ Parse job["time"] if needed
+        job_time = job["time"]
+        if isinstance(job_time, str):
+            try:
+                job_time = datetime.strptime(job_time, "%H:%M").time()
+            except ValueError:
+                continue  # Skip invalid time strings
+
+        job_start = datetime.combine(job_date_only, job_time)
         job_end = job_start + timedelta(hours=job["duration"])
+
         latest_start = max(start_dt, job_start)
         earliest_end = min(end_dt, job_end)
         overlap = (earliest_end - latest_start).total_seconds() > 0
+
         if overlap:
             return False
+
     return True
+
 
 def format_date_display(date_obj):
     """Formats a date object to 'Month Day, Year' (e.g., July 5, 2025)."""
