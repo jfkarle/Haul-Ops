@@ -882,7 +882,6 @@ st.button(
     key=schedule_key,
     on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
 )
-else:
     st.warning("No slots to display.")
 
 with cols[2]:
