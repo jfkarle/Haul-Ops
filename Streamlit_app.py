@@ -828,7 +828,7 @@ with st.sidebar:
         else:
             st.sidebar.info("Tide information not available for this ramp.")
 
-        #  -----  END HIGH/LOW TIDE DISPLAY -----
+#  -----  END HIGH/LOW TIDE DISPLAY -----
 
         duration = JOB_DURATION_HRS.get(boat_type, 1.5)  # Default to 1.5 hrs if not found
 
