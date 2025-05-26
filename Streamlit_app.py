@@ -140,13 +140,6 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
 st.header("Current Schedule")
 if st.session_state["schedule"]:
     pass  # placeholder for schedule display
-    else:
-        # If no tide window is specified, return all slots (or a reasonable default)
-        # Default to 3 hours before/after 10:00 AM if no specific rule
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
-
-    return sorted(set(valid_slots)), high_tide_time
-
 def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_hours: float):
     ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
     win_start = ht - timedelta(hours=before_hours)
