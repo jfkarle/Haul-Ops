@@ -814,42 +814,78 @@ if current_available_slots:
             st.markdown(f"**Truck:** {slot['truck']}")
             schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}"
             
-            def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
-                def schedule_job_callback():
-                    # --- MODIFIED CHECK ---
-                    # Check if the customer is already scheduled on ANY date
-                    if any(job['customer'] == current_customer for job in st.session_state["schedule"]):
-                        st.error(f"Customer {current_customer} is already scheduled.")
-                        return  # Exit the function, don't schedule
+            def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 15): # Increased limit
+    found = []
+    trucks = eligible_trucks(boat_len, boat_type_arg)
+    if not trucks:
+        return []
 
-                    # Schedule hauling truck job
-                    hauling_job = {
-                        'truck': current_slot['truck'],
-                        'date': datetime.combine(current_slot['date'], current_slot['time']),
-                        'time': current_slot['time'],
-                        'duration': current_duration,
-                        'customer': current_customer,
-                        'high_tide': current_slot.get("high_tide", ""),
-                        'ramp': current_slot.get("ramp", "")
-                    }
-                    st.session_state['schedule'].append(hauling_job)
-                    # Schedule crane truck J17 if required
-                    if current_slot.get('j17_required'):
-                        crane_job = {
-                            'truck': 'J17',
-                            'date': datetime.combine(current_slot['date'], current_slot['time']),
-                            'time': current_slot['time'],
-                            'duration': current_slot['j17_duration'],
-                            'customer': current_customer,
-                            'ramp': current_slot.get("ramp", "") # Add the ramp information here!
-                        }
-                        st.session_state['schedule'].append(crane_job)
-                    st.success(
-                        f"Scheduled {current_customer} with Truck {current_slot['truck']}"
-                        f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
-                        f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}."
-                    )
-                return schedule_job_callback
+    j17_duration = 0
+    if "Sailboat MD" in boat_type_arg:
+        j17_duration = 1.0
+    elif "Sailboat MT" in boat_type_arg:
+        j17_duration = 1.5
+
+    available_slots_with_dates = []
+    dates_checked = set()
+
+    # Check yesterday
+    yesterday = start_date - timedelta(days=1)
+    if is_workday(yesterday) and yesterday.date() not in dates_checked:
+        valid_slots, high_tide_time = get_valid_slots_with_tides(yesterday, ramp, boat_draft)
+        if valid_slots:
+            for truck in trucks:
+                for slot in valid_slots:
+                    hauling_free = is_truck_free(truck, yesterday, slot, duration)
+                    j17_free = True
+                    if j17_duration > 0:
+                        j17_free = is_truck_free("J17", yesterday, slot, j17_duration)
+                    if hauling_free and j17_free:
+                        available_slots_with_dates.append({
+                            "date": yesterday.date(),
+                            "time": slot,
+                            "ramp": ramp,
+                            "truck": truck,
+                            "high_tide": high_tide_time,
+                            "boat_type": boat_type_arg,
+                            "j17_required": j17_duration > 0,
+                            "j17_duration": j17_duration
+                        })
+                        if len(available_slots_with_dates) >= 3:
+                            return available_slots_with_dates[:3]
+        dates_checked.add(yesterday.date())
+
+    # Check today and forward
+    check_date = start_date
+    days_forward = 0
+    while len(available_slots_with_dates) < 3 and days_forward < search_days_limit:
+        if is_workday(check_date) and check_date.date() not in dates_checked:
+            valid_slots, high_tide_time = get_valid_slots_with_tides(check_date, ramp, boat_draft)
+            if valid_slots:
+                for truck in trucks:
+                    for slot in valid_slots:
+                        hauling_free = is_truck_free(truck, check_date, slot, duration)
+                        j17_free = True
+                        if j17_duration > 0:
+                            j17_free = is_truck_free("J17", check_date, slot, j17_duration)
+                        if hauling_free and j17_free:
+                            available_slots_with_dates.append({
+                                "date": check_date.date(),
+                                "time": slot,
+                                "ramp": ramp,
+                                "truck": truck,
+                                "high_tide": high_tide_time,
+                                "boat_type": boat_type_arg,
+                                "j17_required": j17_duration > 0,
+                                "j17_duration": j17_duration
+                            })
+                            if len(available_slots_with_dates) >= 3:
+                                return available_slots_with_dates[:3]
+            dates_checked.add(check_date.date())
+        check_date += timedelta(days=1)
+        days_forward += 1
+
+    return available_slots_with_dates[:3]
 
             st.button(
                 f"Schedule on {slot['time'].strftime('%H:%M')}",
