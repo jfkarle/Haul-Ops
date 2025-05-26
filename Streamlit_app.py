@@ -733,15 +733,15 @@ with st.sidebar:
         st.write(f"Selected Boat Type: **{boat_type}**")
         st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
-        boat_draft = 0.0  # Default to 0
+        boat_draft = 0.0
         if ramp_choice == "Scituate Harbor (Jericho Road)":
             boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
 
         earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
 
-#  -----  HIGH/LOW TIDE DISPLAY  -----
-        noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)  # Use ramp_choice here
+        # ----- HIGH/LOW TIDE DISPLAY -----
+        noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)
         if noaa_station_id:
             tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
             if len(tide_data_result) == 2:
@@ -770,10 +770,9 @@ with st.sidebar:
                 st.sidebar.error(f"Unexpected return format from get_tide_predictions: {tide_data_result}")
         else:
             st.sidebar.info("Tide information not available for this ramp.")
+        # ----- END HIGH/LOW TIDE DISPLAY -----
 
-#  -----  END HIGH/LOW TIDE DISPLAY -----
-
-        duration = JOB_DURATION_HRS.get(boat_type, 1.5)  # Default to 1.5 hrs if not found
+        duration = JOB_DURATION_HRS.get(boat_type, 1.5)
 
         if st.button("Find Available Slots"):
             st.session_state["available_slots"] = find_three_dates(
@@ -796,27 +795,6 @@ with st.sidebar:
     else:
         st.warning("Please select a customer first.")
 
-        duration = JOB_DURATION_HRS.get(boat_type, 1.5)  # Default to 1.5 hrs if not found
-
-        if st.button("Find Available Slots"):
-            st.session_state["available_slots"] = find_three_dates(
-                earliest_datetime,
-                ramp_choice,
-                boat_length,
-                boat_type,
-                duration,
-                boat_draft
-            )
-
-    if not st.session_state["available_slots"]:
-        st.warning("No suitable slots found for the selected criteria.")
-        st.session_state["all_available_slots"] = []
-        st.session_state["slot_display_start_index"] = 0
-    else:
-        st.session_state["all_available_slots"] = st.session_state["available_slots"]
-        st.session_state["slot_display_start_index"] = 0
-    else:
-        st.warning("Please select a customer first.")
 
 # Available Slots section (main column)
 current_available_slots = st.session_state.get('available_slots')
