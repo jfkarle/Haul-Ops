@@ -284,9 +284,19 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
     for job in st.session_state["schedule"]:
         if job["truck"] != truck:
             continue
-        if job["date"].date() != date.date(): # Compare date parts
+
+        # ✅ Convert if necessary
+        job_date = job["date"]
+        if isinstance(job_date, str):
+            try:
+                job_date = datetime.fromisoformat(job_date)
+            except ValueError:
+                continue  # skip bad date formats
+
+        if job_date.date() != date.date():
             continue
-        job_start = datetime.combine(job["date"].date(), job["time"])
+
+        job_start = datetime.combine(job_date.date(), job["time"])
         job_end = job_start + timedelta(hours=job["duration"])
         latest_start = max(start_dt, job_start)
         earliest_end = min(end_dt, job_end)
