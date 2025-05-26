@@ -715,6 +715,8 @@ else:
 
 # --- Sidebar for Input ---
 
+# --- Sidebar for Input ---
+
 with st.sidebar:
     st.header("New Job")
     customer_query = st.text_input("Find Customer:", "")
@@ -741,8 +743,8 @@ with st.sidebar:
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
 
         # ----- HIGH/LOW TIDE DISPLAY -----
-        noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)
-        if noaa_station_id:
+        station_id = RAMP_TO_NOAA_ID.get(ramp_choice) or "8445138"  # Scituate fallback
+        if station_id:
             tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
             if len(tide_data_result) == 2:
                 tide_predictions, err = tide_data_result
@@ -794,6 +796,7 @@ with st.sidebar:
 
     else:
         st.warning("Please select a customer first.")
+
 
 
 # Available Slots section (main column)
