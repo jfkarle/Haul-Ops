@@ -788,7 +788,9 @@ with st.sidebar:
 
         if st.button("Find Available Slots"):
             print(f"Searching for available slots for {selected_customer} ({boat_type}, {boat_length} ft)")
-            st.session_state["available_slots"] = find_three_dates(
+
+            # PATCHED: Let the internal logic of find_three_dates handle truck selection fairly
+            slots = find_three_dates(
                 earliest_datetime,
                 ramp_choice,
                 boat_length,
@@ -797,12 +799,13 @@ with st.sidebar:
                 boat_draft
             )
 
-            if not st.session_state["available_slots"]:
+            st.session_state["available_slots"] = slots
+            if not slots:
                 st.warning("No suitable slots found for the selected criteria.")
                 st.session_state["all_available_slots"] = []
                 st.session_state["slot_display_start_index"] = 0
             else:
-                st.session_state["all_available_slots"] = st.session_state["available_slots"]
+                st.session_state["all_available_slots"] = slots
                 st.session_state["slot_display_start_index"] = 0
 
     else:
