@@ -790,8 +790,8 @@ with st.sidebar:
                         try:
                             tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
                             if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                                tide_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
-                                formatted_time = tide_dt.strftime("%I:%M %p")
+                                tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
+                        formatted_time = tide_time_dt.strftime("%I:%M %p")
                                 filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
                         except ValueError as e:
                             print(f"Error parsing time: {e}")
@@ -888,7 +888,51 @@ if current_available_slots:
     st.subheader("Available Slots")
 
     # Toggle for display mode
-    display_mode = st.radio(
+    
+def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
+    def schedule_job_callback():
+        if any(job['customer'] == current_customer for job in st.session_state["schedule"]):
+            st.error(f"Customer {current_customer} is already scheduled.")
+            return
+
+        if not is_truck_free(current_slot['truck'], current_slot['date'], current_slot['time'], current_duration):
+            st.error(f"Truck {current_slot['truck']} is already booked at this time.")
+            return
+
+        if current_slot.get('j17_required') and not is_truck_free("J17", current_slot['date'], current_slot['time'], current_slot['j17_duration']):
+            st.error("Crane (J17) is already booked at this time.")
+            return
+
+        hauling_job = {
+            'truck': current_slot['truck'],
+            'date': datetime.combine(current_slot['date'], current_slot['time']),
+            'time': current_slot['time'],
+            'duration': current_duration,
+            'customer': current_customer,
+            'high_tide': current_slot.get("high_tide", ""),
+            'ramp': current_slot.get("ramp", "")
+        }
+        st.session_state['schedule'].append(hauling_job)
+
+        if current_slot.get('j17_required'):
+            crane_job = {
+                'truck': 'J17',
+                'date': datetime.combine(current_slot['date'], current_slot['time']),
+                'time': current_slot['time'],
+                'duration': current_slot['j17_duration'],
+                'customer': current_customer,
+                'ramp': current_slot.get("ramp", "")
+            }
+            st.session_state['schedule'].append(crane_job)
+
+        st.success(
+            f"Scheduled {current_customer} with Truck {current_slot['truck']}"
+            f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
+            f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}."
+        )
+    return schedule_job_callback
+
+display_mode = st.radio(
         "View Mode:",
         ["One Suggested Date", "Five Suggested Dates"],
         index=0,
