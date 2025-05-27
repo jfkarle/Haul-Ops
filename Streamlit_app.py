@@ -1,4 +1,4 @@
-def truck streamlit as st
+import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time, date
 import requests
