@@ -77,7 +77,7 @@ def filter_customers(df, query):
 
 def format_time(time_str: str) -> str:
     """Formats a time string in HH:MM format to HH:MM AM/PM."""
-    time_obj = datetime.strptime(time_str, "%H:%M")
+    time_obj = datetime.strptime(time_str, "%I:%M %p")
     return time_obj.strftime("%I:%M %p")
 
 def get_tide_predictions(date: datetime, ramp: str):
@@ -96,7 +96,7 @@ def get_tide_predictions(date: datetime, ramp: str):
         data = resp.json().get("predictions", [])
         filtered_tides = []
         for item in data:
-            tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+            tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %I:%M %p")
             if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
                 formatted_time = format_time(item['t'].split()[-1])
                 filtered_tides.append(f"{formatted_time} ({item['type']})")
@@ -122,18 +122,18 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
         first_high_tide_item = next((item for item in tide_data if item["type"] == 'H'), None)
         if first_high_tide_item:
             try:
-                ht_datetime = datetime.strptime(first_high_tide_item["time"], "%Y-%m-%d %H:%M")  # Parse original string
+                ht_datetime = datetime.strptime(first_high_tide_item["time"], "%Y-%m-%d %I:%M %p")  # Parse original string
                 high_tide_time = ht_datetime.strftime("%I:%M %p")
                 valid_slots = generate_slots_for_high_tide(first_high_tide_item["time"], tide_window[0], tide_window[1])
             except ValueError as e:
                 print(f"Error parsing high tide time '{first_high_tide_item['time']}': {e}")
     elif ramp == "Sandwich Basin":
         # "Any tide" - provide middle of the day window centered at 10:00 AM
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %I:%M %p"), 3, 3)
     else:
         # If no tide window is specified, return all slots (or a reasonable default)
         # Default to 3 hours before/after 10:00 AM if no specific rule
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %I:%M %p"), 3, 3)
 
     return sorted(set(valid_slots)), high_tide_time
 
@@ -166,10 +166,10 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
                         j17_free = is_truck_free("J17", yesterday, slot, j17_duration)
 
                     # ✅ Logging for yesterday check
-                    print(f"[YESTERDAY] {yesterday.date()} - Truck {truck} at {slot.strftime('%H:%M')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
+                    print(f"[YESTERDAY] {yesterday.date()} - Truck {truck} at {slot.strftime('%I:%M %p')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
                     
                     if j17_duration > 0 and is_j17_conflict(yesterday, ramp, st.session_state["schedule"]):
-                        print(f"Skipping slot {slot.strftime('%H:%M')} on {yesterday.date()} due to J17 ramp conflict.")
+                        print(f"Skipping slot {slot.strftime('%I:%M %p')} on {yesterday.date()} due to J17 ramp conflict.")
                         continue
 
         if hauling_free and j17_free:
@@ -202,10 +202,10 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
                             j17_free = is_truck_free("J17", check_date, slot, j17_duration)
 
                         # ✅ Logging for future dates
-                        print(f"[FORWARD] {check_date.date()} - Truck {truck} at {slot.strftime('%H:%M')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
+                        print(f"[FORWARD] {check_date.date()} - Truck {truck} at {slot.strftime('%I:%M %p')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
                        
                         if j17_duration > 0 and is_j17_conflict(check_date, ramp, st.session_state["schedule"]):
-                            print(f"Skipping slot {slot.strftime('%H:%M')} on {check_date.date()} due to J17 ramp conflict.")
+                            print(f"Skipping slot {slot.strftime('%I:%M %p')} on {check_date.date()} due to J17 ramp conflict.")
                             continue
         if hauling_free and j17_free:
                             available_slots_with_dates.append({
@@ -227,7 +227,7 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
     return available_slots_with_dates[:3]
 
 def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_hours: float):
-    ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
+    ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %I:%M %p")
     win_start = ht - timedelta(hours=before_hours)
     win_end = ht + timedelta(hours=after_hours)
     slots = []
@@ -242,7 +242,7 @@ def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_h
 
 def format_time(time_str: str) -> str:
     """Formats a time string in HH:MM format to HH:MM AM/PM."""
-    time_obj = datetime.strptime(time_str, "%H:%M")
+    time_obj = datetime.strptime(time_str, "%I:%M %p")
     return time_obj.strftime("%I:%M %p")
 
 def get_tide_predictions(date: datetime, ramp: str):
@@ -262,7 +262,7 @@ def get_tide_predictions(date: datetime, ramp: str):
         filtered_tides = []
         for item in data:
             try:
-                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %I:%M %p")
                 if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
                     filtered_tides.append({"time": item['t'], "type": item['type']})  # Store data as dictionary
             except ValueError as e:
@@ -324,7 +324,7 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
         job_time = job["time"]
         if isinstance(job_time, str):
             try:
-                job_time = datetime.strptime(job_time, "%H:%M").time()
+                job_time = datetime.strptime(job_time, "%I:%M %p").time()
             except ValueError:
                 continue  # Skip invalid time strings
 
@@ -415,7 +415,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
                         if first_high_tide:
                             try:
                                 ht_datetime = datetime.strptime(
-                                    first_high_tide['time'], "%Y-%m-%d %H:%M")
+                                    first_high_tide['time'], "%Y-%m-%d %I:%M %p")
                                 high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
                             except (ValueError, TypeError) as e:
                                 print(f"Error processing tide data: {e}")
@@ -428,7 +428,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
                         if first_high_tide:
                             try:
                                 ht_datetime = datetime.strptime(
-                                    first_high_tide['time'], "%Y-%m-%d %H:%M")
+                                    first_high_tide['time'], "%Y-%m-%d %I:%M %p")
                                 high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
                             except (ValueError, TypeError) as e:
                                 print(f"Error processing tide data: {e}")
@@ -570,7 +570,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
     tide_marks = {"H": [], "L": []}
     for t_str, t_type in all_tides_for_day:
         try:
-            dt_obj = datetime.strptime(t_str, "%Y-%m-%d %H:%M")
+            dt_obj = datetime.strptime(t_str, "%Y-%m-%d %I:%M %p")
             total_minutes = dt_obj.hour * 60 + dt_obj.minute
             rounded_minutes = round(total_minutes / 15) * 15
             rounded_hour = rounded_minutes // 60
@@ -634,7 +634,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
         # Draw time/tide labels in the first column
         x_first_col = margin_left
         
-        display_label = t.strftime("%-I:%M") if t.minute else t.strftime("%-I:00")
+        display_label = t.strftime("%I:%M") if t.minute else t.strftime("%I:00")
         label_style = "Helvetica"
         label_size = 11
         label_color = (0, 0, 0)
@@ -777,7 +777,7 @@ with st.sidebar:
                     filtered_tides_display = []
                     for item in tide_predictions:
                         try:
-                            tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
+                            tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %I:%M %p")
                             if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
                                 formatted_time = format_time(item['time'].split()[-1])
                                 filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
@@ -835,7 +835,7 @@ with st.sidebar:
                         if j17_required:
                             crane_ok = is_truck_free("J17", date_key, slot, j17_duration)
 
-                        print(f"Checking {date_key} {slot.strftime('%H:%M')} – Truck {truck} free: {hauling_ok}, J17 needed: {j17_required}, J17 free: {crane_ok}")
+                        print(f"Checking {date_key} {slot.strftime('%I:%M %p')} – Truck {truck} free: {hauling_ok}, J17 needed: {j17_required}, J17 free: {crane_ok}")
 
                         if hauling_ok and crane_ok:
                             found.append({
@@ -956,7 +956,7 @@ if current_available_slots:
                 return schedule_job_callback
 
             st.button(
-                f"Schedule on {slot['time'].strftime('%H:%M')}",
+                f"Schedule on {slot['time'].strftime('%I:%M %p')}",
                 key=schedule_key,
                 on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
             )
@@ -1010,7 +1010,7 @@ if st.session_state["schedule"]:
                 "Boat Type": boat_type,
                 "Date": format_date_display(job["date"]),
                 "Ramp": job.get("ramp", "Unknown"),
-                "Time": job["time"].strftime('%H:%M'),
+                "Time": job["time"].strftime('%I:%M %p'),
                 "Truck": job["truck"],
                 "Truck Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}",
                 "Crane": "Yes" if has_j17 else "No",
