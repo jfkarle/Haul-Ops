@@ -204,9 +204,9 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
                         # ✅ Logging for future dates
                         print(f"[FORWARD] {check_date.date()} - Truck {truck} at {slot.strftime('%H:%M')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
                        
-                            if j17_duration > 0 and is_j17_conflict(check_date, ramp, st.session_state["schedule"]):
-                                print(f"Skipping slot {slot.strftime('%H:%M')} on {check_date.date()} due to J17 ramp conflict.")
-                                continue
+                        if j17_duration > 0 and is_j17_conflict(check_date, ramp, st.session_state["schedule"]):
+                            print(f"Skipping slot {slot.strftime('%H:%M')} on {check_date.date()} due to J17 ramp conflict.")
+                            continue
         if hauling_free and j17_free:
                             available_slots_with_dates.append({
                                 "date": check_date.date(),
