@@ -168,7 +168,11 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
                     # ✅ Logging for yesterday check
                     print(f"[YESTERDAY] {yesterday.date()} - Truck {truck} at {slot.strftime('%H:%M')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
 
-                    if hauling_free and j17_free:
+                    
+                        if j17_duration > 0 and is_j17_conflict(check_date, ramp, st.session_state["schedule"]):
+                            print(f"Skipping slot {slot.strftime('%H:%M')} on {check_date.date()} due to J17 ramp conflict.")
+                            continue
+if hauling_free and j17_free:
                         available_slots_with_dates.append({
                             "date": yesterday.date(),
                             "time": slot,
@@ -200,7 +204,11 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
                         # ✅ Logging for future dates
                         print(f"[FORWARD] {check_date.date()} - Truck {truck} at {slot.strftime('%H:%M')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
 
-                        if hauling_free and j17_free:
+                        
+                        if j17_duration > 0 and is_j17_conflict(check_date, ramp, st.session_state["schedule"]):
+                            print(f"Skipping slot {slot.strftime('%H:%M')} on {check_date.date()} due to J17 ramp conflict.")
+                            continue
+if hauling_free and j17_free:
                             available_slots_with_dates.append({
                                 "date": check_date.date(),
                                 "time": slot,
@@ -266,6 +274,15 @@ def get_tide_predictions(date: datetime, ramp: str):
         return filtered_tides, None
     except Exception as e:
         return [], str(e)
+
+
+def is_j17_conflict(date, ramp, schedule_list):
+    for job in schedule_list:
+        if job.get("truck") == "J17" and job.get("date").date() == date.date():
+            if job.get("ramp", "").strip() != ramp.strip():
+                return True
+    return False
+
 
 def is_workday(date: datetime):
     wk = date.weekday()
