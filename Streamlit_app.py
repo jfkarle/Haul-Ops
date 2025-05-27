@@ -81,7 +81,7 @@ def format_time(time_str: str) -> str:
     return time_obj.strftime("%I:%M %p")
 
 def get_tide_predictions(date: datetime, ramp: str):
-    station_id = RAMP_TO_NOAA_ID.get(ramp) or "8445138"
+    station_id = RAMP_TO_NOAA_ID.get(ramp_name.strip(), "8445138")  # fallback to Scituate
 
     params = NOAA_PARAMS_TEMPLATE | {
         "station": station_id,
