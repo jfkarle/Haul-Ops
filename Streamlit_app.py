@@ -729,8 +729,6 @@ else:
 
 # --- Sidebar for Input ---
 
-# --- Sidebar for Input ---
-
 with st.sidebar:
     st.header("New Job")
     customer_query = st.text_input("Find Customer:", "")
@@ -749,7 +747,7 @@ with st.sidebar:
         st.write(f"Selected Boat Type: **{boat_type}**")
         st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
-        boat_draft = 0.0  # Removed conditional draft input
+        boat_draft = 0.0
 
         earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
@@ -789,6 +787,8 @@ with st.sidebar:
         duration = JOB_DURATION_HRS.get(boat_type, 1.5)
 
         if st.button("Find Available Slots"):
+            available = []
+            print(f"Searching for available slots for {selected_customer} ({boat_type}, {boat_length} ft)")
             st.session_state["available_slots"] = find_three_dates(
                 earliest_datetime,
                 ramp_choice,
