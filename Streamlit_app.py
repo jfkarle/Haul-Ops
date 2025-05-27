@@ -130,18 +130,18 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
         first_high_tide_item = next((item for item in tide_data if item["type"] == 'H'), None)
         if first_high_tide_item:
             try:
-                ht_datetime = datetime.strptime(first_high_tide_item["time"], "%Y-%m-%d %I:%M %p")  # Parse original string
+                ht_datetime = datetime.strptime(first_high_tide_item["time"], "%Y-%m-%d %H:%M")  # Parse original string
                 high_tide_time = ht_datetime.strftime("%I:%M %p")
                 valid_slots = generate_slots_for_high_tide(first_high_tide_item["time"], tide_window[0], tide_window[1])
             except ValueError as e:
                 print(f"Error parsing high tide time '{first_high_tide_item['time']}': {e}")
     elif ramp == "Sandwich Basin":
         # "Any tide" - provide middle of the day window centered at 10:00 AM
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %I:%M %p"), 3, 3)
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
     else:
         # If no tide window is specified, return all slots (or a reasonable default)
         # Default to 3 hours before/after 10:00 AM if no specific rule
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %I:%M %p"), 3, 3)
+        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
 
     return sorted(set(valid_slots)), high_tide_time
 
@@ -235,7 +235,7 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
     return available_slots_with_dates[:3]
 
 def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_hours: float):
-    ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %I:%M %p")
+    ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
     win_start = ht - timedelta(hours=before_hours)
     win_end = ht + timedelta(hours=after_hours)
     slots = []
@@ -272,7 +272,7 @@ def get_tide_predictions(date: datetime, ramp: str):
         filtered_tides = []
         for item in data:
             try:
-                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %I:%M %p")
+                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
                 if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
                     filtered_tides.append({"time": item['t'], "type": item['type']})  # Store data as dictionary
             except ValueError as e:
@@ -439,7 +439,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
                         if first_high_tide:
                             try:
                                 ht_datetime = datetime.strptime(
-                                    first_high_tide['time'], "%Y-%m-%d %I:%M %p")
+                                    first_high_tide['time'], "%Y-%m-%d %H:%M")
                                 high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
                             except (ValueError, TypeError) as e:
                                 print(f"Error processing tide data: {e}")
@@ -788,7 +788,7 @@ with st.sidebar:
                     filtered_tides_display = []
                     for item in tide_predictions:
                         try:
-                            tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %I:%M %p")
+                            tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
                             if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
                                 formatted_time = format_time(item['time'].split()[-1])
                                 filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
