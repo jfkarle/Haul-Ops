@@ -220,7 +220,7 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
                             })
                             if len(available_slots_with_dates) >= 3:
                                 return available_slots_with_dates[:3]
-            dates_checked.add(check_date.date())
+        dates_checked.add(check_date.date())
         check_date += timedelta(days=1)
         days_forward += 1
 
