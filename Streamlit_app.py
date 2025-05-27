@@ -425,7 +425,8 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
                         if first_high_tide:
                             try:
                                 ht_datetime = datetime.strptime(
-                                    first_high_tide['time'], "%Y-%m-%d %I:%M %p")
+                                    first_high_tide['time'], "%Y-%m-%d %H:%M"
+                                )
                                 high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
                             except (ValueError, TypeError) as e:
                                 print(f"Error processing tide data: {e}")
@@ -580,7 +581,7 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
     tide_marks = {"H": [], "L": []}
     for t_str, t_type in all_tides_for_day:
         try:
-            dt_obj = datetime.strptime(t_str, "%Y-%m-%d %I:%M %p")
+            dt_obj = datetime.strptime(t_str, "%Y-%m-%d %H:%M")
             total_minutes = dt_obj.hour * 60 + dt_obj.minute
             rounded_minutes = round(total_minutes / 15) * 15
             rounded_hour = rounded_minutes // 60
