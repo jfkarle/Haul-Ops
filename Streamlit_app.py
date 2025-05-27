@@ -749,9 +749,7 @@ with st.sidebar:
         st.write(f"Selected Boat Type: **{boat_type}**")
         st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
-        boat_draft = 0.0
-        if ramp_choice == "Scituate Harbor (Jericho Road)":
-            boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
+        boat_draft = 0.0  # Removed conditional draft input
 
         earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
