@@ -790,9 +790,12 @@ with st.sidebar:
                         try:
                             tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
                             if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                                tide_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
-formatted_time = tide_dt.strftime("%I:%M %p")
-                                filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
+                                try:
+    tide_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
+    formatted_time = tide_dt.strftime("%I:%M %p")
+    filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
+except ValueError as e:
+    print(f"Error parsing time: {e}")
                         except ValueError as e:
                             print(f"Error parsing time: {e}")
 
@@ -1070,7 +1073,6 @@ if st.button("Generate PDF"):
         if job["date"].date() == selected_date_for_pdf
     ]
 
-    
     if filtered_jobs_for_pdf:
         # Pass customers_df to the PDF function
         pdf_path = generate_daily_schedule_pdf_bold_end_line_streamlit(
