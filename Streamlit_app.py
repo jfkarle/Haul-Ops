@@ -95,8 +95,16 @@ def get_tide_predictions(date: datetime, ramp: str):
         resp.raise_for_status()
         data = resp.json().get("predictions", [])
         filtered_tides = []
-        for item in data:
-            tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %I:%M %p")
+for item in data:
+            try:
+                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+                if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                    filtered_tides.append({
+                        "time": item["t"],  # full timestamp
+                        "type": item["type"]
+                    })
+            except ValueError as e:
+                print(f"Error parsing time '{item['t']}': {e}")  # Log the error
             if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
                 formatted_time = format_time(item['t'].split()[-1])
                 filtered_tides.append(f"{formatted_time} ({item['type']})")
