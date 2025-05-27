@@ -790,12 +790,9 @@ with st.sidebar:
                         try:
                             tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
                             if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                                try:
-                                    tide_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
-                                    formatted_time = tide_dt.strftime("%I:%M %p")
-                                    filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
-                                except ValueError as e:
-                                    print(f"Error parsing time: {e}")
+                                tide_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
+formatted_time = tide_dt.strftime("%I:%M %p")
+                                filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
                         except ValueError as e:
                             print(f"Error parsing time: {e}")
 
@@ -889,6 +886,76 @@ current_available_slots = st.session_state.get('available_slots')
 
 if current_available_slots:
     st.subheader("Available Slots")
+
+    # Toggle for display mode
+    display_mode = st.radio(
+        "View Mode:",
+        ["One Suggested Date", "Five Suggested Dates"],
+        index=0,
+        horizontal=True
+    )
+
+    if display_mode == "One Suggested Date":
+        # Existing single-slot display logic preserved
+        display_slots = st.session_state['all_available_slots'][
+            st.session_state['slot_display_start_index']:st.session_state['slot_display_start_index'] + 1
+        ]
+        cols = st.columns([1, 3, 1])
+        with cols[0]:
+            if st.button("← Previous", disabled=st.session_state['slot_display_start_index'] == 0):
+                update_slot_display(-1)
+        with cols[1]:
+            if display_slots:
+                slot = display_slots[0]
+                day_name = slot['date'].strftime("%A")
+                formatted_date_display = format_date_display(slot['date'])
+                st.markdown(f"**{day_name}**")
+                st.info(f"Date: {formatted_date_display}")
+                st.markdown(f"**Time:** {slot['time'].strftime('%I:%M %p')}")
+                st.markdown(f"**Ramp:** {slot['ramp']}")
+                st.markdown(f"**Truck:** {slot['truck']}")
+                schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}"
+
+                st.button(
+                    f"Schedule on {slot['time'].strftime('%I:%M %p')}",
+                    key=schedule_key,
+                    on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
+                )
+        with cols[2]:
+            if st.button("Next →", disabled=st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']) - 1):
+                update_slot_display(1)
+    else:
+        # Five-slot display logic
+        display_slots = st.session_state['all_available_slots'][
+            st.session_state['slot_display_start_index']:st.session_state['slot_display_start_index'] + 5
+        ]
+        nav_cols = st.columns([1, 5, 1])
+        with nav_cols[0]:
+            if st.button("← Previous", disabled=st.session_state['slot_display_start_index'] == 0):
+                update_slot_display(-5)
+        with nav_cols[2]:
+            if st.button("Next →", disabled=st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']) - 5):
+                update_slot_display(5)
+
+        slot_cols = st.columns(5)
+        for i, slot in enumerate(display_slots):
+            with slot_cols[i]:
+                day_name = slot['date'].strftime("%A")
+                formatted_date_display = format_date_display(slot['date'])
+                st.markdown(f"**{day_name}**")
+                st.info(f"{formatted_date_display}")
+                st.markdown(f"**Time:** {slot['time'].strftime('%I:%M %p')}")
+                st.markdown(f"**Ramp:** {slot['ramp']}")
+                st.markdown(f"**Truck:** {slot['truck']}")
+                schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}"
+
+                st.button(
+                    f"Schedule",
+                    key=schedule_key,
+                    on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
+                )
+    st.markdown("---")
+
 
     # Store all found slots in session state
     if 'all_available_slots' not in st.session_state:
