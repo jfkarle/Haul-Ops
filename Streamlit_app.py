@@ -130,18 +130,27 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
         first_high_tide_item = next((item for item in tide_data if item["type"] == 'H'), None)
         if first_high_tide_item:
             try:
-                ht_datetime = datetime.strptime(first_high_tide_item["time"], "%Y-%m-%d %H:%M")  # Parse original string
+                ht_datetime = datetime.strptime(first_high_tide_item["time"], "%Y-%m-%d %H:%M")
                 high_tide_time = ht_datetime.strftime("%I:%M %p")
-                valid_slots = generate_slots_for_high_tide(first_high_tide_item["time"], tide_window[0], tide_window[1])
+                valid_slots = generate_slots_for_high_tide(
+                    first_high_tide_item["time"],
+                    tide_window[0],
+                    tide_window[1]
+                )
             except ValueError as e:
                 print(f"Error parsing high tide time '{first_high_tide_item['time']}': {e}")
     elif ramp == "Sandwich Basin":
-        # "Any tide" - provide middle of the day window centered at 10:00 AM
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
-else:
+        # "Any tide" – provide middle of the day window centered at 10:00 AM
+        valid_slots = generate_slots_for_high_tide(
+            datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"),
+            3, 3
+        )
+    else:
         # If no tide window is specified, return all slots (or a reasonable default)
-        # Default to 3 hours before/after 10:00 AM if no specific rule
-        valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
+        valid_slots = generate_slots_for_high_tide(
+            datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"),
+            3, 3
+        )
 
     return sorted(set(valid_slots)), high_tide_time
 
