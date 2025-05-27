@@ -145,7 +145,7 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
             datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"),
             3, 3
         )
-    else:
+# INVALID else: REMOVED OR COMMENTED
         # If no tide window is specified, return all slots (or a reasonable default)
         valid_slots = generate_slots_for_high_tide(
             datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"),
