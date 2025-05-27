@@ -789,23 +789,61 @@ with st.sidebar:
         if st.button("Find Available Slots"):
             print(f"Searching for available slots for {selected_customer} ({boat_type}, {boat_length} ft)")
 
-            # PATCHED: Let the internal logic of find_three_dates handle truck selection fairly
-            slots = find_three_dates(
-                earliest_datetime,
-                ramp_choice,
-                boat_length,
-                boat_type,
-                duration,
-                boat_draft
-            )
+            found = []
+            trucks = eligible_trucks(boat_length, boat_type)
+            j17_required = boat_type in ["Sailboat MT", "Sailboat MD"]
+            j17_duration = 1.5 if boat_type == "Sailboat MT" else (1.0 if boat_type == "Sailboat MD" else 0.0)
 
-            st.session_state["available_slots"] = slots
-            if not slots:
+            search_limit = 15
+            date_cursor = earliest_datetime
+            checked_dates = set()
+
+            while len(found) < 3 and len(checked_dates) < search_limit:
+                if not is_workday(date_cursor):
+                    date_cursor += timedelta(days=1)
+                    continue
+
+                date_key = date_cursor.date()
+                if date_key in checked_dates:
+                    date_cursor += timedelta(days=1)
+                    continue
+
+                checked_dates.add(date_key)
+                valid_slots, high_tide_time = get_valid_slots_with_tides(date_cursor, ramp_choice, boat_draft)
+
+                for slot in valid_slots:
+                    for truck in trucks:
+                        hauling_ok = is_truck_free(truck, date_key, slot, duration)
+                        crane_ok = True
+
+                        if j17_required:
+                            crane_ok = is_truck_free("J17", date_key, slot, j17_duration)
+
+                        if hauling_ok and crane_ok:
+                            found.append({
+                                "date": date_key,
+                                "time": slot,
+                                "ramp": ramp_choice,
+                                "truck": truck,
+                                "high_tide": high_tide_time,
+                                "boat_type": boat_type,
+                                "j17_required": j17_required,
+                                "j17_duration": j17_duration
+                            })
+                            break  # stop checking trucks for this slot
+
+                    if len(found) >= 3:
+                        break
+
+                date_cursor += timedelta(days=1)
+
+            st.session_state["available_slots"] = found
+            if not found:
                 st.warning("No suitable slots found for the selected criteria.")
                 st.session_state["all_available_slots"] = []
                 st.session_state["slot_display_start_index"] = 0
             else:
-                st.session_state["all_available_slots"] = slots
+                st.session_state["all_available_slots"] = found
                 st.session_state["slot_display_start_index"] = 0
 
     else:
