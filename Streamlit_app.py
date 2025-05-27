@@ -1,4 +1,4 @@
-import streamlit as st
+def truck streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, time, date
 import requests
@@ -326,6 +326,7 @@ def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
             return False
 
     return True
+
 
 
 def format_date_display(date_obj):
