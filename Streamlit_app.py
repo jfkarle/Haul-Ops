@@ -138,7 +138,7 @@ def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = No
     elif ramp == "Sandwich Basin":
         # "Any tide" - provide middle of the day window centered at 10:00 AM
         valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
-    else:
+else:
         # If no tide window is specified, return all slots (or a reasonable default)
         # Default to 3 hours before/after 10:00 AM if no specific rule
         valid_slots = generate_slots_for_high_tide(datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"), 3, 3)
@@ -763,7 +763,7 @@ with st.sidebar:
     selected_customer = None
     if not filtered_customers.empty:
         selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
-    else:
+else:
         st.info("No matching customers found.")
 
     if selected_customer:
@@ -799,15 +799,15 @@ with st.sidebar:
                     if filtered_tides_display:
                         tide_display_text = "Tides (5 AM - 7 PM):\n" + "\n".join(filtered_tides_display)
                         st.sidebar.info(tide_display_text)
-                    else:
+                else:
                         st.sidebar.info("No high or low tide data available between 5 AM and 7 PM for this date and ramp.")
                 elif err:
                     st.sidebar.warning(f"Could not retrieve tide information. Error: {err}")
-                else:
-                    st.sidebar.info("No tide data available.")
             else:
-                st.sidebar.error(f"Unexpected return format from get_tide_predictions: {tide_data_result}")
+                    st.sidebar.info("No tide data available.")
         else:
+                st.sidebar.error(f"Unexpected return format from get_tide_predictions: {tide_data_result}")
+    else:
             st.sidebar.info("Tide information not available for this ramp.")
         # ----- END HIGH/LOW TIDE DISPLAY -----
 
@@ -873,11 +873,11 @@ with st.sidebar:
                 st.warning("No suitable slots found for the selected criteria.")
                 st.session_state["all_available_slots"] = []
                 st.session_state["slot_display_start_index"] = 0
-            else:
+        else:
                 st.session_state["all_available_slots"] = found
                 st.session_state["slot_display_start_index"] = 0
 
-    else:
+else:
         st.warning("Please select a customer first.")
 
 
@@ -939,7 +939,7 @@ display_mode = st.radio(
         horizontal=True
     )
 
-    if display_mode == "One Suggested Date":
+if display_mode == "One Suggested Date":
         # Existing single-slot display logic preserved
         display_slots = st.session_state['all_available_slots'][
             st.session_state['slot_display_start_index']:st.session_state['slot_display_start_index'] + 1
@@ -968,7 +968,7 @@ display_mode = st.radio(
         with cols[2]:
             if st.button("Next →", disabled=st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']) - 1):
                 update_slot_display(1)
-    else:
+else:
         # Five-slot display logic
         display_slots = st.session_state['all_available_slots'][
             st.session_state['slot_display_start_index']:st.session_state['slot_display_start_index'] + 5
@@ -1086,7 +1086,7 @@ display_mode = st.radio(
                 key=schedule_key,
                 on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
             )
-        else:
+    else:
             st.warning("No slots to display.")
 
     with cols[2]:
@@ -1194,8 +1194,8 @@ if st.button("Generate PDF"):
         if pdf_path:
             with open(pdf_path, "rb") as f:
                 st.download_button("Download PDF", f, file_name=f"Truck_Schedule_{selected_date_for_pdf}.pdf")
-        else:
-            st.error("PDF generation failed.")
     else:
+            st.error("PDF generation failed.")
+else:
         st.warning("No scheduled jobs found for the selected date to generate PDF.")
 
