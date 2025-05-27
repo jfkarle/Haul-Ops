@@ -1070,6 +1070,7 @@ if st.button("Generate PDF"):
         if job["date"].date() == selected_date_for_pdf
     ]
 
+    
     if filtered_jobs_for_pdf:
         # Pass customers_df to the PDF function
         pdf_path = generate_daily_schedule_pdf_bold_end_line_streamlit(
