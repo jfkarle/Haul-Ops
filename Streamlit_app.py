@@ -790,7 +790,8 @@ with st.sidebar:
                         try:
                             tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
                             if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                                formatted_time = format_time(item['time'].split()[-1])
+                                tide_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
+                            formatted_time = tide_dt.strftime("%I:%M %p")
                                 filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
                         except ValueError as e:
                             print(f"Error parsing time: {e}")
