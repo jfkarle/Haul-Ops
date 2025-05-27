@@ -787,7 +787,6 @@ with st.sidebar:
         duration = JOB_DURATION_HRS.get(boat_type, 1.5)
 
         if st.button("Find Available Slots"):
-            available = []
             print(f"Searching for available slots for {selected_customer} ({boat_type}, {boat_length} ft)")
             st.session_state["available_slots"] = find_three_dates(
                 earliest_datetime,
