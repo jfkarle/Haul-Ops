@@ -1,3 +1,4 @@
+Of course. Here is the corrected version of your Python code with the indentation fixed.
 
 import streamlit as st
 import pandas as pd
@@ -850,3 +851,4 @@ if st.button("Generate PDF"):
             st.error("PDF generation failed.")
     else:
         st.warning("No scheduled jobs found for the selected date to generate PDF.")
+
