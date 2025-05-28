@@ -772,7 +772,7 @@ with st.sidebar:
     selected_customer = None
     if not filtered_customers.empty:
         selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
-    else:
+else:
         st.info("No matching customers found.")
 
     if selected_customer:
