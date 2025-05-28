@@ -81,34 +81,34 @@ def format_time(time_str: str) -> str:
  return time_obj.strftime("%I:%M %p")
 
 def get_tide_predictions(date: datetime, ramp: str):
- station_id = RAMP_TO_NOAA_ID.get(ramp.strip(), "8445138") # fallback to Scituate
+    station_id = RAMP_TO_NOAA_ID.get(ramp.strip(), "8445138")  # fallback to Scituate
 
- params = NOAA_PARAMS_TEMPLATE | {
- "station": station_id,
- "begin_date": date.strftime("%Y%m%d"),
- "end_date": date.strftime("%Y%m%d"),
- "product": "predictions", # Ensure we are getting predictions
- "interval": "hilo" # Ensure we are getting high/low predictions
- }
+    params = NOAA_PARAMS_TEMPLATE | {
+        "station": station_id,
+        "begin_date": date.strftime("%Y%m%d"),
+        "end_date": date.strftime("%Y%m%d"),
+        "product": "predictions",  # Ensure we are getting predictions
+        "interval": "hilo"  # Ensure we are getting high/low predictions
+    }
 
- try:
- resp = requests.get(NOAA_API_URL, params=params, timeout=10)
- resp.raise_for_status()
- data = resp.json().get("predictions", [])
- filtered_tides = []
- for item in data:
- try:
- tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
- if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
- filtered_tides.append({
- "time": item["t"], # full timestamp
- "type": item["type"]
- })
- except ValueError as e:
- print(f"Error parsing time '{item['t']}': {e}") # Log the error
- return filtered_tides, None
- except Exception as e:
- return [], str(e)
+    try:
+        resp = requests.get(NOAA_API_URL, params=params, timeout=10)  # Indented
+        resp.raise_for_status()  # Indented
+        data = resp.json().get("predictions", [])  # Indented
+        filtered_tides = []
+        for item in data:
+            try:
+                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+                if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                    filtered_tides.append({
+                        "time": item["t"],  # full timestamp
+                        "type": item["type"]
+                    })
+            except ValueError as e:
+                print(f"Error parsing time '{item['t']}': {e}")  # Log the error
+        return filtered_tides, None
+    except Exception as e:
+        return [], str(e)
 
 
 
