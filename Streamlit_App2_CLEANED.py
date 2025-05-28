@@ -738,7 +738,7 @@ if selected_customer:
     noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice) or "8445138"
     tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
     if len(tide_data_result) == 2:
-            tide_predictions, err = tide_data_result
+        tide_predictions, err = tide_data_result
             # ... rest of tide block ...
     
         duration = JOB_DURATION_HRS.get(boat_type, 1.5)  # <-- this MUST be here at the same level as everything above
