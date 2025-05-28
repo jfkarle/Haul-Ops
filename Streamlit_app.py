@@ -772,7 +772,7 @@ with st.sidebar:
     selected_customer = None
     if not filtered_customers.empty:
         selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
-    else:
+else:
         st.info("No matching customers found.")
 
     if selected_customer:
@@ -783,7 +783,6 @@ with st.sidebar:
         st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
         boat_draft = 0.0
-
 
         earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
@@ -809,20 +808,10 @@ with st.sidebar:
                     if filtered_tides_display:
                         tide_display_text = "Tides (5 AM - 7 PM):\n" + "\n".join(filtered_tides_display)
                         st.sidebar.info(tide_display_text)
-                else:
+                    elif err:
+                        st.sidebar.warning(f"Could not retrieve tide information. Error: {err}")
+                    else:
                         st.sidebar.info("No high or low tide data available between 5 AM and 7 PM for this date and ramp.")
-                elif err:
-                    st.sidebar.warning(f"Could not retrieve tide information. Error: {err}")
-            else:
-                    st.sidebar.info("No tide data available.")
-        else:
-                st.sidebar.error(f"Unexpected return format from get_tide_predictions: {tide_data_result}")
-    else:
-            st.sidebar.info("Tide information not available for this ramp.")
-        # ----- END HIGH/LOW TIDE DISPLAY -----
-
-        duration = JOB_DURATION_HRS.get(boat_type, 1.5)
-
         if st.button("Find Available Slots"):
             print(f"Searching for available slots for {selected_customer} ({boat_type}, {boat_length} ft)")
 
@@ -1208,4 +1197,6 @@ if st.button("Generate PDF"):
             st.error("PDF generation failed.")
 else:
         st.warning("No scheduled jobs found for the selected date to generate PDF.")
+
+
 
