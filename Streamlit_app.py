@@ -998,8 +998,7 @@ else:
                     on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
                 )
         
-    st.markdown("---")
-
+                st.markdown("---")
 
     # Store all found slots in session state
     if 'all_available_slots' not in st.session_state:
