@@ -720,7 +720,7 @@ with st.sidebar:
     else:
         st.info("No matching customers found.")
 
- if selected_customer:
+if selected_customer:
     customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
     boat_type = customer_row["Boat Type"]
     boat_length = customer_row["Boat Length"]
