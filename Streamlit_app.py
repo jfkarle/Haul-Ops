@@ -876,7 +876,7 @@ with st.sidebar:
                 st.session_state["all_available_slots"] = found
                 st.session_state["slot_display_start_index"] = 0
 
-else:
+    else:
         st.warning("Please select a customer first.")
 
 
