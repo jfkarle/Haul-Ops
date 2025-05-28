@@ -772,7 +772,7 @@ with st.sidebar:
     selected_customer = None
     if not filtered_customers.empty:
         selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
-else:
+    else:
         st.info("No matching customers found.")
 
     if selected_customer:
@@ -783,6 +783,7 @@ else:
         st.write(f"Selected Boat Length: **{boat_length} feet**")
         ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
         boat_draft = 0.0
+
 
         earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
