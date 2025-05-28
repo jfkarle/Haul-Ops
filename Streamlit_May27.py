@@ -789,7 +789,18 @@ if current_available_slots:
                         st.error(f"Customer {current_customer} is already scheduled.")
                         return  # Exit the function, don't schedule
 
-                    # Check for truck availability BEFORE scheduling
+                    
+                    full_dt = datetime.combine(current_slot['date'], current_slot['time'])
+                    if not is_truck_free(current_slot['truck'], full_dt, current_slot['time'], current_duration):
+                        st.error(f"Truck {current_slot['truck']} is not free at this time.")
+                        return
+
+                    if current_slot.get('j17_required'):
+                        if not is_truck_free("J17", full_dt, current_slot['time'], current_slot['j17_duration']):
+                            st.error("Crane truck J17 is not free at this time.")
+                            return
+
+                    # Schedule hauling truck job
                     if not is_truck_free(current_slot['truck'], current_slot['date'], current_slot['time'], current_duration):
                         st.error(f"Truck {current_slot['truck']} is not free at this time.")
                         return
