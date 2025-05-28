@@ -863,7 +863,7 @@ with st.sidebar:
                             break  # stop checking trucks for this slot
             found = []
 
-                    if len(found) >= 3:
+                if len(found) >= 3:
                         break
 
                 date_cursor += timedelta(days=1)
