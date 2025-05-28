@@ -731,8 +731,8 @@ if selected_customer:
         if ramp_choice == "Scituate Harbor (Jericho Road)":
             boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
 
-    earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
-    earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())    
+        earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
+        earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())    
 
     # ----- HIGH/LOW TIDE DISPLAY -----
     noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice) or "8445138"
