@@ -81,16 +81,14 @@ def format_time(time_str: str) -> str:
     return time_obj.strftime("%I:%M %p")
 
 def get_tide_predictions(date: datetime, ramp: str):
-    station_id = RAMP_TO_NOAA_ID.get(ramp)
-    if not station_id:
-        return [], f"No NOAA station ID mapped for {ramp}"
+    station_id = RAMP_TO_NOAA_ID.get(ramp) or "8445138"  # Scituate fallback
 
     params = NOAA_PARAMS_TEMPLATE | {
         "station": station_id,
         "begin_date": date.strftime("%Y%m%d"),
         "end_date": date.strftime("%Y%m%d"),
-        "product": "predictions", # Ensure we are getting predictions
-        "interval": "hilo" # Ensure we are getting high/low predictions
+        "product": "predictions",
+        "interval": "hilo"
     }
     try:
         resp = requests.get(NOAA_API_URL, params=params, timeout=10)
@@ -98,10 +96,12 @@ def get_tide_predictions(date: datetime, ramp: str):
         data = resp.json().get("predictions", [])
         filtered_tides = []
         for item in data:
-            tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
-            if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                formatted_time = format_time(item['t'].split()[-1])
-                filtered_tides.append(f"{formatted_time} ({item['type']})")
+            try:
+                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+                if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                    filtered_tides.append({"time": item['t'], "type": item['type']})
+            except ValueError as e:
+                print(f"Error parsing time '{item['t']}': {e}")
         return filtered_tides, None
     except Exception as e:
         return [], str(e)
@@ -707,7 +707,7 @@ if 'customers_df_loaded' not in st.session_state:
 else:
     customers_df = st.session_state['customers_df_loaded']
 
-# --- Sidebar for Input ---
+
 # --- Sidebar for Input ---
 with st.sidebar:
     st.header("New Job")
@@ -735,9 +735,8 @@ with st.sidebar:
         earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
 
         #  -----  HIGH/LOW TIDE DISPLAY  -----
-        noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice)  # Use ramp_choice here
-        if noaa_station_id:
-            tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
+        noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice) or "8445138"
+        tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
             if len(tide_data_result) == 2:
                 tide_predictions, err = tide_data_result
                 if tide_predictions:
