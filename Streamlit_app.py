@@ -1012,7 +1012,6 @@ else:
         st.session_state['slot_display_start_index'] += increment
         if st.session_state['slot_display_start_index'] < 0:
             st.session_state['slot_display_start_index'] = 0
-        elif st.session_stat_
 
 if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
