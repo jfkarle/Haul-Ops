@@ -173,17 +173,19 @@ def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_a
             else:
                 st.session_state["all_available_slots"] = found
                 st.session_state["slot_display_start_index"] = 0
-    available_slots_with_dates = []
-    dates_checked = set()
+        available_slots_with_dates = []
+        dates_checked = set()
 
-    # Check yesterday
-    yesterday = start_date - timedelta(days=1)
-    if is_workday(yesterday) and yesterday.date() not in dates_checked:
-        valid_slots, high_tide_time = get_valid_slots_with_tides(yesterday, ramp, boat_draft)
-        if valid_slots:
-            for truck in trucks:
-                for slot in valid_slots:
-                    hauling_free = is_truck_free(truck, yesterday, slot, duration)
+        # Check yesterday
+        yesterday = start_date - timedelta(days=1)
+        if is_workday(yesterday) and yesterday.date() not in dates_checked:
+            valid_slots, high_tide_time = get_valid_slots_with_tides(yesterday, ramp, boat_draft)
+            if valid_slots:
+                for truck in trucks:
+                    for slot in valid_slots:
+                        hauling_free = is_truck_free(truck, yesterday, slot, duration)
+                        # additional logic here if hauling_free
+
                     j17_free = True
                     if j17_duration > 0:
                         j17_free = is_truck_free("J17", yesterday, slot, j17_duration)
