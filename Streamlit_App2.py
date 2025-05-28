@@ -720,7 +720,7 @@ with st.sidebar:
     else:
         st.info("No matching customers found.")
 
-    if selected_customer:
+ if selected_customer:
     customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
     boat_type = customer_row["Boat Type"]
     boat_length = customer_row["Boat Length"]
@@ -732,7 +732,7 @@ with st.sidebar:
         boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
 
     earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
-    earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
+    earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())    
 
     # ----- HIGH/LOW TIDE DISPLAY -----
     noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice) or "8445138"
