@@ -861,6 +861,7 @@ with st.sidebar:
                             })
                             slot_matched = True
                             break  # stop checking trucks for this slot
+            found = []
 
                     if len(found) >= 3:
                         break
@@ -1012,6 +1013,7 @@ else:
         st.session_state['slot_display_start_index'] += increment
         if st.session_state['slot_display_start_index'] < 0:
             st.session_state['slot_display_start_index'] = 0
+        elif st.session_stat_
 
 if st.session_state["schedule"]:
     # Create a DataFrame for display, formatting the date here
@@ -1113,6 +1115,7 @@ if st.button("Generate PDF"):
             st.error("PDF generation failed.")
 else:
         st.warning("No scheduled jobs found for the selected date to generate PDF.")
+
 
 
 
