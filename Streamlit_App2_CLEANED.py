@@ -732,50 +732,38 @@ if selected_customer:
         boat_draft = st.number_input("Boat Draft (feet)", min_value=0.0, value=0.0)
 
     earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
-    earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())    
+    earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
 
     # ----- HIGH/LOW TIDE DISPLAY -----
     noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice) or "8445138"
     tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
     if len(tide_data_result) == 2:
         tide_predictions, err = tide_data_result
-        # ... rest of tide block ...
-    
-    duration = JOB_DURATION_HRS.get(boat_type, 1.5)  # <-- this MUST be here at the same level as everything above
+        if tide_predictions:
+            filtered_tides_display = []
+            for item in tide_predictions:
+                try:
+                    tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
+                    if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                        formatted_time = format_time(item['time'].split()[-1])
+                        filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
+                except ValueError as e:
+                    print(f"Error parsing time: {e}")
 
-    if st.button("Find Available Slots"):
-        # scheduling logic here...
-
-
-        # ----- HIGH/LOW TIDE DISPLAY -----
-noaa_station_id = RAMP_TO_NOAA_ID.get(ramp_choice) or "8445138"
-tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
-if len(tide_data_result) == 2:
-    tide_predictions, err = tide_data_result
-    if tide_predictions:
-        filtered_tides_display = []
-        for item in tide_predictions:
-            try:
-                tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
-                if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
-                    formatted_time = format_time(item['time'].split()[-1])
-                    filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
-            except ValueError as e:
-                print(f"Error parsing time: {e}")
-
-        if filtered_tides_display:
-            tide_display_text = "Tides (5 AM - 7 PM):\n" + "\n".join(filtered_tides_display)
-            st.sidebar.info(tide_display_text)
+            if filtered_tides_display:
+                tide_display_text = "Tides (5 AM - 7 PM):\n" + "\n".join(filtered_tides_display)
+                st.sidebar.info(tide_display_text)
+            else:
+                st.sidebar.info("No high or low tide data available between 5 AM and 7 PM for this date and ramp.")
+        elif err:
+            st.sidebar.warning(f"Could not retrieve tide information. Error: {err}")
         else:
-            st.sidebar.info("No high or low tide data available between 5 AM and 7 PM for this date and ramp.")
-    elif err:
-        st.sidebar.warning(f"Could not retrieve tide information. Error: {err}")
+            st.sidebar.info("No tide data available.")
+    elif len(tide_data_result) == 1:
+        st.sidebar.warning("Tide data returned in unexpected format.")
     else:
-        st.sidebar.info("No tide data available.")
-elif len(tide_data_result) == 1:
-    st.sidebar.warning("Tide data returned in unexpected format.")
-else:
-    st.sidebar.warning("Unable to retrieve tide predictions.")
+        st.sidebar.warning("Unable to retrieve tide predictions.")
+
     
         #  -----  END HIGH/LOW TIDE DISPLAY -----
 
