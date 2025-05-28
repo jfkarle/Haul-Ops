@@ -601,6 +601,50 @@ def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customer
     pdf.output(filename)
     return filename if os.path.exists(filename) else None
 
+def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 7):
+    found = []
+    current_date = start_date
+    trucks = eligible_trucks(boat_len, boat_type_arg)
+    if not trucks:
+        return []
+
+    j17_duration = 0
+    if "Sailboat MD" in boat_type_arg:
+        j17_duration = 1.0
+    elif "Sailboat MT" in boat_type_arg:
+        j17_duration = 1.5
+
+    days_searched = 0
+    while len(found) < 3 and days_searched < search_days_limit:
+        if is_workday(current_date):
+            valid_slots, high_tide_time = get_valid_slots_with_tides(current_date, ramp, boat_draft)
+            if valid_slots:
+                for truck in trucks:
+                    for slot in valid_slots:
+                        # Check if both hauling truck and (if needed) J17 are free
+                        hauling_free = is_truck_free(truck, current_date, slot, duration)
+                        j17_free = True
+                        if j17_duration > 0:
+                            j17_free = is_truck_free("J17", current_date, slot, j17_duration)
+                        if hauling_free and j17_free:
+                            # Store hauling truck job
+                            found.append({
+                                "date": current_date.date(),
+                                "time": slot,
+                                "ramp": ramp,
+                                "truck": truck,
+                                "high_tide": high_tide_time,
+                                "boat_type": boat_type_arg,
+                                "j17_required": j17_duration > 0,
+                                "j17_duration": j17_duration
+                            })
+                            break
+                    if len(found) >= 3:
+                        break
+        current_date += timedelta(days=1)
+        days_searched += 1
+
+    return found[:3]
 
 # ====================================
 # ------------- UI -------------------
