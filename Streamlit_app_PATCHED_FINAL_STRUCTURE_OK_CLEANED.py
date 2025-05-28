@@ -1,0 +1,1128 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime, timedelta, time, date
+import requests
+from fpdf import FPDF # Make sure FPDF is imported
+import os # Make sure os is imported
+
+st.set_page_config(
+    page_title="Boat Ramp Scheduling",
+    layout="wide"
+)
+
+# ====================================
+# ------------ CONSTANTS -------------
+# ====================================
+CUSTOMER_CSV = "customers.csv"
+NOAA_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+NOAA_PARAMS_TEMPLATE = {
+    "product": "predictions",
+    "datum": "MLLW",
+    "units": "english",
+    "time_zone": "lst_ldt",
+    "format": "json",
+    "interval": "hilo"
+}
+RAMP_TO_NOAA_ID = {
+    "Plymouth Harbor": "8446493",
+    "Duxbury Harbor": "8446166",
+    "Green Harbor (Taylors)": "8443970",
+    "Safe Harbor (Green Harbor)": "8443970",  # Assuming same NOAA ID
+    "Ferry Street (Marshfield Yacht Club)": None,  # No NOAA ID provided
+    "South River Yacht Yard": None,  # No NOAA ID provided
+    "Roht (A to Z/ Mary's)": None,  # No NOAA ID provided
+    "Scituate Harbor (Jericho Road)": None,  # No NOAA ID provided
+    "Harbor Cohasset (Parker Ave)": None,  # No NOAA ID provided
+    "Hull (A St, Sunset, Steamboat)": None,  # No NOAA ID provided
+    "Hull (X Y Z St) (Goodwiny st)": None,  # No NOAA ID provided
+    "Hingham Harbor": "8444841",
+    "Weymouth Harbor (Wessagusset)": None,  # No NOAA ID provided
+    "Sandwich Basin": None # Any tide
+}
+RAMP_TIDE_WINDOWS = {
+    "Plymouth Harbor": (3, 3),  # 3 hrs before and after
+    "Duxbury Harbor": (1, 1),  # 1 hr before or after
+    "Green Harbor (Taylors)": (3, 3),  # 3 hrs before and after
+    "Safe Harbor (Green Harbor)": (1, 1),  # 1 hr before and after
+    "Ferry Street (Marshfield Yacht Club)": (3, 3),  # 3 hrs before and after
+    "South River Yacht Yard": (2, 2),  # 2 hrs before or after
+    "Roht (A to Z/ Mary's)": (1, 1),  # 1 hr before or after
+    "Scituate Harbor (Jericho Road)": None,  # Any tide, special rule for 5' draft
+    "Harbor Cohasset (Parker Ave)": (3, 3),  # 3 hrs before and after
+    "Hull (A St, Sunset, Steamboat)": (3, 1.5),  # 3 hrs before, 1.5 hrs after for 6'+ draft
+    "Hull (X Y Z St) (Goodwiny st)": (1, 1),  # 1 hr before or after
+    "Hingham Harbor": (3, 3),  # 3 hrs before and after
+    "Weymouth Harbor (Wessagusset)": (3, 3),  # 3 hrs before and after
+    "Sandwich Basin": None # Any tide
+}
+TRUCK_LIMITS = {"S20": 60, "S21": 50, "S23": 30, "J17": 0}
+JOB_DURATION_HRS = {"Powerboat": 1.5, "Sailboat MD": 3.0, "Sailboat MT": 3.0}
+
+if "schedule" not in st.session_state:
+    st.session_state["schedule"] = []
+
+# ====================================
+# ------------ HELPERS ---------------
+# ====================================
+@st.cache_data
+def load_customer_data():
+    df = pd.read_csv(CUSTOMER_CSV)
+    # Store a copy in session state to ensure persistence
+    st.session_state['customers_df_loaded'] = df.copy()
+    return df
+
+def filter_customers(df, query):
+    query = query.lower()
+    return df[df["Customer Name"].str.lower().str.contains(query)]
+
+def format_time(time_str: str) -> str:
+    """Formats a time string in HH:MM format to HH:MM AM/PM."""
+    time_obj = datetime.strptime(time_str, "%I:%M %p")
+    return time_obj.strftime("%I:%M %p")
+
+def get_tide_predictions(date: datetime, ramp: str):
+    station_id = RAMP_TO_NOAA_ID.get(ramp.strip(), "8445138")  # fallback to Scituate
+
+    params = NOAA_PARAMS_TEMPLATE | {
+        "station": station_id,
+        "begin_date": date.strftime("%Y%m%d"),
+        "end_date": date.strftime("%Y%m%d"),
+        "product": "predictions",  # Ensure we are getting predictions
+        "interval": "hilo"         # Ensure we are getting high/low predictions
+    }
+
+    try:
+        resp = requests.get(NOAA_API_URL, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json().get("predictions", [])
+        filtered_tides = []
+        for item in data:
+            try:
+                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+                if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                    filtered_tides.append({
+                        "time": item["t"],  # full timestamp
+                        "type": item["type"]
+                    })
+            except ValueError as e:
+                print(f"Error parsing time '{item['t']}': {e}")  # Log the error
+        return filtered_tides, None
+    except Exception as e:
+        return [], str(e)
+
+
+
+
+def get_valid_slots_with_tides(date: datetime, ramp: str, boat_draft: float = None):
+    tide_data, err = get_tide_predictions(date, ramp)
+    if err:
+        return [], None
+
+    valid_slots = []
+    high_tide_time = None
+    tide_window = RAMP_TIDE_WINDOWS.get(ramp)
+
+    if ramp == "Scituate Harbor (Jericho Road)" and boat_draft and boat_draft > 5:
+        tide_window = (3, 3)  # Special rule for Scituate with draft > 5'
+
+    if tide_window:
+        # Use only the first high tide of the day
+        first_high_tide_item = next((item for item in tide_data if item["type"] == 'H'), None)
+        if first_high_tide_item:
+            try:
+                ht_datetime = datetime.strptime(first_high_tide_item["time"], "%Y-%m-%d %H:%M")
+                high_tide_time = ht_datetime.strftime("%I:%M %p")
+                valid_slots = generate_slots_for_high_tide(
+                    first_high_tide_item["time"],
+                    tide_window[0],
+                    tide_window[1]
+                )
+            except ValueError as e:
+                print(f"Error parsing high tide time '{first_high_tide_item['time']}': {e}")
+    elif ramp == "Sandwich Basin":
+        # "Any tide" – provide middle of the day window centered at 10:00 AM
+        valid_slots = generate_slots_for_high_tide(
+            datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"),
+            3, 3
+        )
+# INVALID else: REMOVED OR COMMENTED
+        # If no tide window is specified, return all slots (or a reasonable default)
+        valid_slots = generate_slots_for_high_tide(
+            datetime.combine(date, time(10, 0)).strftime("%Y-%m-%d %H:%M"),
+            3, 3
+        )
+
+    return sorted(set(valid_slots)), high_tide_time
+
+def find_three_dates(start_date: datetime, ramp: str, boat_len: int, boat_type_arg: str, duration: float, boat_draft: float = None, search_days_limit: int = 15):
+            found = []
+            for slot in candidate_slots:
+                # slot matching logic assumed above
+                if slot_matched:
+                    found.append({...})  # insert actual slot logic here
+                if len(found) >= 3:
+                    break
+
+            date_cursor += timedelta(days=1)
+
+            st.session_state["available_slots"] = found
+            if not found:
+                st.warning("No suitable slots found for the selected criteria.")
+                st.session_state["all_available_slots"] = []
+                st.session_state["slot_display_start_index"] = 0
+            else:
+                st.session_state["all_available_slots"] = found
+                st.session_state["slot_display_start_index"] = 0
+                
+            available_slots_with_dates = []
+            dates_checked = set()
+
+        # Check yesterday
+        yesterday = start_date - timedelta(days=1)
+        if is_workday(yesterday) and yesterday.date() not in dates_checked:
+            valid_slots, high_tide_time = get_valid_slots_with_tides(yesterday, ramp, boat_draft)
+            if valid_slots:
+                for truck in trucks:
+                    for slot in valid_slots:
+                        hauling_free = is_truck_free(truck, yesterday, slot, duration)
+                        # additional logic here if hauling_free
+
+                    j17_free = True
+                    if j17_duration > 0:
+                        j17_free = is_truck_free("J17", yesterday, slot, j17_duration)
+
+                    # ✅ Logging for yesterday check
+                    print(f"[YESTERDAY] {yesterday.date()} - Truck {truck} at {slot.strftime('%I:%M %p')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
+                    
+                    if j17_duration > 0 and is_j17_conflict(yesterday, ramp, st.session_state["schedule"]):
+                        print(f"Skipping slot {slot.strftime('%I:%M %p')} on {yesterday.date()} due to J17 ramp conflict.")
+                        continue
+
+        if hauling_free and j17_free:
+                        available_slots_with_dates.append({
+                            "date": yesterday.date(),
+                            "time": slot,
+                            "ramp": ramp,
+                            "truck": truck,
+                            "high_tide": high_tide_time,
+                            "boat_type": boat_type_arg,
+                            "j17_required": j17_duration > 0,
+                            "j17_duration": j17_duration
+                        })
+                        if len(available_slots_with_dates) >= 3:
+                            return available_slots_with_dates[:3]
+        dates_checked.add(yesterday.date())
+
+    # Check today and forward
+    check_date = start_date
+    days_forward = 0
+    while len(available_slots_with_dates) < 3 and days_forward < search_days_limit:
+        if is_workday(check_date) and check_date.date() not in dates_checked:
+            valid_slots, high_tide_time = get_valid_slots_with_tides(check_date, ramp, boat_draft)
+            if valid_slots:
+                for truck in trucks:
+                    for slot in valid_slots:
+                        hauling_free = is_truck_free(truck, check_date, slot, duration)
+                        j17_free = True
+                        if j17_duration > 0:
+                            j17_free = is_truck_free("J17", check_date, slot, j17_duration)
+
+                        # ✅ Logging for future dates
+                        print(f"[FORWARD] {check_date.date()} - Truck {truck} at {slot.strftime('%I:%M %p')} → hauling_free={hauling_free}, j17_required={j17_duration > 0}, j17_free={j17_free}")
+                       
+                        if j17_duration > 0 and is_j17_conflict(check_date, ramp, st.session_state["schedule"]):
+                            print(f"Skipping slot {slot.strftime('%I:%M %p')} on {check_date.date()} due to J17 ramp conflict.")
+                            continue
+        if hauling_free and j17_free:
+                            available_slots_with_dates.append({
+                                "date": check_date.date(),
+                                "time": slot,
+                                "ramp": ramp,
+                                "truck": truck,
+                                "high_tide": high_tide_time,
+                                "boat_type": boat_type_arg,
+                                "j17_required": j17_duration > 0,
+                                "j17_duration": j17_duration
+                            })
+                            if len(available_slots_with_dates) >= 3:
+                                return available_slots_with_dates[:3]
+        dates_checked.add(check_date.date())
+        check_date += timedelta(days=1)
+        days_forward += 1
+
+    return available_slots_with_dates[:3]
+
+def generate_slots_for_high_tide(high_tide_ts: str, before_hours: float, after_hours: float):
+    ht = datetime.strptime(high_tide_ts, "%Y-%m-%d %H:%M")
+    win_start = ht - timedelta(hours=before_hours)
+    win_end = ht + timedelta(hours=after_hours)
+    slots = []
+    t = datetime.combine(ht.date(), time(8, 0))  # Start checking from 8:00 AM
+    end_day = datetime.combine(ht.date(), time(14, 30)) # Check until 2:30 PM
+
+    while t <= end_day:
+        if win_start <= t <= win_end:
+            slots.append(t.time())
+        t += timedelta(minutes=30)
+    return slots
+
+def format_time(time_str: str) -> str:
+    """Formats a time string in HH:MM format to HH:MM AM/PM."""
+    time_obj = datetime.strptime(time_str, "%I:%M %p")
+    return time_obj.strftime("%I:%M %p")
+
+def get_tide_predictions(date: datetime, ramp: str):
+    station_id = RAMP_TO_NOAA_ID.get(ramp)
+    if not station_id or station_id == "8444841":
+        station_id = "8445138"  # Scituate fallback
+
+    params = NOAA_PARAMS_TEMPLATE | {
+        "station": station_id,
+        "begin_date": date.strftime("%Y%m%d"),
+        "end_date": date.strftime("%Y%m%d"),
+        "product": "predictions",
+        "interval": "hilo"
+    }
+    try:
+        resp = requests.get(NOAA_API_URL, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json().get("predictions", [])
+        filtered_tides = []
+        for item in data:
+            try:
+                tide_time_dt = datetime.strptime(item["t"], "%Y-%m-%d %H:%M")
+                if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                    filtered_tides.append({"time": item['t'], "type": item['type']})  # Store data as dictionary
+            except ValueError as e:
+                print(f"Error parsing time '{item['t']}': {e}") # Log the error
+        return filtered_tides, None
+    except Exception as e:
+        return [], str(e)
+
+
+def is_j17_conflict(date, ramp, schedule_list):
+    for job in schedule_list:
+        if job.get("truck") == "J17" and job.get("date").date() == date.date():
+            if job.get("ramp", "").strip() != ramp.strip():
+                return True
+    return False
+
+
+def is_workday(date: datetime):
+    wk = date.weekday()
+    if wk == 6: # Sunday
+        return False
+    if wk == 5: # Saturday
+        return date.month in (5, 9) # May and September
+    return True # Weekdays
+
+def eligible_trucks(boat_len: int, boat_type: str):
+    if "Sailboat" in boat_type:
+        return [t for t, lim in TRUCK_LIMITS.items() if boat_len <= lim]
+    return [t for t, lim in TRUCK_LIMITS.items() if boat_len <= lim and t != "J17"]
+
+def has_truck_scheduled(truck: str, date: datetime):
+    for job in st.session_state["schedule"]:
+        if job["truck"] == truck and job["date"].date() == date.date(): # Ensure comparing date objects
+            return True
+    return False
+
+def is_truck_free(truck: str, date: datetime, start_t: time, dur_hrs: float):
+    start_dt = datetime.combine(date, start_t)
+    end_dt = start_dt + timedelta(hours=dur_hrs)
+
+    for job in st.session_state["schedule"]:
+        if job["truck"] != truck:
+            continue
+
+        # ✅ Parse job["date"] if needed
+        job_date = job["date"]
+        if isinstance(job_date, str):
+            try:
+                job_date = datetime.fromisoformat(job_date)
+            except ValueError:
+                continue  # Skip invalid formats
+
+        # ✅ Ensure both sides are date objects
+        job_date_only = job_date.date() if isinstance(job_date, datetime) else job_date
+        if job_date_only != date:
+            continue
+
+        # ✅ Parse job["time"] if needed
+        job_time = job["time"]
+        if isinstance(job_time, str):
+            try:
+                job_time = datetime.strptime(job_time, "%I:%M %p").time()
+            except ValueError:
+                continue  # Skip invalid time strings
+
+        job_start = datetime.combine(job_date_only, job_time)
+        job_end = job_start + timedelta(hours=job["duration"])
+
+        latest_start = max(start_dt, job_start)
+        earliest_end = min(end_dt, job_end)
+        overlap = (earliest_end - latest_start).total_seconds() > 0
+
+        if overlap:
+            return False
+
+    return True
+
+
+
+def format_date_display(date_obj):
+    """Formats a date object to 'Month Day, Year' (e.g., July 5, 2025)."""
+    if isinstance(date_obj, datetime):
+        return date_obj.strftime("%B %d, %Y")
+    elif isinstance(date_obj, date):
+        return date_obj.strftime("%B %d, %Y")
+    return str(date_obj)
+
+def generate_daily_schedule_pdf_bold_end_line_streamlit(date_obj, jobs, customers_df):
+    pdf = FPDF(orientation='P', unit='pt', format='Letter')
+
+    # Margins (3/4 inch = 54 pt)
+    margin_left = 54
+    margin_top = 54
+    margin_right = 54
+    margin_bottom = 54
+
+    pdf.set_left_margin(margin_left)
+    pdf.set_top_margin(margin_top)
+    pdf.set_right_margin(margin_right)
+    # Set auto_page_break to False as the entire day must fit on one page
+    pdf.set_auto_page_break(auto=False)
+
+    pdf.add_page()  # Only one page needed for the whole day
+
+    page_width = pdf.w
+    page_height = pdf.h
+
+    # Calculate column widths to fit content width
+    total_original_width = 60 + (4 * 100)  # 460
+    available_content_width = page_width - (margin_left + margin_right)  # 612 - 108 = 504
+    scale_factor = available_content_width / total_original_width
+
+    column_widths = [
+        60 * scale_factor,  # Time column
+        100 * scale_factor,  # S20
+        100 * scale_factor,  # S21
+        100 * scale_factor,  # S23
+        100 * scale_factor   # Crane J17
+    ]
+
+    start_hour = 8
+    end_hour = 19
+    num_rows = (end_hour - start_hour) * 4  # 44 rows (15-min intervals)
+
+    # Calculate exact row_height to fit all rows on one page
+    # `row_height = (usable_vertical_space) / (num_rows + 1)` where `+1` is for the header row
+    usable_vertical_space = page_height - margin_top - margin_bottom
+    row_height = usable_vertical_space / (num_rows + 1)
+
+    headers = ["", "S20", "S21", "S23", "Crane J17"]
+
+    # Function to draw header content (date, high tide, table headers)
+    def draw_page_header(current_pdf, current_date_obj, current_jobs):
+        # Top-left date heading
+        current_pdf.set_font("Helvetica", size=14, style='B')
+        current_pdf.text(margin_left, margin_top - 15, current_date_obj.strftime("%A, %B %d, %Y"))
+
+        # High Tide in upper right corner (using the first job's ramp for simplicity)
+        high_tide_display = ""
+        if current_jobs:
+            first_job_ramp = current_jobs[0].get("ramp")
+            if first_job_ramp:
+                tide_result = get_tide_predictions(current_date_obj, first_job_ramp)
+                if len(tide_result) == 2:
+                    tide_predictions, _ = tide_result
+                    if tide_predictions:
+                        # Find the first high tide
+                        first_high_tide = next(
+                            (item for item in tide_predictions if item['type'] == 'H'), None)
+                        if first_high_tide:
+                            try:
+                                ht_datetime = datetime.strptime(
+                                    first_high_tide['time'], "%Y-%m-%d %H:%M"
+                                )
+                                high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
+                            except (ValueError, TypeError) as e:
+                                print(f"Error processing tide data: {e}")
+                elif len(tide_result) == 1:  # Handle case where only tide predictions are returned
+                    tide_predictions = tide_result[0]
+                    if tide_predictions:
+                        # Find the first high tide
+                        first_high_tide = next(
+                            (item for item in tide_predictions if item['type'] == 'H'), None)
+                        if first_high_tide:
+                            try:
+                                ht_datetime = datetime.strptime(
+                                    first_high_tide['time'], "%Y-%m-%d %H:%M")
+                                high_tide_display = f"High Tide: {ht_datetime.strftime('%I:%M %p')}"
+                            except (ValueError, TypeError) as e:
+                                print(f"Error processing tide data: {e}")
+
+        if high_tide_display:
+            current_pdf.set_font("Helvetica", size=9)
+            text_width = current_pdf.get_string_width(high_tide_display)
+            current_pdf.text(page_width - margin_right - text_width, margin_top - 15, high_tide_display)
+
+        # Table Headers
+        current_pdf.set_fill_color(220, 220, 220)
+        current_pdf.set_font("Helvetica", size=11, style="B")
+        current_x = margin_left
+        header_y_pos = margin_top
+
+        for i, h in enumerate(headers):
+            x = current_x
+            current_pdf.rect(x, header_y_pos, column_widths[i], row_height, 'FD')
+            current_pdf.text(x + 4, header_y_pos + row_height / 2 + current_pdf.font_size / 2 - 2, h)
+            current_x += column_widths[i]
+
+        # Set Y position for content to start below headers
+        current_pdf.set_y(header_y_pos + row_height)
+        current_pdf.set_font("Helvetica", size=11)  # Reset font for content
+
+    draw_page_header(pdf, date_obj, jobs)
+
+    rows = []
+    for hour in range(start_hour, end_hour):
+        for minute in [0, 15, 30, 45]:
+            rows.append(time(hour, minute))
+
+    def time_to_idx(t: time):
+        hour_idx = (t.hour - start_hour) * 4
+        minute_idx = t.minute // 15
+        return hour_idx + minute_idx
+
+    truck_col_map = {"S20": 1, "S21": 2, "S23": 3, "J17": 4}
+    display_content_map = {}
+
+    for job in jobs:
+        job_start_t = job["time"]
+        job_truck = job["truck"]
+        job_start_dt = datetime.combine(date_obj, job_start_t)
+        job_end_dt = job_start_dt + timedelta(hours=job["duration"])
+
+        # 1. Customer Name (at job start time)
+        display_content_map[(job_start_t, job_truck)] = {
+            "text": job["customer"],
+            "font_size": 9,
+            "font_style": "B"
+        }
+        # 2. Boat Details (15 mins after job start)
+        boat_details_t = (job_start_dt + timedelta(minutes=15)).time()
+        customer_row_data = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
+        boat_type = customer_row_data["Boat Type"]
+        boat_length = customer_row_data["Boat Length"]
+        boat_details_text = f"{boat_length}\' {boat_type}"
+        display_content_map[(boat_details_t, job_truck)] = {
+            "text": boat_details_text,
+            "font_size": 8,
+            "font_style": ""
+        }
+        # 3. Ramp (30 mins after job start)
+        ramp_text = job.get("ramp", "Unknown")  # Default to 'Unknown' if ramp is not provided
+        ramp_slot_time = (job_start_dt + timedelta(minutes=30)).time()
+        display_content_map[(ramp_slot_time, job_truck)] = {
+            "text": ramp_text,
+            "font_size": 8,
+            "font_style": ""
+        }
+
+        # Draw vertical line to indicate job duration
+        start_line_row_idx = time_to_idx(job_start_t)
+        end_line_row_idx = time_to_idx(job_end_dt.time())
+        x_line = margin_left + column_widths[0] + column_widths[truck_col_map[job_truck]] - 1
+        y_line_start = margin_top + row_height * (start_line_row_idx + 1)
+        y_line_end = margin_top + row_height * (end_line_row_idx + 1)
+        pdf.line(x_line, y_line_start, x_line, y_line_end)
+        # Add bold line at the end
+        pdf.line(x_line - 3, y_line_end, x_line + 3, y_line_end)
+
+    # Populate the schedule table
+    for idx, t in enumerate(rows):
+        y_row_start = margin_top + row_height * (idx + 1)
+        pdf.set_font("Helvetica", size=9)
+        pdf.text(margin_left + 4, y_row_start + row_height / 2 + pdf.font_size / 2 - 2, t.strftime("%I:%M %p"))
+        current_x_grid = margin_left
+        for col_idx in range(len(column_widths)):
+            x_col = current_x_grid
+            pdf.rect(x_col, y_row_start, column_widths[col_idx], row_height)
+            if col_idx > 0:
+                truck_name = list(truck_col_map.keys())[col_idx - 1]
+                content_data = display_content_map.get((t, truck_name))
+                if content_data:
+                    pdf.set_font("Helvetica", size=content_data["font_size"], style=content_data["font_style"])
+                    pdf.text(x_col + 4, y_row_start + row_height / 2 + pdf.font_size / 2 - 2, content_data["text"])
+                    pdf.set_font("Helvetica", size=11)  # Reset font size
+            current_x_grid += column_widths[col_idx]
+
+    # Add copyright notice at the bottom
+    pdf.set_y(page_height - margin_bottom + 10)
+    pdf.set_font("Helvetica", size=8)
+    copyright_text = "© Copyright ECM, Inc 2025"
+    text_width = pdf.get_string_width(copyright_text)
+    x_center = (page_width - text_width) / 2
+    pdf.text(x_center, pdf.get_y(), copyright_text)
+
+    filename = f"schedule_{date_obj.strftime('%Y-%m-%d')}.pdf"
+    pdf.output(filename)
+    return filename if os.path.exists(filename) else None
+
+    # Table Headers
+    current_pdf.set_fill_color(220, 220, 220)
+    current_pdf.set_font("Helvetica", size=11, style="B")
+    current_x = margin_left
+    header_y_pos = margin_top
+
+    for i, h in enumerate(headers):
+        x = current_x
+        current_pdf.rect(x, header_y_pos, column_widths[i], row_height, 'FD')
+        current_pdf.text(x + 4, header_y_pos + row_height / 2 + current_pdf.font_size / 2 - 2, h)
+        current_x += column_widths[i]
+
+    # Set Y position for content to start below headers
+    current_pdf.set_y(header_y_pos + row_height)
+    current_pdf.set_font("Helvetica", size=11)  # Reset font for content
+
+    draw_page_header(pdf, date_obj, jobs)
+
+    # Collect all tides for the given date and relevant ramps
+    unique_ramps = list(set(job['ramp'] for job in jobs if 'ramp' in job))
+    all_tides_for_day = []
+    for ramp in unique_ramps:
+        preds, _, err = get_tide_predictions(date_obj, ramp)
+        if not err:
+            all_tides_for_day.extend(preds)
+
+    tide_marks = {"H": [], "L": []}
+    for t_str, t_type in all_tides_for_day:
+        try:
+            dt_obj = datetime.strptime(t_str, "%Y-%m-%d %H:%M")
+            total_minutes = dt_obj.hour * 60 + dt_obj.minute
+            rounded_minutes = round(total_minutes / 15) * 15
+            rounded_hour = rounded_minutes // 60
+            rounded_minute = rounded_minutes % 60
+            rounded_t = time(rounded_hour % 24, rounded_minute)
+            if t_type == "H":
+                tide_marks["H"].append(rounded_t)
+            elif t_type == "L":
+                tide_marks["L"].append(rounded_t)
+        except Exception as e:
+            pass
+
+    rows = []
+    for hour in range(start_hour, end_hour):
+        for minute in [0, 15, 30, 45]:
+            t = time(hour, minute)
+            rows.append(t)
+
+    # Prepare content for each display cell (customer, boat, ramp)
+    # Key: (time_obj, truck_name) -> { "text": "...", "font_size": int, "font_style": str }
+    display_content_map = {} 
+
+    for job in jobs:
+        job_start_t = job["time"]
+        job_start_dt = datetime.combine(date_obj, job_start_t)
+        job_truck = job["truck"]
+
+        # 1. Customer Name (at job start time)
+        display_content_map[(job_start_t, job_truck)] = {
+            "text": job["customer"],
+            "font_size": 9, "font_style": "B"
+        }
+
+        # 2. Boat Details (15 mins after job start)
+        boat_details_t = (job_start_dt + timedelta(minutes=15)).time()
+        customer_row_data = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
+        boat_type = customer_row_data["Boat Type"]
+        boat_length = customer_row_data["Boat Length"]
+        boat_details_text = f"{boat_length}' {boat_type}"
+        display_content_map[(boat_details_t, job_truck)] = {
+            "text": boat_details_text,
+            "font_size": 8, "font_style": ""
+        }
+
+        # 3. Ramp (30 mins after job start)
+        ramp_t = (job_start_dt + timedelta(minutes=30)).time()
+        ramp_text = job.get("ramp", "Unknown")
+        display_content_map[(ramp_t, job_truck)] = {
+            "text": ramp_text,
+            "font_size": 8, "font_style": ""
+        }
+    
+    # Function to convert time object to its corresponding row index
+    def time_to_idx(t_obj):
+        return (t_obj.hour - start_hour) * 4 + t_obj.minute // 15
+
+    # Main loop to draw the grid and content
+    for idx, t in enumerate(rows): # Iterate through each 15-minute time slot
+        y_row_start = margin_top + row_height * (idx + 1) # Y position for this row, +1 for header
+        
+        # Draw time/tide labels in the first column
+        x_first_col = margin_left
+        
+        display_label = t.strftime("%I:%M") if t.minute else t.strftime("%I:00")
+        label_style = "Helvetica"
+        label_size = 11
+        label_color = (0, 0, 0)
+
+        if t in tide_marks["H"]:
+            display_label = "HIGH TIDE"
+            label_style = "Helvetica"
+            label_size = 10
+            label_color = (0, 100, 0)
+        elif t in tide_marks["L"]:
+            display_label = "LOW TIDE"
+            label_style = "Helvetica"
+            label_size = 10
+            label_color = (200, 0, 0)
+        elif t.minute != 0:
+            label_color = (150, 150, 150)
+
+        pdf.set_font(label_style, size=label_size)
+        pdf.set_text_color(*label_color)
+        # Position text to be vertically centered in its row
+        pdf.text(x_first_col + 4, y_row_start + row_height / 2 + pdf.font_size / 2 - 2, display_label)
+        pdf.set_text_color(0, 0, 0) # Reset color
+
+        # Draw grid cells for this row
+        current_x_grid = margin_left
+        truck_col_map = {"S20": 1, "S21": 2, "S23": 3, "J17": 4} 
+        for col_idx in range(len(column_widths)):
+            x_col = current_x_grid
+            pdf.rect(x_col, y_row_start, column_widths[col_idx], row_height)
+            
+            # Draw content if it exists for this cell (skip first column for time labels)
+            if col_idx > 0: 
+                truck_name = list(truck_col_map.keys())[col_idx - 1] 
+                content_data = display_content_map.get((t, truck_name))
+                if content_data:
+                    pdf.set_font("Helvetica", size=content_data["font_size"], style=content_data["font_style"])
+                    # Center text vertically in the row
+                    pdf.text(x_col + 4, y_row_start + row_height / 2 + pdf.font_size / 2 - 2, content_data["text"])
+                    pdf.set_font("Helvetica", size=11) # Reset font
+
+            current_x_grid += column_widths[col_idx]
+        
+    # After drawing all cells, draw the vertical lines for job durations
+    truck_col_map = {"S20": 1, "S21": 2, "S23": 3, "J17": 4} 
+    for job in jobs:
+        job_start_t = job["time"]
+        job_truck = job["truck"]
+        job_start_dt = datetime.combine(date_obj, job_start_t)
+        job_end_dt = job_start_dt + timedelta(hours=job["duration"])
+
+        # Calculate the Y coordinate for the start of the line (bottom of the Ramp cell)
+        # Ramp text is at job_start_t + 30 mins. Line starts *below* this cell.
+        ramp_slot_time = (job_start_dt + timedelta(minutes=30)).time()
+        start_line_row_idx = time_to_idx(ramp_slot_time) # Get index of the ramp cell
+        y_line_start = margin_top + row_height * (start_line_row_idx + 1 + 1) # +1 for header, +1 for bottom of ramp cell
+
+        # Calculate the Y coordinate for the end of the line (bottom of the last job cell)
+        # The line terminates at the bottom of the last *occupied* 15-min slot
+        end_job_row_idx = time_to_idx((job_end_dt - timedelta(seconds=1)).time())
+        y_line_end = margin_top + row_height * (end_job_row_idx + 1 + 1) # +1 for header, +1 for bottom of row
+
+        col_idx = truck_col_map.get(job_truck)
+        if col_idx is None: continue
+        
+        x_center_line = margin_left + sum(column_widths[:col_idx]) + column_widths[col_idx] / 2
+        
+        # Draw the vertical line
+        pdf.line(x_center_line, y_line_start, x_center_line, y_line_end)
+
+        # Draw the horizontal end cap
+        cap_length = 20 # length of the horizontal cap line
+        pdf.line(x_center_line - cap_length/2, y_line_end, x_center_line + cap_length/2, y_line_end)
+
+
+    # Add copyright text at the bottom of the page
+    pdf.set_y(page_height - margin_bottom + 10) # Position from bottom margin, 10pt up
+    pdf.set_font("Helvetica", size=8)
+    copyright_text = "© Copyright ECM, Inc 2025"
+    text_width = pdf.get_string_width(copyright_text)
+    x_center = (page_width - text_width) / 2
+    pdf.text(x_center, pdf.get_y(), copyright_text)
+
+    filename = f"schedule_{date_obj.strftime('%Y-%m-%d')}.pdf"
+    pdf.output(filename)
+    return filename if os.path.exists(filename) else None
+
+
+# ====================================
+# ------------- UI -------------------
+# ====================================
+st.title("Boat Ramp Scheduling")
+
+# High Tide display for the first available slot
+if "available_slots" in st.session_state and st.session_state["available_slots"]:
+    first_slot = st.session_state["available_slots"][0]
+    if first_slot.get("high_tide"):
+        tide_time = first_slot["high_tide"]
+        slot_date = first_slot["date"]
+        st.markdown(f"**High Tide on {format_date_display(slot_date)}: {tide_time}**")
+
+if 'customers_df_loaded' not in st.session_state:
+    customers_df = load_customer_data()
+else:
+    customers_df = st.session_state['customers_df_loaded']
+
+# --- Sidebar for Input ---
+
+# --- Sidebar for Input ---
+
+with st.sidebar:
+    st.header("New Job")
+    customer_query = st.text_input("Find Customer:", "")
+    filtered_customers = filter_customers(customers_df, customer_query)
+
+    selected_customer = None
+    if not filtered_customers.empty:
+        selected_customer = st.selectbox("Select Customer", filtered_customers["Customer Name"])
+    else:
+        st.info("No matching customers found.")
+
+    if selected_customer:
+        customer_row = customers_df[customers_df["Customer Name"] == selected_customer].iloc[0]
+        boat_type = customer_row["Boat Type"]
+        boat_length = customer_row["Boat Length"]
+        st.write(f"Selected Boat Type: **{boat_type}**")
+        st.write(f"Selected Boat Length: **{boat_length} feet**")
+        ramp_choice = st.selectbox("Launch Ramp", list(RAMP_TO_NOAA_ID.keys()))
+        boat_draft = 0.0
+
+        earliest_date_input = st.date_input("Earliest Date", datetime.now().date())
+        earliest_datetime = datetime.combine(earliest_date_input, datetime.min.time())
+
+        # ----- HIGH/LOW TIDE DISPLAY -----
+        station_id = RAMP_TO_NOAA_ID.get(ramp_choice) or "8445138"  # Scituate fallback
+        if station_id:
+            tide_data_result = get_tide_predictions(earliest_date_input, ramp_choice)
+            if len(tide_data_result) == 2:
+                tide_predictions, err = tide_data_result
+                if tide_predictions:
+                    filtered_tides_display = []
+                    for item in tide_predictions:
+                        try:
+                            tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
+                            if time(5, 0) <= tide_time_dt.time() <= time(19, 0):
+                                tide_time_dt = datetime.strptime(item['time'], "%Y-%m-%d %H:%M")
+                                formatted_time = tide_time_dt.strftime("%I:%M %p")
+                                filtered_tides_display.append(f"- {formatted_time} ({item['type']})")
+                        except ValueError as e:
+                            print(f"Error parsing time: {e}")
+
+                    if filtered_tides_display:
+                        tide_display_text = "Tides (5 AM - 7 PM):\n" + "\n".join(filtered_tides_display)
+                        st.sidebar.info(tide_display_text)
+                    elif err:
+                        st.sidebar.warning(f"Could not retrieve tide information. Error: {err}")
+                    else:
+                        st.sidebar.info("No high or low tide data available between 5 AM and 7 PM for this date and ramp.")
+        if st.button("Find Available Slots"):
+            print(f"Searching for available slots for {selected_customer} ({boat_type}, {boat_length} ft)")
+
+            found = []
+            trucks = eligible_trucks(boat_length, boat_type)
+            j17_required = boat_type in ["Sailboat MT", "Sailboat MD"]
+            j17_duration = 1.5 if boat_type == "Sailboat MT" else (1.0 if boat_type == "Sailboat MD" else 0.0)
+
+            search_limit = 15
+            date_cursor = earliest_datetime
+            checked_dates = set()
+
+            while len(found) < 3 and len(checked_dates) < search_limit:
+                if not is_workday(date_cursor):
+                    date_cursor += timedelta(days=1)
+                    continue
+
+                date_key = date_cursor.date()
+                if date_key in checked_dates:
+                    date_cursor += timedelta(days=1)
+                    continue
+
+                checked_dates.add(date_key)
+                valid_slots, high_tide_time = get_valid_slots_with_tides(date_cursor, ramp_choice, boat_draft)
+
+                for slot in valid_slots:
+                    slot_matched = False
+                    for truck in trucks:
+                        hauling_ok = is_truck_free(truck, date_key, slot, duration)
+                        crane_ok = True
+
+                        if j17_required:
+                            crane_ok = is_truck_free("J17", date_key, slot, j17_duration)
+
+                        print(f"Checking {date_key} {slot.strftime('%I:%M %p')} – Truck {truck} free: {hauling_ok}, J17 needed: {j17_required}, J17 free: {crane_ok}")
+
+                        if hauling_ok and crane_ok:
+                            found.append({
+                                "date": date_key,
+                                "time": slot,
+                                "ramp": ramp_choice,
+                                "truck": truck,
+                                "high_tide": high_tide_time,
+                                "boat_type": boat_type,
+                                "j17_required": j17_required,
+                                "j17_duration": j17_duration
+                            })
+                            slot_matched = True
+                            break  # stop checking trucks for this slot
+
+                    if len(found) >= 3:
+                        break
+
+                date_cursor += timedelta(days=1)
+
+            st.session_state["available_slots"] = found
+            if not found:
+                st.warning("No suitable slots found for the selected criteria.")
+                st.session_state["all_available_slots"] = []
+                st.session_state["slot_display_start_index"] = 0
+        else:
+                st.session_state["all_available_slots"] = found
+                st.session_state["slot_display_start_index"] = 0
+
+    else:
+        st.warning("Please select a customer first.")
+
+
+# Available Slots section (main column)
+current_available_slots = st.session_state.get('available_slots')
+
+if current_available_slots:
+    st.subheader("Available Slots")
+
+    # Toggle for display mode
+    
+def create_schedule_callback(current_slot, current_duration, current_customer, current_formatted_date):
+    def schedule_job_callback():
+        if any(job['customer'] == current_customer for job in st.session_state["schedule"]):
+            st.error(f"Customer {current_customer} is already scheduled.")
+            return
+
+        if not is_truck_free(current_slot['truck'], current_slot['date'], current_slot['time'], current_duration):
+            st.error(f"Truck {current_slot['truck']} is already booked at this time.")
+            return
+
+        if current_slot.get('j17_required') and not is_truck_free("J17", current_slot['date'], current_slot['time'], current_slot['j17_duration']):
+            st.error("Crane (J17) is already booked at this time.")
+            return
+
+        hauling_job = {
+            'truck': current_slot['truck'],
+            'date': datetime.combine(current_slot['date'], current_slot['time']),
+            'time': current_slot['time'],
+            'duration': current_duration,
+            'customer': current_customer,
+            'high_tide': current_slot.get("high_tide", ""),
+            'ramp': current_slot.get("ramp", "")
+        }
+        st.session_state['schedule'].append(hauling_job)
+
+        if current_slot.get('j17_required'):
+            crane_job = {
+                'truck': 'J17',
+                'date': datetime.combine(current_slot['date'], current_slot['time']),
+                'time': current_slot['time'],
+                'duration': current_slot['j17_duration'],
+                'customer': current_customer,
+                'ramp': current_slot.get("ramp", "")
+            }
+            st.session_state['schedule'].append(crane_job)
+
+        st.success(
+            f"Scheduled {current_customer} with Truck {current_slot['truck']}"
+            f"{' and Crane (J17) for ' + str(current_slot['j17_duration']) + ' hrs' if current_slot.get('j17_required') else ''} "
+            f"on {current_formatted_date} at {current_slot['time'].strftime('%I:%M %p')}."
+        )
+    return schedule_job_callback
+
+display_mode = st.radio(
+        "View Mode:",
+        ["One Suggested Date", "Five Suggested Dates"],
+        index=0,
+        horizontal=True
+    )
+
+if display_mode == "One Suggested Date":
+        # Existing single-slot display logic preserved
+        display_slots = st.session_state['all_available_slots'][
+            st.session_state['slot_display_start_index']:st.session_state['slot_display_start_index'] + 1
+        ]
+        cols = st.columns([1, 3, 1])
+        with cols[0]:
+            if st.button("← Previous", disabled=st.session_state['slot_display_start_index'] == 0):
+                update_slot_display(-1)
+        with cols[1]:
+            if display_slots:
+                slot = display_slots[0]
+                day_name = slot['date'].strftime("%A")
+                formatted_date_display = format_date_display(slot['date'])
+                st.markdown(f"**{day_name}**")
+                st.info(f"Date: {formatted_date_display}")
+                st.markdown(f"**Time:** {slot['time'].strftime('%I:%M %p')}")
+                st.markdown(f"**Ramp:** {slot['ramp']}")
+                st.markdown(f"**Truck:** {slot['truck']}")
+                schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}"
+
+                st.button(
+                    f"Schedule on {slot['time'].strftime('%I:%M %p')}",
+                    key=schedule_key,
+                    on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
+                )
+        with cols[2]:
+            if st.button("Next →", disabled=st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']) - 1):
+                update_slot_display(1)
+else:
+    # Five-slot display logic
+    display_slots = st.session_state['all_available_slots'][
+        st.session_state['slot_display_start_index']:st.session_state['slot_display_start_index'] + 5
+    ]
+    nav_cols = st.columns([1, 5, 1])
+    with nav_cols[0]:
+        if st.button("← Previous", disabled=st.session_state['slot_display_start_index'] == 0):
+            update_slot_display(-5)
+    with nav_cols[2]:
+        if st.button("Next →", disabled=st.session_state['slot_display_start_index'] >= len(st.session_state['all_available_slots']) - 5):
+            update_slot_display(5)
+
+    slot_cols = st.columns(5)
+    for i, slot in enumerate(display_slots):
+        with slot_cols[i]:
+            day_name = slot['date'].strftime("%A")
+            formatted_date_display = format_date_display(slot['date'])
+            st.markdown(f"**{day_name}**")
+            st.info(f"{formatted_date_display}")
+            st.markdown(f"**Time:** {slot['time'].strftime('%I:%M %p')}")
+            st.markdown(f"**Ramp:** {slot['ramp']}")
+            st.markdown(f"**Truck:** {slot['truck']}")
+            schedule_key = f"schedule_{formatted_date_display}_{slot['time'].strftime('%H%M')}_{slot['truck']}"
+
+            st.button(
+                f"Schedule",
+                key=schedule_key,
+                on_click=create_schedule_callback(slot, duration, selected_customer, formatted_date_display)
+            )
+
+            st.markdown("---")
+
+    # Store all found slots in session state
+    if 'all_available_slots' not in st.session_state:
+        st.session_state['all_available_slots'] = current_available_slots
+
+    # Initialize the display index
+    if 'slot_display_start_index' not in st.session_state:
+        st.session_state['slot_display_start_index'] = 0
+
+    def update_slot_display(increment):
+        st.session_state['slot_display_start_index'] += increment
+        if st.session_state['slot_display_start_index'] < 0:
+            st.session_state['slot_display_start_index'] = 0
+        elif st.session_stat_
+
+if st.session_state["schedule"]:
+    # Create a DataFrame for display, formatting the date here
+    display_schedule_list = []
+    seen = set()
+    for job in st.session_state["schedule"]:
+        key = (job["customer"], job["date"], job["time"])
+        # Only process hauling truck jobs for display; J17 is implicitly handled by 'Crane' column
+        if job["truck"] == "J17" and key in seen: # Ensure we don't double count if J17 is added separately
+            continue
+        if job["truck"] != "J17": # Process hauling truck and mark as seen
+            seen.add(key)
+    
+        try:
+            customer_row = customers_df[customers_df["Customer Name"] == job["customer"]].iloc[0]
+            boat_type = customer_row["Boat Type"]
+            boat_name = customer_row.get("Boat Name", "Unknown") # Use .get with default
+        except (KeyError, IndexError):
+            boat_type = "Unknown"
+            boat_name = "Unknown"
+
+        # Check if a J17 job exists for this customer at this date/time
+        has_j17 = any(
+            j["truck"] == "J17" and
+            j["customer"] == job["customer"] and
+            j["date"] == job["date"] and
+            j["time"] == job["time"]
+            for j in st.session_state["schedule"]
+        )
+        # Only add the main hauling job to the display list if it's not J17,
+        # or if it's a J17 job that hasn't been "seen" (meaning it's the primary/only entry for that time)
+        # This prevents duplicate rows if both hauling and J17 are listed separately
+        if job["truck"] != "J17": # We only want one row per customer/date/time, associated with the main truck
+            display_schedule_list.append({
+                "Customer": job["customer"],
+                "Boat Name": boat_name,
+                "Boat Type": boat_type,
+                "Date": format_date_display(job["date"]),
+                "Ramp": job.get("ramp", "Unknown"),
+                "Time": job["time"].strftime('%I:%M %p'),
+                "Truck": job["truck"],
+                "Truck Duration": f"{int(job['duration'])}:{int((job['duration'] % 1) * 60):02d}",
+                "Crane": "Yes" if has_j17 else "No",
+                "High Tide": job.get("high_tide", "")
+            })
+
+    schedule_df_display = pd.DataFrame(display_schedule_list)
+    
+
+    def highlight_crane(val):
+        if val == "Yes":
+            return "background-color: #ffcccc; font-weight: bold"
+        return ""
+
+    # Ensure all columns exist before selecting
+    columns_to_display = [
+        "Customer", "Boat Name", "Boat Type", "Date", "Ramp", "Time",
+        "Truck", "Truck Duration", "Crane", "High Tide"
+    ]
+    # Filter to only columns that are actually in the DataFrame
+    display_df = schedule_df_display[[col for col in columns_to_display if col in schedule_df_display.columns]]
+
+
+    styled_df = display_df.style \
+        .applymap(highlight_crane, subset=["Crane"]) \
+        .set_table_styles([
+            {"selector": "thead th", "props": [("font-weight", "bold"), ("background-color", "#f0f0f0"), ("border", "2px solid black")]},
+            {"selector": "td", "props": [("border", "2px solid black")]}
+        ])
+
+    st.dataframe(styled_df, use_container_width=True)
+else:
+    st.info("The schedule is currently empty.")
+
+
+# ========== Daily PDF Export UI ==========
+st.header("📄 Daily Schedule PDF")
+
+selected_date_for_pdf = st.date_input("Select Date for Daily PDF Export", datetime.now().date())
+
+if st.button("Generate PDF"):
+    # Filter jobs for the selected date
+    filtered_jobs_for_pdf = [
+        job for job in st.session_state["schedule"] 
+        if job["date"].date() == selected_date_for_pdf
+    ]
+
+    if filtered_jobs_for_pdf:
+        # Pass customers_df to the PDF function
+        pdf_path = generate_daily_schedule_pdf_bold_end_line_streamlit(
+            datetime.combine(selected_date_for_pdf, datetime.min.time()), 
+            filtered_jobs_for_pdf,
+            customers_df # Pass the customers_df here
+        )
+        if pdf_path:
+            with open(pdf_path, "rb") as f:
+                st.download_button("Download PDF", f, file_name=f"Truck_Schedule_{selected_date_for_pdf}.pdf")
+    else:
+            st.error("PDF generation failed.")
+else:
+        st.warning("No scheduled jobs found for the selected date to generate PDF.")
+
+
+
