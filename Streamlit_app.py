@@ -7,6 +7,7 @@ import os
 # --- Configuration (same as before) ---
 CUSTOMER_DATA_FILE = 'customers.json'
 JOB_DATA_FILE = 'jobs.json'
+JOB_CSV_FILE = "boat_jobs.csv"
 DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 
 # --- Helper Functions for Data Handling (same as before) ---
